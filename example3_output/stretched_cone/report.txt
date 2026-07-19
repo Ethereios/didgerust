@@ -1,0 +1,63 @@
+=== CADSD Analysis Report ===
+
+Geometry Summary:
+  Length: 1920.00 mm
+  Bell diameter: 60.00 mm
+  Number of segments: 25
+  Volume: 3289373.17 mm³
+
+Resonance Analysis:
+  Number of peaks: 23
+
+  Peak frequencies:
+    1: 69.00 Hz (impedance: 11495896.75)
+    2: 145.00 Hz (impedance: 11458105.45)
+    3: 230.00 Hz (impedance: 7502787.48)
+    4: 317.00 Hz (impedance: 5103537.78)
+    5: 405.00 Hz (impedance: 3616744.05)
+    6: 493.00 Hz (impedance: 2686147.89)
+    7: 582.00 Hz (impedance: 2055935.58)
+    8: 670.00 Hz (impedance: 1627962.23)
+    9: 759.00 Hz (impedance: 1319385.64)
+    10: 848.00 Hz (impedance: 1091629.57)
+    11: 937.00 Hz (impedance: 919466.57)
+    12: 1025.00 Hz (impedance: 786800.63)
+    13: 1114.00 Hz (impedance: 682609.63)
+    14: 1200.00 Hz (impedance: 600658.40)
+    15: 1268.00 Hz (impedance: 559154.86)
+    16: 1343.00 Hz (impedance: 611579.49)
+    17: 1430.00 Hz (impedance: 679058.05)
+    18: 1519.00 Hz (impedance: 749025.55)
+    19: 1608.00 Hz (impedance: 820383.58)
+    20: 1697.00 Hz (impedance: 892570.74)
+    21: 1786.00 Hz (impedance: 964968.02)
+    22: 1876.00 Hz (impedance: 1037346.28)
+    23: 1965.00 Hz (impedance: 1109522.61)
+
+  Fundamental frequency: 69.00 Hz
+
+  Harmonic ratios:
+    H2: 145.000 (ratio: 2.101)
+    H3: 230.000 (ratio: 3.333)
+    H4: 317.000 (ratio: 4.594)
+    H5: 405.000 (ratio: 5.870)
+    H6: 493.000 (ratio: 7.145)
+    H7: 582.000 (ratio: 8.435)
+    H8: 670.000 (ratio: 9.710)
+    H9: 759.000 (ratio: 11.000)
+    H10: 848.000 (ratio: 12.290)
+    H11: 937.000 (ratio: 13.580)
+    H12: 1025.000 (ratio: 14.855)
+    H13: 1114.000 (ratio: 16.145)
+    H14: 1200.000 (ratio: 17.391)
+    H15: 1268.000 (ratio: 18.377)
+    H16: 1343.000 (ratio: 19.464)
+    H17: 1430.000 (ratio: 20.725)
+    H18: 1519.000 (ratio: 22.014)
+    H19: 1608.000 (ratio: 23.304)
+    H20: 1697.000 (ratio: 24.594)
+    H21: 1786.000 (ratio: 25.884)
+    H22: 1876.000 (ratio: 27.188)
+    H23: 1965.000 (ratio: 28.478)
+
+=== End of Report ===

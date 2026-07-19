@@ -1,0 +1,25 @@
+=== CADSD Analysis Report ===
+
+Geometry Summary:
+  Length: 1500.00 mm
+  Bell diameter: 65.00 mm
+  Number of segments: 30
+  Volume: 2878091.57 mm³
+
+Resonance Analysis:
+  Number of peaks: 4
+
+  Peak frequencies:
+    1: 92.00 Hz (impedance: 11470035.90)
+    2: 188.00 Hz (impedance: 8884293.48)
+    3: 296.00 Hz (impedance: 5498250.92)
+    4: 406.00 Hz (impedance: 3383481.50)
+
+  Fundamental frequency: 92.00 Hz
+
+  Harmonic ratios:
+    H2: 188.000 (ratio: 2.043)
+    H3: 296.000 (ratio: 3.217)
+    H4: 406.000 (ratio: 4.413)
+
+=== End of Report ===

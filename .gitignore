@@ -1,0 +1,16 @@
+# Cargo build output
+/target/
+*.exe
+*.pdb
+
+# IDE / editor artefacts
+.idea/
+.vscode/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Cargo lock (optional – you may keep it if you want reproducible builds)
+# Cargo.lock

@@ -1,0 +1,53 @@
+=== CADSD Analysis Report ===
+
+Geometry Summary:
+  Length: 1732.45 mm
+  Bell diameter: 53.79 mm
+  Number of segments: 36
+  Volume: 2961523.41 mm³
+
+Resonance Analysis:
+  Number of peaks: 18
+
+  Peak frequencies:
+    1: 66.00 Hz (impedance: 8945376.30)
+    2: 138.00 Hz (impedance: 7261593.56)
+    3: 253.00 Hz (impedance: 13412288.56)
+    4: 317.00 Hz (impedance: 997676.45)
+    5: 470.00 Hz (impedance: 846650.66)
+    6: 573.00 Hz (impedance: 1926269.47)
+    7: 629.00 Hz (impedance: 17407496.76)
+    8: 750.00 Hz (impedance: 729556.85)
+    9: 823.00 Hz (impedance: 1244425.47)
+    10: 996.00 Hz (impedance: 2026646.31)
+    11: 1117.00 Hz (impedance: 4127638.81)
+    12: 1240.00 Hz (impedance: 458830.65)
+    13: 1361.00 Hz (impedance: 421656.70)
+    14: 1479.00 Hz (impedance: 996988.64)
+    15: 1607.00 Hz (impedance: 2522889.60)
+    16: 1779.00 Hz (impedance: 1368952.14)
+    17: 1906.00 Hz (impedance: 854309.31)
+    18: 1968.00 Hz (impedance: 1389919.41)
+
+  Fundamental frequency: 66.00 Hz
+
+  Harmonic ratios:
+    H2: 138.000 (ratio: 2.091)
+    H3: 253.000 (ratio: 3.833)
+    H4: 317.000 (ratio: 4.803)
+    H5: 470.000 (ratio: 7.121)
+    H6: 573.000 (ratio: 8.682)
+    H7: 629.000 (ratio: 9.530)
+    H8: 750.000 (ratio: 11.364)
+    H9: 823.000 (ratio: 12.470)
+    H10: 996.000 (ratio: 15.091)
+    H11: 1117.000 (ratio: 16.924)
+    H12: 1240.000 (ratio: 18.788)
+    H13: 1361.000 (ratio: 20.621)
+    H14: 1479.000 (ratio: 22.409)
+    H15: 1607.000 (ratio: 24.348)
+    H16: 1779.000 (ratio: 26.955)
+    H17: 1906.000 (ratio: 28.879)
+    H18: 1968.000 (ratio: 29.818)
+
+=== End of Report ===

@@ -1,0 +1,301 @@
+﻿cargo :     Checking cadsd v0.1.0 (D:\didgeridoo\rust-cadsd)
+At line:1 char:1
++ cargo check 2>&1 | Out-File -Encoding utf8 cargo_check_errors.txt
++ ~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (    Checking ca...doo\rust-cadsd):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+error[E0432]: unresolved import `loss::LossFunction`
+  --> src\lib.rs:16:16
+   |
+16 | pub use loss::{LossFunction, CompositeTairuaLoss};
+   |                ^^^^^^^^^^^^
+   |                |
+   |                no `LossFunction` in `loss`
+   |                help: a similar name exists in the module: `TestLossFunction`
+   |
+   = help: consider importing this trait instead:
+           crate::evo::LossFunction
+
+error: cannot find macro `s` in this scope
+   --> src\loss\mod.rs:145:52
+    |
+145 |             let right_side = &all_impedances.slice(s![p_idx..]);
+    |                                                    ^
+    |
+help: consider importing this macro
+    |
+  6 + use ndarray::s;
+    |
+
+error: cannot find macro `s` in this scope
+   --> src\loss\mod.rs:144:51
+    |
+144 |             let left_side = &all_impedances.slice(s![..p_idx]);
+    |                                                   ^
+    |
+help: consider importing this macro
+    |
+  6 + use ndarray::s;
+    |
+
+error[E0425]: cannot find value `PI` in this scope
+   --> src\evo\mod.rs:255:35
+    |
+255 |             let bulge = height * (PI * t).sin();
+    |                                   ^^ not found in this scope
+    |
+help: consider importing one of these constants
+    |
+  6 + use std::f128::consts::PI;
+    |
+  6 + use std::f16::consts::PI;
+    |
+  6 + use std::f32::consts::PI;
+    |
+  6 + use std::f64::consts::PI;
+    |
+
+warning: unused import: `nalgebra::Complex`
+ --> src\sim\mod.rs:6:5
+  |
+6 | use nalgebra::Complex;
+  |     ^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `DidgeridooSimulator` and `SimulationParams`
+ --> src\evo\mod.rs:7:18
+  |
+7 | use crate::sim::{DidgeridooSimulator, SimulationParams};
+  |                  ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::sync::Arc`
+  --> src\evo\mod.rs:11:5
+   |
+11 | use std::sync::Arc;
+   |     ^^^^^^^^^^^^^^
+
+warning: unused imports: `Resonance` and `SimulationParams`
+ --> src\loss\mod.rs:7:39
+  |
+7 | use crate::sim::{DidgeridooSimulator, Resonance, SimulationParams};
+  |                                       ^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+error[E0277]: a value of type `Vec<[f64; 2]>` cannot be built from an iterator over elements of type `(f64, f64)`
+    --> src\evo\mod.rs:349:51
+     |
+ 349 |         Geo::new(x.into_iter().zip(y.into_iter()).collect())
+     |                                                   ^^^^^^^ value of type `Vec<[f64; 2]>` cannot be built from 
+`std::iter::Iterator<Item=(f64, f64)>`
+     |
+help: the trait `FromIterator<(f64, f64)>` is not implemented for `Vec<[f64; 2]>`
+      but trait `FromIterator<[f64; 2]>` is implemented for it
+    --> C:\Users\Ethereios\.rustup\toolchains\stable-x86_64-pc-windows-msvc\lib/rustlib/src/rust\library\alloc\src\vec\
+mod.rs:3721:1
+     |
+3721 | impl<T> FromIterator<T> for Vec<T> {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = help: for that trait implementation, expected `[f64; 2]`, found `(f64, f64)`
+note: the method call chain might not have had the expected associated types
+    --> src\evo\mod.rs:349:32
+     |
+ 310 |         let mut x: Vec<f64> = (0..=self.n_segments)
+     |                               --------------------- this expression has type `RangeInclusive<usize>`
+ 311 |             .map(|i| length * i as f64 / self.n_segments as f64)
+     |              --------------------------------------------------- `Iterator::Item` is `f64` here
+...
+ 349 |         Geo::new(x.into_iter().zip(y.into_iter()).collect())
+     |                    ----------- ^^^^^^^^^^^^^^^^^^ `Iterator::Item` changed to `(f64, f64)` here
+     |                    |
+     |                    `Iterator::Item` is `f64` here
+note: required by a bound in `std::iter::Iterator::collect`
+    --> C:\Users\Ethereios\.rustup\toolchains\stable-x86_64-pc-windows-msvc\lib/rustlib/src/rust\library\core\src\iter\
+traits\iterator.rs:2015:19
+     |
+2015 |     fn collect<B: FromIterator<Self::Item>>(self) -> B
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `Iterator::collect`
+
+error[E0599]: the method `clone` exists for struct `Vec<Box<(dyn Genome + 'static)>>`, but its trait bounds were not 
+satisfied
+   --> src\evo\mod.rs:499:53
+    |
+499 |           let mut sorted_population = self.population.clone();
+    |                                                       ^^^^^ method cannot be called on `Vec<Box<(dyn Genome + 
+'static)>>` due to unsatisfied trait bounds
+    |
+   ::: C:\Users\Ethereios\.rustup\toolchains\stable-x86_64-pc-windows-msvc\lib/rustlib/src/rust\library\alloc\src\vec\m
+od.rs:438:1
+    |
+438 |   pub struct Vec<T, #[unstable(feature = "allocator_api", issue = "32838")] A: Allocator = Global> {
+    |   ------------------------------------------------------------------------------------------------ doesn't 
+satisfy `Vec<Box<dyn Genome>>: Clone`
+    |
+   ::: C:\Users\Ethereios\.rustup\toolchains\stable-x86_64-pc-windows-msvc\lib/rustlib/src/rust\library\alloc\src\boxed
+.rs:234:1
+    |
+234 | / pub struct Box<
+235 | |     T: ?Sized,
+236 | |     #[unstable(feature = "allocator_api", issue = "32838")] A: Allocator = Global,
+237 | | >(Unique<T>, A);
+    | |_- doesn't satisfy `Box<dyn Genome>: Clone`
+    |
+    = note: the following trait bounds were not satisfied:
+            `Box<dyn Genome>: Clone`
+            which is required by `Vec<Box<dyn Genome>>: Clone`
+
+error[E0282]: type annotations needed
+   --> src\evo\mod.rs:500:36
+    |
+500 |         sorted_population.sort_by(|a, b| {
+    |                                    ^
+501 |             a.loss().unwrap_or(f64::INFINITY)
+    |             - type must be known at this point
+    |
+help: consider giving this closure parameter an explicit type
+    |
+500 |         sorted_population.sort_by(|a: /* Type */, b| {
+    |                                     ++++++++++++
+
+error[E0282]: type annotations needed
+   --> src\evo\mod.rs:500:39
+    |
+500 |         sorted_population.sort_by(|a, b| {
+    |                                       ^
+501 |             a.loss().unwrap_or(f64::INFINITY)
+502 |                 .partial_cmp(&b.loss().unwrap_or(f64::INFINITY))
+    |                               - type must be known at this point
+    |
+help: consider giving this closure parameter an explicit type
+    |
+500 |         sorted_population.sort_by(|a, b: /* Type */| {
+    |                                        ++++++++++++
+
+error[E0599]: no method named `sample` found for struct `rand_distr::Normal<F>` in the current scope
+   --> src\evo\mod.rs:586:22
+    |
+584 |                   let noise = rand_distr::Normal::new(0.0, 0.1)
+    |  _____________________________-
+585 | |                     .map_err(|e| format!("Mutation failed: {}", e))?
+586 | |                     .sample(&mut rand::thread_rng());
+    | |_____________________-^^^^^^
+    |
+   ::: C:\Users\Ethereios\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\rand-0.8.5\src\distributions\distributio
+n.rs:37:8
+    |
+ 37 |       fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> T;
+    |          ------ the method is available for `rand_distr::Normal<{float}>` here
+    |
+    = help: items from traits can only be used if the trait is in scope
+help: trait `Distribution` which provides `sample` is implemented but not in scope; perhaps you want to import it
+    |
+  6 + use rand_distr::Distribution;
+    |
+help: there is a method `sample_iter` with a similar name
+    |
+586 |                     .sample_iter(&mut rand::thread_rng());
+    |                            +++++
+
+error[E0599]: the method `clone` exists for struct `Vec<Box<(dyn Genome + 'static)>>`, but its trait bounds were not 
+satisfied
+   --> src\evo\mod.rs:596:44
+    |
+596 |           let mut combined = self.population.clone();
+    |                                              ^^^^^ method cannot be called on `Vec<Box<(dyn Genome + 'static)>>` 
+due to unsatisfied trait bounds
+    |
+   ::: C:\Users\Ethereios\.rustup\toolchains\stable-x86_64-pc-windows-msvc\lib/rustlib/src/rust\library\alloc\src\vec\m
+od.rs:438:1
+    |
+438 |   pub struct Vec<T, #[unstable(feature = "allocator_api", issue = "32838")] A: Allocator = Global> {
+    |   ------------------------------------------------------------------------------------------------ doesn't 
+satisfy `Vec<Box<dyn Genome>>: Clone`
+    |
+   ::: C:\Users\Ethereios\.rustup\toolchains\stable-x86_64-pc-windows-msvc\lib/rustlib/src/rust\library\alloc\src\boxed
+.rs:234:1
+    |
+234 | / pub struct Box<
+235 | |     T: ?Sized,
+236 | |     #[unstable(feature = "allocator_api", issue = "32838")] A: Allocator = Global,
+237 | | >(Unique<T>, A);
+    | |_- doesn't satisfy `Box<dyn Genome>: Clone`
+    |
+    = note: the following trait bounds were not satisfied:
+            `Box<dyn Genome>: Clone`
+            which is required by `Vec<Box<dyn Genome>>: Clone`
+
+error[E0282]: type annotations needed
+   --> src\evo\mod.rs:600:27
+    |
+600 |         combined.sort_by(|a, b| {
+    |                           ^
+601 |             a.loss().unwrap_or(f64::INFINITY)
+    |             - type must be known at this point
+    |
+help: consider giving this closure parameter an explicit type
+    |
+600 |         combined.sort_by(|a: /* Type */, b| {
+    |                            ++++++++++++
+
+error[E0282]: type annotations needed
+   --> src\evo\mod.rs:600:30
+    |
+600 |         combined.sort_by(|a, b| {
+    |                              ^
+601 |             a.loss().unwrap_or(f64::INFINITY)
+602 |                 .partial_cmp(&b.loss().unwrap_or(f64::INFINITY))
+    |                               - type must be known at this point
+    |
+help: consider giving this closure parameter an explicit type
+    |
+600 |         combined.sort_by(|a, b: /* Type */| {
+    |                               ++++++++++++
+
+error[E0282]: type annotations needed
+   --> src\loss\mod.rs:150:39
+    |
+150 |                     let diff_a: f64 = (a - target_amp).abs();
+    |                                       ^^^^^^^^^^^^^^^^ cannot infer type
+
+error[E0282]: type annotations needed
+   --> src\loss\mod.rs:151:39
+    |
+151 |                     let diff_b: f64 = (b - target_amp).abs();
+    |                                       ^^^^^^^^^^^^^^^^ cannot infer type
+
+error[E0282]: type annotations needed
+   --> src\loss\mod.rs:160:39
+    |
+160 |                     let diff_a: f64 = (a - target_amp).abs();
+    |                                       ^^^^^^^^^^^^^^^^ cannot infer type
+
+error[E0282]: type annotations needed
+   --> src\loss\mod.rs:161:39
+    |
+161 |                     let diff_b: f64 = (b - target_amp).abs();
+    |                                       ^^^^^^^^^^^^^^^^ cannot infer type
+
+warning: unused variable: `l_cone`
+  --> src\sim\mod.rs:54:22
+   |
+54 |         let (x0, x1, l_cone) = if (d1_adj - d0_adj).abs() < 1e-12 {
+   |                      ^^^^^^ help: if this is intentional, prefix it with an underscore: `_l_cone`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `a0`
+   --> src\sim\mod.rs:118:9
+    |
+118 |     let a0 = segment.a0;
+    |         ^^ help: if this is intentional, prefix it with an underscore: `_a0`
+
+warning: unused variable: `a1`
+   --> src\sim\mod.rs:120:9
+    |
+120 |     let a1 = segment.a1;
+    |         ^^ help: if this is intentional, prefix it with an underscore: `_a1`
+
+Some errors have detailed explanations: E0277, E0282, E0425, E0432, E0599.
+For more information about an error, try `rustc --explain E0277`.
+warning: `cadsd` (lib) generated 7 warnings
+error: could not compile `cadsd` (lib) due to 16 previous errors; 7 warnings emitted

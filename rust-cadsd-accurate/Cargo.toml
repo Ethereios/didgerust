@@ -1,0 +1,82 @@
+[package]
+name = "cadsd-accurate"
+version = "0.1.0"
+edition = "2021"
+authors = ["CADSD Development Team"]
+description = "Computer-Aided Didgeridoo Sound Design - Advanced acoustic modeling and optimization for didgeridoos and wind instruments"
+homepage = "https://github.com/didgeridoo/cadsd"
+repository = "https://github.com/didgeridoo/cadsd"
+license = "CC-BY-NC-SA-4.0"
+categories = ["science", "simulation", "multimedia::audio", "visualization"]
+keywords = ["didgeridoo", "acoustics", "simulation", "optimization", "wind-instruments"]
+
+[dependencies]
+# Core numerical computing
+nalgebra = "0.32"
+num-complex = "0.4"
+# Array operations
+ndarray = { version = "0.15", features = ["serde"] }
+# Parallel processing
+rayon = "1.7"
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+# Error handling
+thiserror = "1.0"
+# Random number generation
+rand = "0.8"
+rand_distr = "0.4"
+# Logging
+log = "0.4"
+env_logger = "0.9"
+# Mathematical approximations
+approx = "0.5"
+
+# Optional dependencies for advanced features
+plotters = { version = "0.3", optional = false }
+clap = { version = "4.0", features = ["derive"], optional = false }
+# GUI dependencies - using compatible versions
+bevy = { version = "0.18", features = ["default"], optional = true }
+bevy_egui = { version = "0.39", optional = true }
+egui_plot = { version = "0.34", optional = true }
+rfd = { version = "0.15", optional = true }
+plotly = { version = "0.10", optional = true }
+# DidgeLab GUI (modern egui-based app)
+eframe = { version = "0.27", optional = true }
+# GPUI-based GUI (alternative to Bevy+egui) - DISABLED for now
+
+[features]
+default = ["visualization", "cli"]
+visualization = []
+cli = []
+gui = ["gui-bevy"]
+gui-bevy = ["bevy", "bevy_egui", "egui_plot", "dep:rfd"]  # Bevy 3D + egui GUI
+gui-gpui = []  # GPUI GUI (alternative)
+
+[[bin]]
+name = "cadsd"
+path = "src/main.rs"
+
+[[bin]]
+name = "cadsd-gui"
+path = "src/gpui_main.rs"
+required-features = ["gui-gpui"]
+
+[[bin]]
+name = "didgelab-demo"
+path = "src/didgelab_demo.rs"
+
+[[bin]]
+name = "didgerust"
+path = "src/didgerust_bin.rs"
+required-features = ["gui-bevy"]
+
+[[bin]]
+name = "test-window"
+path = "src/test_window.rs"
+required-features = ["gui-bevy"]
+
+[[bin]]
+name = "test-egui"
+path = "src/test_egui.rs"
+required-features = ["gui-bevy"]

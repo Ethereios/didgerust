@@ -79,9 +79,9 @@ pub fn show_export_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
                 if let Ok(content) = fs::read_to_string(&path) {
                     if let Ok(geo) = serde_json::from_str::<crate::geo::Geo>(&content) {
                         state.length = geo.length() as f32;
-                        state.top_diameter = geo.geo.first().unwrap()[1] as f32;
-                        state.bottom_diameter = geo.geo.last().unwrap()[1] as f32;
-                        state.segments = geo.geo.len() - 1;
+                        state.top_diameter = geo.geo.first().map(|p| p[1]).unwrap_or(0.0) as f32;
+                        state.bottom_diameter = geo.geo.last().map(|p| p[1]).unwrap_or(0.0) as f32;
+                        state.segments = geo.geo.len().saturating_sub(1);
                         state.enable_holes = false;
                         state.hole_positions.clear();
                         state.hole_diameters.clear();

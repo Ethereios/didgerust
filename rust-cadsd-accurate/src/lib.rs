@@ -54,6 +54,7 @@ pub mod integration;
 pub mod audio;
 pub mod export;
 pub mod persistence;
+pub mod ui;
 
 // Re-export main public API
 pub use geo::Geo;

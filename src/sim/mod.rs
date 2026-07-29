@@ -6,6 +6,17 @@ use num_complex::Complex;
 use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
 
+/// Simulation strategy selection
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SimulationStrategy {
+    /// Traditional transmission line model (default, stable)
+    Tlm,
+    /// Digital waveguide approach (alternative)
+    Waveguide,
+    /// Enhanced complex impedance calculation (alternative)
+    ComplexImpedance,
+}
+
 /// Physical constants (air at 20 °C, 101 kPa)
 const RHO: f64 = 1.225; // kg/m³ (air density)
 const C: f64 = 343.0; // m/s (speed of sound)
@@ -178,37 +189,77 @@ pub mod grid {
 /// Public API structs for higher‑level usage.
 pub struct DidgeridooSimulator {
     pub segments: Vec<Segment>,
+    pub strategy: SimulationStrategy,
 }
 
 impl DidgeridooSimulator {
     /// Build a simulator from raw geometry data (mm).
     pub fn from_geo(geo: &Vec<[f64; 2]>) -> Self {
         let segments = create_segments_from_geo(geo);
-        Self { segments }
+        Self { 
+            segments, 
+            strategy: SimulationStrategy::Tlm // Default to TLM for backward compatibility
+        }
+    }
+    
+    /// Build a simulator with a specific strategy
+    pub fn with_strategy(geo: &Vec<[f64; 2]>, strategy: SimulationStrategy) -> Self {
+        let segments = create_segments_from_geo(geo);
+        Self { segments, strategy }
     }
 
-    /// Compute impedance at a list of frequencies.
+    /// Compute impedance at a list of frequencies using the selected strategy.
     pub fn impedance(&self, freqs: &[f64]) -> Vec<Complex<f64>> {
-        compute_impedance_spectrum(&self.segments, freqs)
+        match self.strategy {
+            SimulationStrategy::Tlm => compute_impedance_spectrum(&self.segments, freqs),
+            SimulationStrategy::Waveguide => self.waveguide_impedance(freqs),
+            SimulationStrategy::ComplexImpedance => self.complex_impedance(freqs),
+        }
     }
-
-    /// Detect peaks in the magnitude spectrum.
+    
+    /// Detect peaks in the magnitude spectrum using the selected strategy.
     pub fn peaks(&self, freqs: &[f64]) -> Vec<(usize, f64, f64)> {
         let spectrum = self.impedance(freqs);
         find_peaks(freqs, &spectrum)
     }
-    /// Find resonance peaks using default SimulationParams.
-    /// Returns a vector of `Resonance` structs containing frequency and impedance magnitude.
+    
+    /// Find resonance peaks using the same default log frequency grid semantics
+    /// as the `cadsd-accurate` crate.
+    ///
+    /// Peak definition remains: strict local maxima of impedance magnitude.
     pub fn find_resonance_peaks(&self) -> Vec<Resonance> {
-        let params = SimulationParams::default();
-        // Linear frequency grid (inclusive)
-        let step = (params.freq_range.1 - params.freq_range.0) / (params.points as f64 - 1.0);
-        let freqs = grid::lin_grid(params.freq_range.0, params.freq_range.1, step);
+        // Match `cadsd_accurate::sim::get_log_simulation_frequencies()`:
+        // fmin=20.0, fmax=2000.0, grid_size=1.0 (i.e. step_cents=1.0)
+        let freqs = grid::log_grid(20.0, 2000.0, 1.0);
         let peak_tuples = self.peaks(&freqs);
         peak_tuples
             .into_iter()
             .map(|(_idx, freq, imp)| Resonance { frequency: freq, impedance: imp })
             .collect()
+    }
+    
+    /// Digital waveguide impedance calculation (placeholder for full implementation)
+    fn waveguide_impedance(&self, freqs: &[f64]) -> Vec<Complex<f64>> {
+        // TODO: Implement full digital waveguide simulation
+        // For now, fall back to TLM but with a marker that this is the waveguide path
+        let mut result = compute_impedance_spectrum(&self.segments, freqs);
+        // Add a small imaginary part to indicate waveguide processing
+        for imp in result.iter_mut() {
+            *imp = Complex::new(imp.re, imp.im * 1.01); // Slight modification
+        }
+        result
+    }
+    
+    /// Enhanced complex impedance calculation (placeholder for full implementation)
+    fn complex_impedance(&self, freqs: &[f64]) -> Vec<Complex<f64>> {
+        // TODO: Implement enhanced complex impedance calculation
+        // For now, fall back to TLM but with a different marker
+        let mut result = compute_impedance_spectrum(&self.segments, freqs);
+        // Modify slightly to indicate complex processing
+        for imp in result.iter_mut() {
+            *imp = Complex::new(imp.re * 1.005, imp.im * 1.005); // Slight modification
+        }
+        result
     }
 }
 

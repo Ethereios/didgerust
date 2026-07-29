@@ -10,16 +10,12 @@ use egui_plot::{Plot, Line, PlotPoints};
 use bevy_egui::egui;
 
 use crate::geo::Geo;
-use crate::sim::{acoustical_simulation, get_fundamental};
+use crate::integration::{AcousticSimulator, EvolutionaryOptimizer};
 use crate::conv::{note_name, freq_to_note};
-use crate::analysis::get_notes;
-use crate::loss::TairuaLoss;
 use crate::evo::{TargetSound, BoreShapePreference};
-use crate::inverse_design::{InverseDesigner, DesignResult};
-use crate::persistence::{AppSettings, ProjectState};
-use std::fs;
+use crate::inverse_design::DesignResult;
+use crate::persistence::AppSettings;
 use std::sync::Arc;
-use serde_json;
 
 #[derive(Resource)]
 #[allow(dead_code)]
@@ -46,7 +42,7 @@ pub struct CadsdState {
     
     // === ADVANCED PARAMETERS ===
     pub wall_thickness: f32,       // Wall thickness (mm)
-    pub temperature: f32,          // Air temperature (Â°C) - affects sound speed
+    pub temperature: f32,          // Air temperature (°C) - affects sound speed
     
     // === SIMULATION RESULTS ===
     pub frequencies: Vec<f64>,
@@ -317,7 +313,7 @@ fn ui_system(
         // Top panel - Title bar with tab navigation
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.heading("ðŸŽµ DidgeRust");
+                ui.heading("🎵 DidgeRust");
                 ui.vertical(|ui| {
                     ui.style_mut().spacing.item_spacing = egui::vec2(4.0, 1.0);
                     ui.small("Wind Instrument CADSD Platform");
@@ -326,11 +322,11 @@ fn ui_system(
                 ui.separator();
                 
                 // Tab navigation - each tab connects to real backend features
-                ui.selectable_value(&mut state.active_tab, "forward".to_string(), "â‘  Forward Design");
-                ui.selectable_value(&mut state.active_tab, "inverse".to_string(), "â‘¡ Inverse Design");
-                ui.selectable_value(&mut state.active_tab, "analysis".to_string(), "â‘¢ Analysis");
-                ui.selectable_value(&mut state.active_tab, "export".to_string(), "â‘£ Export");
-                ui.selectable_value(&mut state.active_tab, "settings".to_string(), "â‘¤ Settings");
+                ui.selectable_value(&mut state.active_tab, "forward".to_string(), "① Forward Design");
+                ui.selectable_value(&mut state.active_tab, "inverse".to_string(), "② Inverse Design");
+                ui.selectable_value(&mut state.active_tab, "analysis".to_string(), "③ Analysis");
+                ui.selectable_value(&mut state.active_tab, "export".to_string(), "④ Export");
+                ui.selectable_value(&mut state.active_tab, "settings".to_string(), "⑤ Settings");
                 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.small(format!("v0.1.0"));
@@ -521,7 +517,7 @@ fn poll_background_tasks(
                     state.fundamental_freq = fundamental;
                     state.resonance_notes = resonance_notes;
                     state.tairua_loss_value = tairua_loss;
-                    state.simulation_message = format!("âœ“ Complete - Found {} resonances", state.resonance_notes.len());
+                    state.simulation_message = format!("✓ Complete - Found {} resonances", state.resonance_notes.len());
                 }
                 BackgroundTaskResult::SimulationError(err) => {
                     state.is_simulating = false;
@@ -530,7 +526,7 @@ fn poll_background_tasks(
                 }
                 BackgroundTaskResult::OptimizationProgress { generation, total_generations, best_loss } => {
                     state.optimization_progress = (generation + 1) as f32 / total_generations as f32;
-                    state.simulation_message = format!("ðŸ§¬ Evolving... Gen {}/{} (Best Loss: {:.4})", generation + 1, total_generations, best_loss);
+                    state.simulation_message = format!("🧬 Evolving... Gen {}/{} (Best Loss: {:.4})", generation + 1, total_generations, best_loss);
                 }
                 BackgroundTaskResult::OptimizationSuccess { design, frequencies, impedances } => {
                     state.is_simulating = false;
@@ -559,7 +555,7 @@ fn poll_background_tasks(
                     state.frequencies = frequencies;
                     state.impedances = impedances;
                     
-                    state.simulation_message = format!("âœ“ Optimization Complete! Loss: {:.4}", design.loss);
+                    state.simulation_message = format!("✓ Optimization Complete! Loss: {:.4}", design.loss);
                 }
                 BackgroundTaskResult::OptimizationError(err) => {
                     state.is_simulating = false;
@@ -598,10 +594,10 @@ fn update_mesh(
         return;
     }
     
-    // Mesh rotation system â€“ rotates the mesh if enabled
+    // Mesh rotation system – rotates the mesh if enabled
     if state.mesh_rotation_enabled {
         for (mut transform, _) in query.iter_mut() {
-            let delta = 0.016; // Approx 60â€¯fps
+            let delta = 0.016; // Approx 60 fps
             let angle = state.mesh_rotation_speed.to_radians() * delta;
             transform.rotate_y(angle);
         }
@@ -691,7 +687,7 @@ fn update_mesh(
     ));
 }
 
-fn create_geometry(state: &CadsdState) -> Geo {
+pub fn create_geometry(state: &CadsdState) -> Geo {
     let mut geo = match state.style_type.as_str() {
         "cylinder" => Geo::make_cone(
             state.length as f64,
@@ -743,7 +739,7 @@ fn create_geometry(state: &CadsdState) -> Geo {
 fn show_forward_design_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
     ui.heading("Forward Design");
     ui.separator();
-    ui.small("Define geometry â†’ Simulate acoustics");
+    ui.small("Define geometry → Simulate acoustics");
     ui.separator();
     
     ui.heading("Base Didgeridoo");
@@ -846,13 +842,13 @@ fn show_forward_design_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
             ui.label(&state.simulation_message);
         });
     } else if let Some(error) = &state.last_error {
-        ui.colored_label(egui::Color32::RED, format!("âŒ {}", error));
+        ui.colored_label(egui::Color32::RED, format!("❌ {}", error));
     } else if !state.impedances.is_empty() {
-        ui.colored_label(egui::Color32::GREEN, "âœ“ Complete");
+        ui.colored_label(egui::Color32::GREEN, "✓ Complete");
     }
     
     ui.add_enabled_ui(!state.is_simulating, |ui| {
-        if ui.button("â–¶ Run Simulation").clicked() {
+        if ui.button("▶ Run Simulation").clicked() {
             state.pending_simulation = true;
             state.last_error = None;
             state.simulation_message = "Computing impedance spectrum...".to_string();
@@ -864,7 +860,7 @@ fn show_forward_design_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
         ui.checkbox(&mut state.mesh_rotation_enabled, "Enable mesh rotation");
         if state.mesh_rotation_enabled {
             ui.add(egui::Slider::new(&mut state.mesh_rotation_speed, 0.0..=180.0)
-                .text("Rotation speed (Â°/s)")
+                .text("Rotation speed (°/s)")
                 .step_by(5.0));
         }
         ui.label("Color scheme:");
@@ -881,7 +877,7 @@ fn show_forward_design_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
 fn show_inverse_design_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
     ui.heading("Inverse Design");
     ui.separator();
-    ui.small("Define target sound & constraints â†’ Optimize geometry");
+    ui.small("Define target sound & constraints → Optimize geometry");
     ui.separator();
     
     ui.add_enabled_ui(!state.is_simulating, |ui| {
@@ -944,11 +940,9 @@ fn show_inverse_design_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
                 ui.add(egui::Spinner::new().size(16.0));
                 ui.label(&state.simulation_message);
             });
-            if state.optimization_progress > 0.0 {
-                ui.add(egui::ProgressBar::new(state.optimization_progress)
-                    .text(format!("{:.1}%", state.optimization_progress * 100.0))
-                    .animate(true));
-            }
+            ui.add(egui::ProgressBar::new(state.optimization_progress)
+                .text(format!("{:.1}%", state.optimization_progress * 100.0))
+                .animate(true));
         });
     } else if let Some(error) = &state.last_error {
         ui.colored_label(egui::Color32::RED, format!("âŒ {}", error));
@@ -1014,23 +1008,15 @@ fn show_export_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
 }
 
 // === SETTINGS PANEL ===
+
 fn show_settings_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
     crate::ui::show_settings_panel(ui, state);
 }
 
 
 
-
-
 // Recreated helper function for geometry creation
-pub fn create_geometry(state: &CadsdState) -> crate::geo::Geo {
-    let mut points = Vec::new();
-    let num_points = state.segments + 1;
-    for i in 0..num_points {
-        let x = (i as f32 / state.segments as f32) * state.length;
-        let t = i as f32 / state.segments as f32;
-        let d = state.top_diameter * (1.0 - t) + state.bottom_diameter * t;
-        points.push([x as f64, d as f64]);
-    }
-    crate::geo::Geo { geo: points }
-}
+// NOTE: `create_geometry` is implemented above in this file.
+// This duplicate definition previously caused a compile error in `cadsd-accurate`.
+// Keeping the old code here would break `cargo test`.
+

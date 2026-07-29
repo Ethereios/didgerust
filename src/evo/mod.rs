@@ -10,6 +10,15 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::f64::consts::PI;
 use rand_distr::Distribution;
 
+/// Mutation strategy for evolutionary optimization
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MutationStrategy {
+    /// Standard Gaussian mutation
+    Gaussian,
+    /// Prime-number indexed mutation for better space-filling exploration
+    PrimeSequence,
+}
+
 /// Trait for evolvable genomes
 pub trait Genome: Send + Sync {
     /// Get the genome vector (genes in [0,1] range)
@@ -49,6 +58,56 @@ pub struct BaseGenome {
     genome: Vec<f64>,
     id: u64,
     loss: Option<f64>,
+}
+
+/// Prime number generator for prime-indexed mutation strategies
+pub struct PrimeGenerator {
+    primes: Vec<u32>,
+    current_index: usize,
+}
+
+impl PrimeGenerator {
+    /// Initialize with a list of primes up to a specified limit
+    pub fn new(limit: u32) -> Self {
+        let mut sieve = vec![true; (limit + 1) as usize];
+        sieve[0] = false;
+        sieve[1] = false;
+
+        for i in 2..=((limit as f64).sqrt() as usize) {
+            if sieve[i as usize] {
+                for j in (i * i..=limit as usize).step_by(i as usize) {
+                    sieve[j] = false;
+                }
+            }
+        }
+
+        let primes: Vec<_> = sieve.into_iter().enumerate().filter(|(_, is_prime)| *is_prime)
+            .map(|(p, _)| p as u32)
+            .collect();
+
+        Self {
+            primes,
+            current_index: 0,
+        }
+    }
+
+    /// Get the next prime number in the sequence
+    pub fn next(&mut self) -> u32 {
+        let prime = self.primes[self.current_index % self.primes.len()];
+        self.current_index += 1;
+        prime
+    }
+
+    /// Get a prime at a specific index
+    pub fn nth(&self, index: usize) -> u32 {
+        self.primes[index % self.primes.len()]
+    }
+}
+
+impl Default for PrimeGenerator {
+    fn default() -> Self {
+        Self::new(1000)
+    }
 }
 
 static GENOME_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -392,6 +451,7 @@ pub struct EvolutionaryOptimizer {
     pub loss_function: Box<dyn LossFunction>,
     pub population: Vec<Box<dyn Genome>>,
     pub parameters: EvolutionParameters,
+    pub prime_generator: PrimeGenerator,
 }
 
 /// Evolution parameters
@@ -403,6 +463,7 @@ pub struct EvolutionParameters {
     pub mutation_rate: f64,
     pub crossover_rate: f64,
     pub elite_size: usize,
+    pub mutation_strategy: MutationStrategy,
 }
 
 impl Default for EvolutionParameters {
@@ -414,6 +475,7 @@ impl Default for EvolutionParameters {
             mutation_rate: 0.1,
             crossover_rate: 0.7,
             elite_size: 5,
+            mutation_strategy: MutationStrategy::Gaussian,
         }
     }
 }
@@ -428,6 +490,7 @@ impl EvolutionaryOptimizer {
             loss_function,
             population: initial_population,
             parameters,
+            prime_generator: PrimeGenerator::default(),
         }
     }
     
@@ -575,23 +638,40 @@ impl EvolutionaryOptimizer {
         Ok(child)
     }
     
-    /// Simple mutation operation
-    fn mutate(&self, genome: &dyn Genome) -> Result<Box<dyn Genome>, Box<dyn std::error::Error>> {
-        let mut mutated = genome.clone_with_new_id();
-        let mutated_genome = mutated.genome_mut();
-        
-        for gene in mutated_genome {
-            if rand::random::<f64>() < self.parameters.mutation_rate {
-                // Gaussian mutation
-                let noise = rand_distr::Normal::new(0.0, 0.1)
-                    .map_err(|e| format!("Mutation failed: {}", e))?
-                    .sample(&mut rand::thread_rng());
-                *gene = (*gene + noise).clamp(0.0, 1.0);
+/// Simple mutation operation
+fn mutate(&self, genome: &dyn Genome) -> Result<Box<dyn Genome>, Box<dyn std::error::Error>> {
+    let mut mutated = genome.clone_with_new_id();
+    let mutated_genome = mutated.genome_mut();
+    
+    match self.parameters.mutation_strategy {
+        MutationStrategy::Gaussian => {
+            for gene in mutated_genome {
+                if rand::random::<f64>() < self.parameters.mutation_rate {
+                    // Gaussian mutation
+                    let noise = rand_distr::Normal::new(0.0, 0.1)
+                        .map_err(|e| format!("Mutation failed: {}", e))?
+                        .sample(&mut rand::thread_rng());
+                    *gene = (*gene + noise).clamp(0.0, 1.0);
+                }
+            }
+        },
+MutationStrategy::PrimeSequence => {
+            let generator = PrimeGenerator::new(1000);
+            let mut index = 0;
+            for gene in mutated_genome {
+                if rand::random::<f64>() < self.parameters.mutation_rate {
+                    // Prime-based mutation using prime numbers as scaling factors
+                    let prime = generator.nth(index);
+                    let noise = (prime as f64 / 100.0) * rand::random::<f64>();
+                    *gene = (*gene + noise).clamp(0.0, 1.0);
+                    index += 1;
+                }
             }
         }
-        
-        Ok(mutated)
     }
+    
+    Ok(mutated)
+}
     
     /// Select new population from combined parent and offspring
     fn select_population(&mut self, offspring: Vec<Box<dyn Genome>>) -> Result<(), Box<dyn std::error::Error>> {
@@ -673,6 +753,7 @@ mod tests {
                 mutation_rate: 0.1,
                 crossover_rate: 0.7,
                 elite_size: 2,
+                mutation_strategy: MutationStrategy::Gaussian,
             },
         );
         

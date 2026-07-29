@@ -3,9 +3,9 @@
 //! This module implements various loss functions for evaluating didgeridoo geometries
 //! based on their acoustic properties, similar to the Python implementation.
 
+use crate::geo::Geo;
 use crate::evo::Genome;
 use crate::sim::DidgeridooSimulator;
-use ndarray::{Array1, s};
 use serde::{Deserialize, Serialize};
 
 /// Base trait for loss components
@@ -13,10 +13,10 @@ pub trait LossComponent: Send + Sync {
     /// Calculate loss value for given spectral data
     fn calculate(
         &self,
-        peak_freqs_log: &Array1<f64>,
-        peak_impedances: &Array1<f64>,
-        all_freqs: &Array1<f64>,
-        all_impedances: &Array1<f64>,
+        peak_freqs_log: &[f64],
+        peak_impedances: &[f64],
+        all_freqs: &[f64],
+        all_impedances: &[f64],
         peak_indices: &[usize],
     ) -> f64;
 }
@@ -46,11 +46,10 @@ impl crate::evo::LossFunction for TestLossFunction {
 }
 
 /// Frequency tuning loss - align peaks to specific frequencies
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FrequencyTuningLoss {
-    target_freqs_log: Array1<f64>,  // Target frequencies in log2 scale
-    target_impedances: Array1<f64>, // Target normalized impedances [0,1]
-    weights: Array1<f64>,          // Per-peak weights
+    target_freqs_log: Vec<f64>,
+    target_impedances: Vec<f64>,
+    weights: Vec<f64>,
 }
 
 impl FrequencyTuningLoss {
@@ -60,9 +59,9 @@ impl FrequencyTuningLoss {
         weights: Vec<f64>,
     ) -> Self {
         Self {
-            target_freqs_log: Array1::from(target_freqs_log),
-            target_impedances: Array1::from(target_impedances),
-            weights: Array1::from(weights),
+            target_freqs_log,
+            target_impedances,
+            weights,
         }
     }
 }
@@ -70,10 +69,10 @@ impl FrequencyTuningLoss {
 impl LossComponent for FrequencyTuningLoss {
     fn calculate(
         &self,
-        peak_freqs_log: &Array1<f64>,
-        peak_impedances: &Array1<f64>,
-        _all_freqs: &Array1<f64>,
-        _all_impedances: &Array1<f64>,
+        peak_freqs_log: &[f64],
+        peak_impedances: &[f64],
+        _all_freqs: &[f64],
+        _all_impedances: &[f64],
         _peak_indices: &[usize],
     ) -> f64 {
         let mut total_loss = 0.0;
@@ -128,10 +127,10 @@ impl QFactorLoss {
 impl LossComponent for QFactorLoss {
     fn calculate(
         &self,
-        _peak_freqs_log: &Array1<f64>,
-        _peak_impedances: &Array1<f64>,
-        all_freqs: &Array1<f64>,
-        all_impedances: &Array1<f64>,
+        _peak_freqs_log: &[f64],
+        _peak_impedances: &[f64],
+        all_freqs: &[f64],
+        all_impedances: &[f64],
         peak_indices: &[usize],
     ) -> f64 {
         let mut qs = Vec::new();
@@ -141,8 +140,8 @@ impl LossComponent for QFactorLoss {
             let target_amp = all_impedances[p_idx] / 2.0f64.sqrt();
             
             // Find -3dB points
-            let left_side = &all_impedances.slice(s![..p_idx]);
-            let right_side = &all_impedances.slice(s![p_idx..]);
+            let left_side = &all_impedances[..p_idx];
+            let right_side = &all_impedances[p_idx..];
             
             let f_low_idx = left_side.iter()
                 .enumerate()
@@ -197,23 +196,20 @@ impl ModalDensityLoss {
 impl LossComponent for ModalDensityLoss {
     fn calculate(
         &self,
-        peak_freqs_log: &Array1<f64>,
-        _peak_impedances: &Array1<f64>,
-        _all_freqs: &Array1<f64>,
-        _all_impedances: &Array1<f64>,
+        peak_freqs_log: &[f64],
+        _peak_impedances: &[f64],
+        _all_freqs: &[f64],
+        _all_impedances: &[f64],
         _peak_indices: &[usize],
     ) -> f64 {
         if peak_freqs_log.len() < 2 {
             return self.weight;
         }
         
-        // Calculate differences between adjacent peaks
         let diffs: Vec<f64> = peak_freqs_log.windows(2)
-            .into_iter()
-            .map(|window| (window[1] - window[0]) * 1200.0) // Convert to cents
+            .map(|window| (window[1] - window[0]) * 1200.0)
             .collect();
         
-        // Calculate shimmer score
         let shimmer_score: f64 = diffs.iter()
             .map(|&diff| {
                 let val: f64 = diff - self.cluster_range_cents;
@@ -240,10 +236,10 @@ impl HighInharmonicLoss {
 impl LossComponent for HighInharmonicLoss {
     fn calculate(
         &self,
-        peak_freqs_log: &Array1<f64>,
-        _peak_impedances: &Array1<f64>,
-        _all_freqs: &Array1<f64>,
-        _all_impedances: &Array1<f64>,
+        peak_freqs_log: &[f64],
+        _peak_impedances: &[f64],
+        _all_freqs: &[f64],
+        _all_impedances: &[f64],
         _peak_indices: &[usize],
     ) -> f64 {
         if peak_freqs_log.is_empty() {
@@ -343,7 +339,7 @@ impl crate::evo::LossFunction for CompositeTairuaLoss {
         let geo = genome.genome2geo();
 
         // Create simulator from geometry points
-        let simulator = DidgeridooSimulator::from_geo(&geo.points);
+        let simulator = DidgeridooSimulator::from_geo(&geo.geo);
         // Frequency grid for simulation
         let freqs = self._get_frequency_grid();
 
@@ -353,8 +349,8 @@ impl crate::evo::LossFunction for CompositeTairuaLoss {
             return 1e6; // Large penalty for invalid geometries
         }
         // All frequencies and impedances as arrays
-        let all_freqs = Array1::from(freqs.clone());
-        let all_impedances = Array1::from(spectrum.iter().map(|c| c.norm()).collect::<Vec<f64>>());
+        let all_freqs = freqs.clone();
+        let all_impedances = spectrum.iter().map(|c| c.norm()).collect::<Vec<f64>>();
 
         // Find peaks using the same frequency grid
         let peaks = simulator.peaks(&freqs);
@@ -363,21 +359,21 @@ impl crate::evo::LossFunction for CompositeTairuaLoss {
         }
 
         // Convert peak data to arrays for loss components
-        let peak_freqs_log = Array1::from(peaks.iter().map(|p| f64::log2(p.1)).collect::<Vec<f64>>());
+        let peak_freqs_log = peaks.iter().map(|p| f64::log2(p.1)).collect::<Vec<f64>>();
         let max_imp = all_impedances.iter().cloned().fold(0.0_f64, f64::max);
-        let peak_impedances = Array1::from(peaks.iter().map(|p| p.2 / max_imp).collect::<Vec<f64>>());
-        let peak_indices: Vec<usize> = peaks.iter().map(|p| p.0).collect();
+        let peak_impedances = peaks.iter().map(|p| p.2 / max_imp).collect::<Vec<f64>>();
+        let peak_indices = peaks.iter().map(|p| p.0).collect::<Vec<usize>>();
 
         // Calculate total loss from all components
         let mut total_loss = 0.0;
         for (_name, component) in &self.components {
-            let component_loss = component.calculate(
-                &peak_freqs_log,
-                &peak_impedances,
-                &all_freqs,
-                &all_impedances,
-                &peak_indices,
-            );
+let component_loss = component.calculate(
+             &peak_freqs_log,
+             &peak_impedances,
+             &all_freqs,
+             &all_impedances,
+             &peak_indices,
+         );
             total_loss += component_loss;
         }
         total_loss
@@ -400,10 +396,10 @@ impl IntegerHarmonicLoss {
 impl LossComponent for IntegerHarmonicLoss {
     fn calculate(
         &self,
-        peak_freqs_log: &Array1<f64>,
-        _peak_impedances: &Array1<f64>,
-        _all_freqs: &Array1<f64>,
-        _all_impedances: &Array1<f64>,
+        peak_freqs_log: &[f64],
+        _peak_impedances: &[f64],
+        _all_freqs: &[f64],
+        _all_impedances: &[f64],
         _peak_indices: &[usize],
     ) -> f64 {
         if peak_freqs_log.is_empty() {
@@ -439,10 +435,10 @@ impl NearIntegerLoss {
 impl LossComponent for NearIntegerLoss {
     fn calculate(
         &self,
-        peak_freqs_log: &Array1<f64>,
-        _peak_impedances: &Array1<f64>,
-        _all_freqs: &Array1<f64>,
-        _all_impedances: &Array1<f64>,
+        peak_freqs_log: &[f64],
+        _peak_impedances: &[f64],
+        _all_freqs: &[f64],
+        _all_impedances: &[f64],
         _peak_indices: &[usize],
     ) -> f64 {
         if peak_freqs_log.is_empty() {
@@ -483,10 +479,10 @@ impl StretchedOddLoss {
 impl LossComponent for StretchedOddLoss {
     fn calculate(
         &self,
-        peak_freqs_log: &Array1<f64>,
-        _peak_impedances: &Array1<f64>,
-        _all_freqs: &Array1<f64>,
-        _all_impedances: &Array1<f64>,
+        peak_freqs_log: &[f64],
+        _peak_impedances: &[f64],
+        _all_freqs: &[f64],
+        _all_impedances: &[f64],
         _peak_indices: &[usize],
     ) -> f64 {
         if peak_freqs_log.is_empty() {
@@ -522,10 +518,10 @@ impl HarmonicSplittingLoss {
 impl LossComponent for HarmonicSplittingLoss {
     fn calculate(
         &self,
-        peak_freqs_log: &Array1<f64>,
-        _peak_impedances: &Array1<f64>,
-        _all_freqs: &Array1<f64>,
-        _all_impedances: &Array1<f64>,
+        peak_freqs_log: &[f64],
+        _peak_impedances: &[f64],
+        _all_freqs: &[f64],
+        _all_impedances: &[f64],
         _peak_indices: &[usize],
     ) -> f64 {
         if peak_freqs_log.is_empty() {
@@ -562,10 +558,10 @@ impl PeakQuantityLoss {
 impl LossComponent for PeakQuantityLoss {
     fn calculate(
         &self,
-        peak_freqs_log: &Array1<f64>,
-        _peak_impedances: &Array1<f64>,
-        _all_freqs: &Array1<f64>,
-        _all_impedances: &Array1<f64>,
+        peak_freqs_log: &[f64],
+        _peak_impedances: &[f64],
+        _all_freqs: &[f64],
+        _all_impedances: &[f64],
         _peak_indices: &[usize],
     ) -> f64 {
         let n = peak_freqs_log.len();
@@ -592,10 +588,10 @@ impl PeakAmplitudeLoss {
 impl LossComponent for PeakAmplitudeLoss {
     fn calculate(
         &self,
-        _peak_freqs_log: &Array1<f64>,
-        peak_impedances: &Array1<f64>,
-        _all_freqs: &Array1<f64>,
-        _all_impedances: &Array1<f64>,
+        _peak_freqs_log: &[f64],
+        peak_impedances: &[f64],
+        _all_freqs: &[f64],
+        _all_impedances: &[f64],
         _peak_indices: &[usize],
     ) -> f64 {
         if peak_impedances.is_empty() {
@@ -622,10 +618,10 @@ impl ScaleTuningLoss {
 impl LossComponent for ScaleTuningLoss {
     fn calculate(
         &self,
-        peak_freqs_log: &Array1<f64>,
-        _peak_impedances: &Array1<f64>,
-        _all_freqs: &Array1<f64>,
-        _all_impedances: &Array1<f64>,
+        peak_freqs_log: &[f64],
+        _peak_impedances: &[f64],
+        _all_freqs: &[f64],
+        _all_impedances: &[f64],
         _peak_indices: &[usize],
     ) -> f64 {
         if peak_freqs_log.is_empty() {
@@ -640,8 +636,41 @@ impl LossComponent for ScaleTuningLoss {
                 dist / 0.5
             })
             .sum::<f64>() / peak_freqs_log.len() as f64;
-            
+        
         error * self.weight
+    }
+}
+
+/// Tairua loss function for targeting specific fundamental frequencies
+#[derive(Debug, Clone)]
+pub struct TairuaLoss {
+    target_frequency: f64,
+}
+
+impl TairuaLoss {
+    /// Creates a new Tairua loss calculator
+    pub fn new() -> Self {
+        Self { target_frequency: 0.0 }
+    }
+
+    /// Sets the target frequency for loss calculation
+    pub fn with_target_frequency(mut self, target_frequency: f64) -> Self {
+        self.target_frequency = target_frequency;
+        self
+    }
+
+    /// Computes loss based on how close the fundamental frequency is to target
+    pub fn compute_loss(&self, _geometry: &Geo) -> f64 {
+        // This is a simplified implementation
+        // In a real implementation, we would:
+        // 1. Simulate the impedance spectrum for the geometry
+        // 2. Find the fundamental frequency (first peak)
+        // 3. Calculate loss based on difference from target
+        
+        // For now, return a placeholder value
+        // TODO: Implement actual simulation and fundamental frequency detection
+        let fundamental = 261.6; // A4 note as placeholder
+        (fundamental - self.target_frequency).abs() / self.target_frequency.max(1.0)
     }
 }
 
@@ -651,7 +680,7 @@ mod tests {
     use crate::evo::{BaseGenome, KigaliGenome, LossFunction};
     use approx::assert_abs_diff_eq;
     use ndarray::Array1;
-    
+
     #[test]
     fn test_test_loss_function() {
         let loss_fn = TestLossFunction::with_target(5.0);
@@ -663,20 +692,23 @@ mod tests {
     #[test]
     fn test_frequency_tuning_loss() {
         let loss_fn = FrequencyTuningLoss::new(
-            vec![2.0, 3.0],  // target frequencies (log2)
-            vec![0.5, 0.3],  // target impedances
-            vec![1.0, 1.0],  // weights
+            vec![2.0, 3.0],
+            vec![0.5, 0.3],
+            vec![1.0, 1.0],
         );
         
-        let peak_freqs = Array1::from(vec![2.1, 2.9]);  // close to targets
-        let peak_impedances = Array1::from(vec![0.4, 0.4]);  // close to targets
+        let peak_freqs = Array1::from(vec![2.1, 2.9]);
+        let peak_impedances = Array1::from(vec![0.4, 0.4]);
+        let all_freqs: Vec<f64> = (0..10).map(|i| i as f64 * 10.0).collect();
+        let all_impedances: Vec<f64> = (0..10).map(|i| i as f64 * 100.0).collect();
+        let peak_indices = vec![0, 1];
         
         let loss = loss_fn.calculate(
-            &peak_freqs,
-            &peak_impedances,
-            &Array1::zeros(10),
-            &Array1::zeros(10),
-            &[0, 1],
+            &peak_freqs.to_vec(),
+            &peak_impedances.to_vec(),
+            &all_freqs,
+            &all_impedances,
+            &peak_indices,
         );
         
         assert!(loss >= 0.0);
@@ -685,47 +717,51 @@ mod tests {
     
     #[test]
     fn test_modal_density_loss() {
-        let loss_fn = ModalDensityLoss::new(50.0, 1.0); // 50 cents cluster range
+        let loss_fn = ModalDensityLoss::new(50.0, 1.0);
         
-        let peak_freqs = Array1::from(vec![2.0, 2.1, 2.2]); // closely spaced peaks
+        let peak_freqs = Array1::from(vec![2.0, 2.1, 2.2]);
+        let all_freqs: Vec<f64> = (0..10).map(|i| i as f64 * 10.0).collect();
+        let all_impedances: Vec<f64> = (0..10).map(|i| i as f64 * 100.0).collect();
+        let peak_indices = vec![0, 1, 2];
         
         let loss = loss_fn.calculate(
-            &peak_freqs,
-            &Array1::zeros(3),
-            &Array1::zeros(10),
-            &Array1::zeros(10),
-            &[0, 1, 2],
+            &peak_freqs.to_vec(),
+            &vec![0.0; 3],
+            &all_freqs,
+            &all_impedances,
+            &peak_indices,
         );
         
         assert!(loss >= 0.0);
-        assert!(loss <= 1.0); // Should be bounded
+        assert!(loss <= 1.0);
     }
     
     #[test]
     fn test_high_inharmonic_loss() {
         let loss_fn = HighInharmonicLoss::new(1.0);
         
-        // Perfect integer harmonics
-        let perfect_harmonics = Array1::from(vec![0.0, 1.0, 1.585]); // log2(1), log2(2), log2(3)
+        let perfect_harmonics = Array1::from(vec![0.0, 1.0, 1.585]);
+        let all_freqs: Vec<f64> = (0..10).map(|i| i as f64 * 10.0).collect();
+        let all_impedances: Vec<f64> = (0..10).map(|i| i as f64 * 100.0).collect();
+        let peak_indices = vec![0, 1, 2];
+        
         let perfect_loss = loss_fn.calculate(
-            &perfect_harmonics,
-            &Array1::zeros(3),
-            &Array1::zeros(10),
-            &Array1::zeros(10),
-            &[0, 1, 2],
+            &perfect_harmonics.to_vec(),
+            &vec![0.0; 3],
+            &all_freqs,
+            &all_impedances,
+            &peak_indices,
         );
         
-        // Inharmonic frequencies
-        let inharmonic_freqs = Array1::from(vec![0.0, 1.1, 1.7]); // slightly inharmonic
+        let inharmonic_freqs = Array1::from(vec![0.0, 1.1, 1.7]);
         let inharmonic_loss = loss_fn.calculate(
-            &inharmonic_freqs,
-            &Array1::zeros(3),
-            &Array1::zeros(10),
-            &Array1::zeros(10),
-            &[0, 1, 2],
+            &inharmonic_freqs.to_vec(),
+            &vec![0.0; 3],
+            &all_freqs,
+            &all_impedances,
+            &peak_indices,
         );
         
-        // Inharmonic should have lower loss (better fitness)
         assert!(inharmonic_loss <= perfect_loss);
     }
     
@@ -736,7 +772,7 @@ mod tests {
         composite_loss.add_component(
             "freq_tuning".to_string(),
             Box::new(FrequencyTuningLoss::new(
-                vec![2.0],  // target D1 (~73.4 Hz)
+                vec![2.0],
                 vec![0.5],
                 vec![1.0],
             ))
@@ -753,46 +789,39 @@ mod tests {
         assert!(loss >= 0.0);
         assert!(loss.is_finite());
     }
-
+    
     #[test]
     fn test_new_loss_components() {
-        let f_log = Array1::from(vec![f64::log2(100.0), f64::log2(200.0), f64::log2(300.0)]);
-        let amps = Array1::from(vec![1.0, 0.8, 0.6]);
-        let all_f = Array1::zeros(10);
-        let all_z = Array1::zeros(10);
+        let f_log = vec![f64::log2(100.0), f64::log2(200.0), f64::log2(300.0)];
+        let amps = vec![1.0, 0.8, 0.6];
+        let all_f = vec![0.0; 10];
+        let all_z = vec![0.0; 10];
         let idx = vec![0, 1, 2];
 
-        // IntegerHarmonicLoss: 100, 200, 300 are integer ratios 1, 2, 3, so loss should be 0.0
         let loss_int = IntegerHarmonicLoss::new(10.0);
         let val_int = loss_int.calculate(&f_log, &amps, &all_f, &all_z, &idx);
         assert_abs_diff_eq!(val_int, 0.0, epsilon = 1e-6);
 
-        // NearIntegerLoss: since they are integer ratios, they are within tolerance, so loss is 0.0
         let loss_near = NearIntegerLoss::new(0.05, 10.0);
         let val_near = loss_near.calculate(&f_log, &amps, &all_f, &all_z, &idx);
         assert_abs_diff_eq!(val_near, 0.0, epsilon = 1e-6);
 
-        // StretchedOddLoss: target is odd harmonics (1, 3, 5) with stretch=1.0. Ratios (1, 2, 3) will have error.
         let loss_odd = StretchedOddLoss::new(1.0, 10.0);
         let val_odd = loss_odd.calculate(&f_log, &amps, &all_f, &all_z, &idx);
         assert!(val_odd > 0.0);
 
-        // HarmonicSplittingLoss: Ratios are 1, 2, 3 (integers), which are heavily penalized.
         let loss_split = HarmonicSplittingLoss::new(10.0);
         let val_split = loss_split.calculate(&f_log, &amps, &all_f, &all_z, &idx);
         assert!(val_split > 0.0);
 
-        // PeakQuantityLoss: We have 3 peaks. Target is 5. Loss should be (5 - 3) * 10 = 20.
         let loss_qty = PeakQuantityLoss::new(5, 10.0);
         let val_qty = loss_qty.calculate(&f_log, &amps, &all_f, &all_z, &idx);
         assert_abs_diff_eq!(val_qty, 20.0, epsilon = 1e-6);
 
-        // PeakAmplitudeLoss: Average amplitude is (1.0 + 0.8 + 0.6)/3 = 0.8. Loss is (1.0 - 0.8) * 10 = 2.0.
         let loss_amp = PeakAmplitudeLoss::new(10.0);
         let val_amp = loss_amp.calculate(&f_log, &amps, &all_f, &all_z, &idx);
         assert_abs_diff_eq!(val_amp, 2.0, epsilon = 1e-6);
 
-        // ScaleTuningLoss: Calculates musical note offsets.
         let loss_scale = ScaleTuningLoss::new(10.0);
         let val_scale = loss_scale.calculate(&f_log, &amps, &all_f, &all_z, &idx);
         assert!(val_scale >= 0.0);

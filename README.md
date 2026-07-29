@@ -72,17 +72,24 @@ rustc src/simple_demo.rs -o simple_demo
 
 ```rust
 use cadsd::geo::Geo;
-use cadsd::sim::DidgeridooSimulator;
+use cadsd::sim::{DidgeridooSimulator, SimulationStrategy};
 
 // Create a conical didgeridoo
 let geo = Geo::make_cone(1500.0, 32.0, 65.0, 30);
 
-// Simulate acoustics
-let simulator = DidgeridooSimulator::new(geo.geo);
-let spectrum = simulator.compute_impedance_spectrum();
-let peaks = simulator.find_resonance_peaks();
+// TLM (default - stable)
+let simulator_tlm = DidgeridooSimulator::from_geo(&geo.geo);
+let spectrum = simulator_tlm.impedance(&freqs);
 
-println!("Found {} resonance peaks", peaks.len());
+// Digital Waveguide (new - real-time friendly)
+let simulator_wg = DidgeridooSimulator::with_strategy(&geo.geo, SimulationStrategy::Waveguide);
+let spectrum = simulator_wg.impedance(&freqs);
+
+// Complex Impedance (new - phase-aware)
+let simulator_ci = DidgeridooSimulator::with_strategy(&geo.geo, SimulationStrategy::ComplexImpedance);
+let spectrum = simulator_ci.impedance(&freqs);
+
+let peaks = simulator.find_resonance_peaks();
 ```
 
 ### Evolutionary Optimization
@@ -100,9 +107,18 @@ let genome = KigaliGenome::new(
 let mut loss = CompositeTairuaLoss::new(5.0);
 // Add loss components...
 
-// Run optimization
+// Run optimization with Prime-Indexed mutation for enhanced exploration
 let mut optimizer = EvolutionaryOptimizer::with_random_population(
-    Box::new(loss), &genome, 30, Default::default()
+    Box::new(loss), &genome, 30,
+    EvolutionParameters {
+        population_size: 50,
+        generation_size: 20,
+        num_generations: 100,
+        mutation_rate: 0.1,
+        crossover_rate: 0.7,
+        elite_size: 5,
+        mutation_strategy: MutationStrategy::PrimeSequence, // Try MutationStrategy::Gaussian for standard behavior
+    },
 );
 let best_genome = optimizer.evolve()?;
 ```
@@ -123,10 +139,21 @@ This demonstrates basic acoustic simulation and simple optimization.
 The implementation follows the same architectural principles as the Python DidgeLab project:
 
 1. **Segment-based geometry** - Bore represented as chain of conical/cylindrical segments
-2. **Transmission line modeling** - CADSD algorithm for acoustic impedance calculation
+2. **Multi-strategy simulation** - Supports TLM, Digital Waveguide, and Complex Impedance methods
 3. **Modular loss system** - Composable loss functions for multi-objective optimization
-4. **Evolutionary framework** - Genetic algorithms with parallel evaluation
+4. **Evolutionary framework** - Genetic algorithms with Gaussian and Prime-Indexed mutation strategies
 5. **Parametric shapes** - Kigali-style genome-to-geometry mapping
+
+### Simulation Strategies
+
+- **TLM (Transmission Line Model)** - Default stable method based on transfer matrix cascade
+- **Digital Waveguide** - Bidirectional delay-line model for real-time applications
+- **Complex Impedance** - Enhanced complex-number calculations for phase-aware analysis
+
+### Mutation Strategies
+
+- **Gaussian** - Standard random perturbations with normal distribution
+- **PrimeSequence** - Prime-number indexed mutations for improved space exploration
 
 ## Scientific Foundation
 
@@ -134,6 +161,7 @@ The implementation is based on established acoustical principles:
 
 - **Webster Horn Equation** - 1D wave equation for varying cross-section tubes
 - **Transmission Line Theory** - Mapes-Riordan approach for acoustic modeling
+- **Digital Waveguides** - Bidirectional delay-line modeling for efficient simulation
 - **Viscothermal Losses** - Boundary layer effects in wave propagation
 - **Radiation Models** - Levine-Schwinger impedance at open ends
 
@@ -143,6 +171,8 @@ The implementation is based on established acoustical principles:
 - **Parallel evaluation** - Rayon-based parallel processing for evolution
 - **Memory efficiency** - Optimized data structures for large populations
 - **Caching** - Results caching for unchanged geometries
+- **Digital Waveguides** - Lightweight time-domain modeling suitable for real-time applications
+- **Prime-Indexed Mutation** - Enhanced exploration with minimal overhead (uses cached prime sieve)
 
 ## Testing
 

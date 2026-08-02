@@ -3,18 +3,17 @@
 //! geometry creation → simulation → analysis → report generation.
 
 use cadsd::geo::Geo;
-use cadsd::sim::DidgeridooSimulator;
 use cadsd::visualization::{create_analysis_report, generate_text_report};
+use cadsd::sim::{find_resonance_peaks, SimulationStrategy};
 use std::fs;
 use std::path::Path;
 
 #[test]
 fn test_full_workflow_cone() {
     let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
-    let simulator = DidgeridooSimulator::from_geo(&geo.geo);
 
     let output_dir = "test_integration_cone";
-    let result = create_analysis_report(&geo, &simulator, output_dir);
+    let result = create_analysis_report(&geo, output_dir);
     assert!(result.is_ok(), "Analysis report creation failed");
 
     assert!(Path::new(&format!("{}/geometry.png", output_dir)).exists());
@@ -32,12 +31,10 @@ fn test_full_workflow_cone() {
 #[test]
 fn test_full_workflow_with_bubble() {
     let mut geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
-    geo.add_bubble(500.0, 100.0, 50.0);
-
-    let simulator = DidgeridooSimulator::from_geo(&geo.geo);
+    geo.make_bubble(500.0, 100.0, 50.0);
 
     let output_dir = "test_integration_bubble";
-    let result = create_analysis_report(&geo, &simulator, output_dir);
+    let result = create_analysis_report(&geo, output_dir);
     assert!(result.is_ok(), "Analysis report creation failed with bubble");
 
     let report = fs::read_to_string(&format!("{}/report.txt", output_dir)).unwrap();
@@ -49,8 +46,7 @@ fn test_full_workflow_with_bubble() {
 #[test]
 fn test_text_report_generation() {
     let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
-    let simulator = DidgeridooSimulator::from_geo(&geo.geo);
-    let peaks = simulator.find_resonance_peaks();
+    let peaks = find_resonance_peaks(&geo, SimulationStrategy::Tlm);
 
     let report = generate_text_report(&geo, &peaks);
     assert!(report.contains("CADSD Analysis Report"));
@@ -59,10 +55,9 @@ fn test_text_report_generation() {
 }
 
 #[test]
-fn test_geometry_to_simulator_workflow() {
+fn test_geometry_to_simulation_workflow() {
     let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
-    let simulator = DidgeridooSimulator::from_geo(&geo.geo);
-    let freqs = cadsd::sim::grid::lin_grid(50.0, 500.0, 2.0);
-    let spectrum = simulator.impedance(&freqs);
-    assert!(!spectrum.is_empty(), "Spectrum should not be empty");
+    let freqs = cadsd::get_log_simulation_frequencies();
+    let impedances = cadsd::acoustical_simulation(&geo, &freqs, "tlm_cython").unwrap();
+    assert!(!impedances.is_empty(), "Impedance spectrum should not be empty");
 }

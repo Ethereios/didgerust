@@ -47,13 +47,13 @@ Deliverables:
 - [x] `TEST_PLAN.md`
 
 ## Phase 5: Performance plan
-- [ ] Identify hotspots (segments conversion, impedance recompute, peak scanning)
-- [ ] Propose caching + batching strategy
-- [ ] Plan profiling steps
+- [x] Identify hotspots (segments conversion, impedance recompute, peak scanning)
+- [x] Propose caching + batching strategy
+- [x] Plan profiling steps
 
 Deliverables:
-- [ ] `PERF_REPORT.md`
+- [x] `PERF_REPORT.md`
 
 ## Tracking
-- [ ] Mark tasks completed after each phase
+- [x] Mark tasks completed after each phase
 

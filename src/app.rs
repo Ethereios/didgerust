@@ -1,42 +1,50 @@
-//! Application module
-
-pub mod app;
-
+#[cfg(feature = "gui-bevy")]
 use bevy::prelude::*;
-use bevy_egui::{EguiPlugin, EguiContexts};
-use bevy_egui::egui;
 
+#[cfg(feature = "gui-bevy")]
+use bevy_egui::EguiContexts;
+
+#[cfg(feature = "gui-bevy")]
 #[derive(Resource, Default)]
 pub struct CadsdState {
-    length: f32,
-    top_diameter: f32,
-    bottom_diameter: f32,
-    segments: f32,
-    active_tab: String,
-    // Add all necessary state variables here
+    pub length: f32,
+    pub top_diameter: f32,
+    pub bottom_diameter: f32,
+    pub segments: f32,
+    pub active_tab: String,
+    pub frequencies: Vec<f64>,
+    pub impedances: Vec<f64>,
+    pub fundamental_freq: Option<f64>,
+    pub sim_message: String,
 }
 
-fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "DidgeRust - CADSD GUI".into(),
-                resolution: (1280.0, 720.0).into(),
-                ..default()
-            }),
-            ..default()
-        }))
-        .add_plugins(EguiPlugin::default())
-        .insert_resource(ClearColor(Color::srgb(0.1, 0.1, 0.2)))
-        .add_systems(Startup, setup)
-        .add_systems(Update, ui_system)
-        .run();
-}
-
-fn setup(mut commands: Commands) {
+#[cfg(feature = "gui-bevy")]
+pub fn setup(mut commands: Commands) {
     commands.spawn(Camera3d::default());
 }
 
-fn ui_system(mut contexts: EguiContexts, mut state: ResMut<CadsdState>) {
-    // ... (implement UI logic here)
+#[cfg(feature = "gui-bevy")]
+pub fn ui_system(
+    mut contexts: EguiContexts,
+    mut state: ResMut<CadsdState>,
+) {
+    use crate::ui::{show_export_panel, show_settings_panel};
+    use bevy_egui::egui;
+
+    let ctx = contexts.ctx_mut().expect("egui context");
+    crate::ui::apply_visual_theme(ctx);
+
+    ctx.left_panel("settings", |ui| {
+        show_settings_panel(ui, &mut state);
+    });
+
+    ctx.right_panel("export", |ui| {
+        show_export_panel(ui, &mut state);
+    });
+
+    ctx.central_panel(|ui| {
+        ui.heading("CADSD - Didgeridoo Analyzer");
+        ui.label("Design your didgeridoo");
+        ui.label(&state.sim_message);
+    });
 }

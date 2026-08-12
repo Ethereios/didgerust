@@ -1,0 +1,1130 @@
+                                              Printone: Interactive Resonance Simulation for
+                                                  Free-form Print-wind Instrument Design
+                              Nobuyuki Umetani1                            Athina Panotopoulou21      Ryan Schmidt1                                 Emily Whiting2
+                                                                      1                         2
+                                                                          Autodesk Research       Dartmouth College
+
+
+                                                                                                                           G          A
+
+
+                                                                                                                           B          C
+
+
+                                                                                                                           D          E
+
+
+                   (a)                                         (b)                                         (c)                     (d)                                 (e)
+Figure 1: (a) The user can design the shape of wind musical instruments while guided by sound simulation feedback. (b) The acoustic
+resonance is simulated by solving the wave equation in the frequency domain. (c) The hollow musical instrument has internal structure
+and finger holes (d) which produce target tones at specific finger configurations. (e) The user can design unconventional functional wind
+instruments.
+
+
+Abstract                                                                                                         1   Introduction
+
+This paper presents an interactive design interface for three-                                                   Wind instruments have been prominent in the musical history of
+dimensional free-form musical wind instruments. The sound of a                                                   all cultures since prehistoric times. They exhibit great diversity in
+wind instrument is governed by the acoustic resonance as a result                                                structure and sound and many variations have been explored, such
+of complicated interactions of sound waves and internal geometries                                               as flutes, horns, saxophones, and recorders. However, most wind
+of the instrument. Thus, creating an original free-form wind instru-                                             instruments are restricted to cylindrical tube-like shapes, for which
+ment by manual methods is a challenging problem. Our interface                                                   the resonance properties are well understood. Free-form design is
+provides interactive sound simulation feedback as the user edits,                                                challenging due to the complex relationship between geometry and
+allowing exploration of original wind instrument designs. Sound                                                  resonance.
+simulation of a 3D wind musical instrument is known to be com-                                                   Wind instruments are characterized by an enclosed volume of os-
+putationally expensive. To overcome this problem, we first model                                                 cillating air that radiates sound to the listener. Various tones are
+the wind instruments as a passive resonator, where we ignore cou-                                                produced through acoustic resonance, where the specific frequen-
+pled oscillation excitation from the mouthpiece. Then we present a                                               cies of oscillation are magnified through interaction between sound
+novel efficient method to estimate the resonance frequency based on                                              wave propagation and the instrument’s geometry. The player ex-
+the boundary element method by formulating the resonance prob-                                                   cites the oscillation by blowing air into the instrument and controls
+lem as a minimum eigenvalue problem. Furthermore, we can effi-                                                   the resonance by changing the shape of the resonator (e.g., closing
+ciently compute an approximate resonance frequency using a new                                                   and opening finger holes).
+technique based on a generalized eigenvalue problem. The designs
+can be fabricated using a 3D printer, thus we call the results “print-                                           Computational acoustics simulates how sound waves travel through
+wind instruments” in association with woodwind instruments. We                                                   air while interacting with solid objects. Resonance of arbitrarily-
+demonstrate our approach with examples of unconventional shapes                                                  shaped objects can be computed through numerical simulation,
+performing familiar songs.                                                                                       however, this comes with high computational expense and is typ-
+                                                                                                                 ically delegated to offline processing. Recently, Allen and Raghu-
+Keywords: wind instrument, acoustic simulation, computational                                                    vanshi [2015] presented a real-time interface that simulates res-
+fabrication, 3D printing, interactive design                                                                     onance of two-dimensional instruments while the user edits the
+                                                                                                                 shape. In this paper we introduce a method to interactively sim-
+                                                                                                                 ulate fully three-dimensional wind instruments which can then be
+Concepts: •Computing methodologies → Physical simulation;
+                                                                                                                 fabricated and played in person.
+•Applied computing → Sound and music computing;
+                                                                                                                 We present Printone, a tool to design original functional three di-
+                                                                                                                 mensional wind instruments. Printone aids the user’s instrument
+Permission to make digital or hard copies of all or part of this work for
+                                                                                                                 creation via interactive simulation of the resonance frequency. The
+personal or classroom use is granted without fee provided that copies are not
+made or distributed for profit or commercial advantage and that copies bear
+                                                                                                                 inputs are a three-dimensional shape that is to be converted into a
+this notice and the full citation on the first page. Copyrights for components                                   musical instrument and a set of target frequencies that should be
+of this work owned by others than ACM must be honored. Abstracting with                                          produced through different open/close patterns of the finger holes.
+credit is permitted. To copy otherwise, or republish, to post on servers or to                                   To find a design which produces the target frequencies, the user in-
+redistribute to lists, requires prior specific permission and/or a fee. Request                                  teractively scales the input shape and edits the placement and size
+permissions from permissions@acm.org.         c 2016 ACM.                                                       of the finger holes. During this process they are guided by interac-
+SA ’16 Technical Papers,, December 05-08, 2016, , Macao                                                          tive feedback from the simulation. We compute the resonance nu-
+ISBN: 978-1-4503-4514-9/16/12                                                                                    merically from the free-form geometric shape, hence the user can
+DOI: http://dx.doi.org/10.1145/2980179.2980250                                                                   explore unconventional musical instruments beyond simple cylin-
+ACM Reference Format                                                                                              ACM Trans. Graph., Vol. 35, No. 6, Article 184, Publication Date: November 2016
+Umetani, N., Panotopoulou, A., Schmidt, R., Whiting, E. 2016. Printone: Interactive Resonance Simulation
+for Free-form Print-wind Instrument Design. ACM Trans. Graph. 35, 6, Article 184 (November 2016), 14
+pages. DOI = 10.1145/2980179.2980250 http://doi.acm.org/10.1145/2980179.2980250.
+184:2    •   N. Umetani et al.
+
+drical shapes.                                                                    (e.g., [Lefebvre and Scavone 2012]), or hybrid formulations (e.g.,
+                                                                                  [Da Silva 2008]). However, the computational cost of these meth-
+The foremost technical challenge in interactive instrument design is              ods limits their use in interactive design tools.
+efficient acoustic resonance simulation. Rather than solving for the
+entire frequency spectrum, we focus on the dominant tone, which is
+the lowest passive resonance frequency of the instrument’s internal               Computational free-form instrument design.           A few recent
+cavity. Additionally, we neglect the non-linear coupling effect from              works have tackled the problem of free-form musical instrument
+oscillation excitation of the mouthpiece.                                         design. Umetani et al. [2010] presented interactive design of free-
+                                                                                  form metallophones by integrating real-time fundamental tone sim-
+Frequency-domain simulation provides an efficient way to simu-                    ulation into a geometric design system. This work was extended by
+late three-dimensional acoustics by solving only on the boundary.                 Bharaj et al. [2015] to incorporate overtone simulation and geome-
+However, this approach solves the acoustics for a predefined fre-                 try optimization for 2D and 3D shapes. These methods support the
+quency, and thus gives no direct clue about where the resonance                   design of objects with specific contact sounds, while our goal is to
+frequency occurs. To overcome this problem, we first characterize                 design objects with a desired acoustic resonance frequency. Out-
+the resonance as a nonlinear eigenvalue problem. Then, we present                 side the computer graphics community, shape re-design of musical
+a technique to efficiently estimate the resonance frequency from                  instruments has been applied to bell optimization [Schoofs et al.
+a set of sparsely-sampled linear systems in the frequency domain                  1987] and customization of 3D-printable saxophone mouthpieces
+by solving a generalized eigenvalue problem. We further acceler-                  based on computational acoustic imaging [Lorenzoni et al. 2013].
+ate simulation during geometry editing by introducing sensitivity-
+based first-order estimation and a local matrix update approach.                  Our work is greatly inspired by the work of Allen et al. [2015]
+Our interactive tool also provides an automatic hole size adjustment              which simulates sound for free-form wind musical instruments in
+function, which makes it easy to satisfy multiple frequency targets               2D. They compute sound output by solving the wave equation in
+with different finger configurations.                                             the time domain over a two-dimensional grid. However due to the
+                                                                                  2D scope, the resulting designs are not physically realizable for fab-
+Our simulation provides interactive response times during design                  rication. Extending to 3D wave propagation is feasible, but signifi-
+by limiting prediction to a discrete set of resonance frequencies,                cantly more expensive than 2D simulation at the same resolution.
+avoiding the expense of a full spectrum computation. This means
+we do not simulate the timbre of the instrument. However we show                  Recently Li et al. [2016] introduced the Acoustic Voxel method, in
+that predicting resonance frequencies is sufficient for hobby-grade               which a sequence of simple, parametric sound-filter modules are
+fundamental frequency dominant wind musical instruments, where                    assembled to produce specific frequency-dependent impedance be-
+some degree of sound quality can be sacrificed to achieve novel de-               tween input and output openings. The frequency response of the
+signs. The resulting instruments can be fabricated with commonly                  modules is pre-computed for the allowable space of parametric vari-
+available Fused Deposition Modeling (FDM) 3D printers. We vali-                   ation, making the offline stochastic sound optimization tractable.
+date our model through frequency comparisons between simulated                    Although this method can be used to design basic instruments, it is
+and fabricated instruments, and we demonstrate a wide variety of                  not easily extended to the case of non-parametric free-form shapes
+novel instrument geometries. In summary our contributions in-                     as shown in our work, where the precomputation would need to be
+clude:                                                                            recomputed after every cavity shape change.
+    • A formulation of resonance as a nonlinear minimum eigen-
+      value of the system’s coefficient matrix.                                   Sound synthesis in graphics.         Research in computer graphics
+                                                                                  has also explored simulation of contact sounds to enhance the fi-
+    • Efficient resonance frequency estimation based on frequency-                delity of virtual animation [van den Doel et al. 2001; O’Brien et al.
+      domain acoustic simulation at sparsely sampled frequencies.                 2001; Bonneel et al. 2008; Ren et al. 2013]. Modeling sound
+                                                                                  wave propagation in air is essential for realistic acoustic synthe-
+    • Sensitivity-based acceleration of resonance frequency predic-
+                                                                                  sis. Efficient representations of sound propagation have been pro-
+      tion and finger hole size optimization.
+                                                                                  posed to model diffraction and reverberation in complex geome-
+    • An interactive user interface for designing functional wind in-             tries [Funkhouser et al. 1999; Tsingos et al. 2001; Raghuvanshi
+      struments.                                                                  et al. 2010]. Acoustic transfer accurately models how the object’s
+                                                                                  steady-state vibration travels through air in the frequency domain,
+                                                                                  and thus is frequently applied in contact sound simulation [James
+2    Related Work                                                                 et al. 2006; Zheng and James 2010; Zheng and James 2011]. These
+                                                                                  contact sound simulations generally take a two-step approach: vi-
+Physics of musical instruments.          The physics of conventional              bration modes of the solid object are first computed, and then acous-
+acoustic instruments has been extensively studied. Please refer to                tic transfer is computed for each vibration mode discretely. In con-
+Fletcher and Rossing [2010] for a comprehensive overview. For                     trast, we tackle resonance simulation, where the vibration frequen-
+analysis specific to wind instruments, acoustic impedance mod-                    cies are not given from solid modal vibration. To identify the reso-
+els are commonly used to represent the frequency response of                      nance frequencies it is necessary to scan the wave equation over a
+tube-like resonators [Nederveen 1998]. Based on the impedance                     range of frequencies.
+model, real-time virtual instrument simulation systems have been
+explored [Cook 1991; Hirschman 1991]. However, impedance                          Asymptotic expansion of acoustic transfers was introduced by Li
+models typically simplify the pressure wave to be one-dimensional,                et al. [2015] to cover a range of frequencies, allowing interactive
+and thus are limited to serial assembly of tube-like primitives such              synthesis of contact sounds for various material parameters. How-
+as cylinders or cones, where the analytic solution is known. In addi-             ever, precomputation costs are prohibitively high and specific to a
+tion to the properties of resonators, the nonlinear properties of vari-           particular shape, preventing applicability to interactive shape de-
+ous mouthpieces have been studied [Hirschberg et al. 1996]. To in-                sign. Further, sharp peaks in acoustic radiation at the resonance
+vestigate the relationship between more complex instrument shapes                 frequency are difficult to resolve by polynomial expansion. Rather
+and the resulting sound, expensive simulation is employed involv-                 than expanding the acoustic transfer, we directly compute the reso-
+ing the solution of the compressive Navier-Stokes equation (e.g.,                 nance frequency by exploring the spectral properties of the system’s
+[Giordano 2014; Yokoyama et al. 2015]), the Helmholtz equation                    coefficient matrix.
+ACM Trans. Graph., Vol. 35, No. 6, Article 184, Publication Date: November 2016
+                                             184:3                    •      Printone: Interactive Resonance Simulation for Free-form Print-wind Instrument Design
+
+Eigenformulation for acoustic resonance.             To directly com-                                many frequencies downstream. Other common types of mouthpiece
+pute a resonance frequency, we model the resonance frequency as                                      exist, such as reeds, which are mechanically vibrating thin pieces
+the frequency that gives the smallest minimum eigenvalue of the                                      of material (e.g. used by saxophones and clarinets). Our focus is
+systems coefficient matrix. This approach is related to the Determi-                                 primarily on fipples, since the vibration properties of reeds are very
+nant Search Method (DSM), which models the resonant frequency                                        sensitive to material stiffness and thus are difficult to fabricate with
+as the frequency that give the zero minimum eigenvalue (i.e., the                                    commonly available FDM printers.
+matrix is singular), and then finds a root of the determinant of the
+coefficient matrix using the Newton-Raphson iteration. Various ap-
+proaches have been proposed to efficiently detect singularities of                                      Helmholtz       area:            Air Column               Our Free-form
+the coefficient matrix for acoustic problems inside fully enclosed                                      Resonator                        Resonator                Resonator
+
+
+
+
+                                                                                                                                length
+cavities [Ali and Rajakumar 2004]. However, for our musical in-
+strument design problem, we cannot employ DSM because the cav-
+
+
+
+
+                                                                                                                                                         length
+ity is not fully enclosed and the sound is damped as it travels to
+infinity, thus the coefficient matrix is typically not singular.
+                                                                                                                     volume:
+Physics-based cavity optimization.         We provide a design inter-
+face for creating functional wind instruments, which relies on the
+shape of internal cavities. Prior work has investigated optimiz-                                     Figure 3: The Helmholtz resonator and the air column resonator
+ing cavity shapes to satisfy functional requirements, such as bal-                                   are the known resonator models for simple primitive geometries.
+ance [Prévost et al. 2013], spin-ability [Bächer et al. 2014], buoy-                               The resonance frequencies f for these models are approximated
+ancy [Musialski et al. 2015; Wang and Whiting 2016] and strength-                                    with simple equations. When the geometry is more complex (e.g,
+to-weight optimization [Lu et al. 2014]. Cavity shape optimization                                   free-form and multiple finger holes) we need to solve the wave equa-
+can also be performed efficiently using reduced-parameter shape                                      tion to predict the resonance frequency.
+spaces [Musialski et al. 2015]. We leave automatic optimization of
+internal cavity shape for future work, and instead focus on optimiz-
+ing the finger holes that connect the cavity to the exterior.                                        Resonance frequencies are determined by the shape of the res-
+                                                                                                     onator. There are two existing models of acoustic resonance for
+3      Mechanics of Wind Instruments                                                                 simple geometries. One is the Helmholtz resonator which applies
+                                                                                                     to containers with near-spherical cavities, e.g. an empty bottle (see
+In this section, we briefly describe the mechanics of wind musical                                   Figure 3-left). The air in the neck behaves as a mass in a mass-
+instruments and breakdown the components simulated by our de-                                        spring simulation, and the chamber as a spring. The frequency can
+sign tool. We use the word tone to refer to the sound produced by                                    be approximated simply from the volume of the resonator chamber
+a single frequency, purely sinusoidal waveform. Natural sound is                                     and the neck dimensions. This model breaks down for more general
+made up of many tones: the lowest frequency corresponds to the                                       shapes where the neck and the resonator chamber cannot be clearly
+fundamental tone. Higher frequencies above the fundamental are                                       separated. The other known resonance model is the air column res-
+called overtones. While overtones determine the timbre – the qual-                                   onator, in which the interference of the incident and reflected wave
+ity or color of a musical note – the pitch of the sound is determined                                inside a cylinder constructs a standing wave (see Figure 3-middle).
+by the fundamental tone.                                                                             This can be modeled as a one-dimensional distributed mass-spring
+                                                                                                     system, the frequency of which can be computed by the length of
+Wind musical instruments typically consist of two components: a                                      the cylindrical tube. For more complex geometry these models no
+mouthpiece and a resonator cavity. The mouthpiece excites vibra-                                     longer apply, and thus computational simulation of acoustic wave
+tions of air in a range of frequencies to initiate and maintain the                                  propagation is required, which is the main focus of our paper.
+resonance. The resonator is an enclosed cavity inside the instru-
+ment which amplifies oscillation of specific frequencies. Only the
+frequency corresponding to the resonance frequency of the cavity                                     While the resonator affects the resonance frequencies, the mouth-
+survives and will be audible.                                                                        piece affects the amplitude of these frequencies. Typically the os-
+                                                                                                     cillation of the mouthpiece and the resonance are coupled. In other
+                           finger holes     fundamental                                              words, the oscillation introduced by the fipple is affected by the air
+                                            tone                                                     movement driven by the resonance. Detailed analysis of the oscilla-
+                                                           0
+
+                                                                                                     tion induced by the fipple requires expensive turbulence analysis us-
+                                                                            overtones
+                                                          -20
+                                             Power (dB)
+
+
+
+
+                                                          -40                                        ing computational fluid dynamics [Giordano 2014]. In order to pri-
+                       resonator                          -60
+                                                                                                     oritize interactive functional instrument design, we ignore this cou-
+ air        fipple     cavity                             -80
+                                                                                                     pling and only simulate the dominant frequency of the sound. Gen-
+                                                      -100
+
+                                                      -120                                           erally, the dominant frequency is one of the resonance frequencies
+ (a)                                       (b)
+                                                                0   5000   10000 15000 20000 25000
+
+                                                                     Frequeny (Hz)                   and can be controlled by the player by changing the embouchure
+Figure 2: Mechanism of a fipple-driven wind instrument. (a) Blown                                    or the speed of the blowing. In fipple-driven wind instruments, the
+air reaches the fipple, creating an oscillation with a range of fre-                                 fundamental resonance frequency is typically dominant at moder-
+quencies. The resonator cavity amplifies sounds at specific fre-                                     ate blowing speeds [Fletcher and Rossing 2010]. Thus, we found
+quency tones. (b) In a typical ocarina spectrum, the fundamental                                     that predicting fundamental resonance frequencies is sufficient for
+tone is dominant over overtones.                                                                     designing hobby-grade musical instruments that can play simple
+                                                                                                     melodies composed of a set of dominant tones. Incorporating tim-
+                                                                                                     bre by simulating the coupling between the mouthpiece and res-
+Fig. 2 illustrates the basic configuration of our musical instruments.                               onator [Allen and Raghuvanshi 2015] would result in higher-quality
+Our mouthpiece is the fipple, which is commonly used for recorders                                   sound, but is also significantly more computationally intensive for
+or ocarinas. The fipple excites oscillation when a narrow airstream                                  3D geometries, and we leave it to future work to discover ways to
+hits a sharp edge called the bladed edge, thus creating turbulence of                                do this at real-time rates.
+                                                                                                      ACM Trans. Graph., Vol. 35, No. 6, Article 184, Publication Date: November 2016
+184:4    •   N. Umetani et al.
+
+4    User Interface                                                               frequencies based on sensitivity analysis in real-time (>30FPS) and
+                                                                                  updates the audio and visual feedback. During idle moments, the
+This section describes our wind instrument design tool. Fig. 4                    system computes more accurate frequency estimations for each fin-
+shows a screen shot of our system. The 3D user interface con-                     ger configuration. Each update takes only a few seconds, and thus
+sists of geometric editing tools to place finger holes and the fipple.            it does not interfere with the user’s interactive editing session.
+Resonance simulation results are provided as feedback, allowing
+the user to adjust geometry and finger hole positions that generate
+desired resonance frequencies.                                                    Interactive finger hole size optimization. Our tool supports an
+Our tool offers an interactive interface to convert an input 3D shape             optional automatic optimization of the finger hole sizing to simplify
+into a functional wind instrument. Interactivity is very important                the design process. This is a helpful capability because achieving
+in free-form musical instrument design to satisfy multiple require-               multiple resonance frequencies requires adjusting multiple finger
+ments. First, the resonance frequency should be as close to the                   holes in a coordinated way. To use the automatic optimization, the
+target frequencies as possible. This is straightforward when each                 user first specifies finger configurations and their frequency targets.
+frequency corresponds to a configuration where only one hole is                   Then the user presses the “AutoTune” button, and the tool automati-
+open – the user can adjust the one hole independently of the rest                 cally resizes each finger hole such that it best achieves the frequency
+of the design. However, the design process becomes more complex                   targets. This simple addition allows the user to save significant time
+when the user wishes to achieve a high number of notes with few                   and produce more accurate instruments. The optimization proce-
+holes, therefore needing to rely combinatorics of different hole con-             dure is described in Sec. 7.
+figurations (e.g. 3 holes have 8 open/close combinations). Second,
+the original 3D shape needs to be preserved as much as possible. A
+free-form musical instruments should balance the functionality as                 Design procedure. We assume the user has some prior knowl-
+a wind-instrument with the aesthetics of the original input shape.                edge about the design of wind instruments, namely that (i) larger
+The user tries to minimize the number of finger holes and chooses                 cavities lower the resonance frequency, and (ii) larger and/or more
+their locations according to their design intent (e.g., do not place              holes increase the resonance frequency. When a finger hole is
+finger holes on a face). Finally, certain ergonomics need to be con-              closed, the size and the position of that hole does not influence
+sidered, e.g., the musical instrument needs to be graspable at any                the resonance frequency. In other words, closing holes reduces
+finger configuration. With an interactive feedback the user can ex-               the number of control parameters that affect resonance frequency.
+plore solutions to these requirements.                                            Hence, after the mouthpiece is positioned, the user first scales the
+                                                                                  instrument such that the lowest target note is produced when all
+                                                                                  holes are closed. Next, the user opens one hole and adjusts its
+                                                                                  size and location to achieve the second lowest frequency. The user
+                                                                                  then continues opening holes and adjusting their size and location
+                                                                                  to achieve sequentially-higher target frequencies, until all notes can
+                                                       geometry editing           be produced.
+AutoTune                                                window
+   button
+                                                                                  With this simple procedure, N holes are sufficient to produce N +1
+                                                                                  target tones, since each newly-opened hole can be individually ad-
+                                                       target frequencies         justed to produce the next target tone. However, since there are
+                                                       simulated frequency        actually 2N finger configurations for N holes, fewer holes can also
+                                                       finger configuration       be used. In practice, it is easy to achieve two or three higher tar-
+                                                                                  get tones with each new hole. This involves some trial-and-error
+Figure 4: Screen-shot of our wind instrument design tool. The user                hole resizing and positioning, but interactive feedback makes the
+can manipulate the size and location of finger holes and can open                 process straightforward. The optimization function is mainly used
+and close these holes while listening to the simulated sound. The                 for fine-tuning instead of automatic discovery of new hole designs,
+fundamental frequency is visualized together with finger configura-               since the user still needs to place the holes and specify the cor-
+tions and target notes.                                                           respondence between target frequencies and finger configurations.
+                                                                                  The user is recommended to place the mouthpiece at the beginning
+                                                                                  of the design session, since the relocation of the mouthpiece alters
+Geometric editing. Our tool imports existing polygonal meshes,                    all the achieved resonance frequencies. For the shapes in Fig.17,
+which specifies the exterior shape of the instrument. The tool auto-              the resonance frequencies changes up to 20 Hz as a result of the
+matically hollows out the shape to generate an internal cavity. Then,             mouthpiece relocation. The resonance frequencies are usually in-
+the user positions the fipple and finger holes by clicking on the ob-             sensitive to mouthpiece location for the round cavity shapes. This
+ject’s surface. The user can also uniformly scale the entire instru-              is because the fipple is essentially a hole which is always open (see
+ment and adjust the orientation of the fipple. The size of the finger             Helmholtz resonator model in Fig. 3). Our AutoTune also accom-
+holes can be continuously adjusted to manipulate the frequency of                 modates posterior relocation of the mouthpiece by adjusting hole
+the resonance. The user can also specify whether the finger holes                 sizes.
+are open or closed to test the sounds produced by their instrument
+design.
+                                                                                  Using the approach described above, a novel wind instrument can
+                                                                                  be designed in about half an hour. This includes time spent de-
+Simulation feedback.       In the bottom of the window (Fig. 4), the              signing aesthetics and ergonomics. For example, the mouthpiece
+tool shows finger hole open/close patterns along with their simu-                 must be unobstructed, the finger configurations should allow reli-
+lated resonance frequencies. At the same time, the speaker plays                  able grasping, and the mouthpiece and finger holes should not dis-
+the sound with the simulated resonance frequency in the current fin-              rupt salient features. We leave it to future work to automatically
+ger configuration. During continuous adjustment of the size of an                 guide the user towards “good” instrument ergonomics, for example
+individual hole, the tool approximates the change of the resonance                using the graspability framework of [ElKoura and Singh 2003].
+ACM Trans. Graph., Vol. 35, No. 6, Article 184, Publication Date: November 2016
+                                               184:5    •   Printone: Interactive Resonance Simulation for Free-form Print-wind Instrument Design
+
+5     Acoustic Resonance                                                      5.2       Resonance as a Small Minimum Eigenvalue
+
+Acoustic resonance is a phenomenon where the output of an acous-              Typically, the resonance is defined as the frequency where pressure
+tic system becomes very large compared to the magnitude of input              at the observation point p(xobs ) has a local maximum for a spe-
+at specific input frequencies. Our goal is finding such resonance             cific source point xsrc . Such local maximums are typically detected
+frequencies for a cavity shape, where the enclosed internal hull is           with a frequency sweep, i.e., solving for the pressure at p(xobs ) at
+connected to the exterior with small holes. Typical methods usu-              many different wavenumbers. Frequency sweeps are very compu-
+ally involve specifying locations of a sound-emitting point and a             tationally intensive, we thus first formulate resonance in a different
+sound-observing point, and then find the ratio between input and              way such that we do not need to compute the pressure at a specific
+output [Kirkup 1998]. Instead, we formulate resonance as a mini-              observation point.
+mum eigenvalue problem of the system’s coefficient matrix, which
+is solely defined by the object’s geometry and independent of any             The resonance frequency does not depend on the observation posi-
+source and observation points. This formulation leads to the fast             tion, e.g., the fundamental frequency of a flute does not depend on a
+approximate resonance computation presented in Section 6.                     listener’s position. Furthermore, the resonance frequency typically
+                                                                              does not depend on the position of excitation. Hence, instead of
+                                                                              comparing the values at these points, we compare the overall mag-
+5.1   Background on Acoustic Simulation                                       nitude of incident excitation and reflection on the surface. Specif-
+                                                                              ically, we define resonance as the frequency where the magnitude
+This section briefly explains the background of the frequency do-             of reflection pressure on surface |p| takes the maximum value com-
+main acoustic simulation based on the notation used in [James et al.          pared to the magnitude of the incident pressure |fext | = |A(k)p|,
+2006]. We consider a problem where sound waves, which are emit-               i.e., the magnitude of the incident wave reaches a minimum relative
+ted from external vibration sources, are reflected from an object’s           to the magnitude of the reflection pressure.
+surface S. Resonance is a static phenomenon, i.e., the magnitude                                                                
+of a sound wave is maintained via excitation from an external vi-                                                       |A(k)p|
+bration source. In this case it is more convenient to formulate the                      kresonance = arg min min                   ,           (4)
+                                                                                                           k         p     |p|
+problem in the frequency-domain, where all the variables are con-
+verted to static via temporal Fourier transform. The pressure field           Note that the norm of the reflection pressure |p| corresponds to the
+is represented as a set of harmonically vibrating fields p(x)e+iωt ,          sum of acoustic energy that the vertices emit and the norm of the
+where ω is the angular frequency of the vibration. The wavenumber             incident pressure |fext | corresponds to the sum of acoustic energies
+is given as k = ω/c, where c is the speed of sound in the medium              that the vertices receive. The squared norm of the vector is defined
+(approximately 340 m/s in air). The spatial distribution of pressure          as |p|2 = p, p = pT p̄, where p̄ is the conjugate of p.
+is denoted p(x) ∈ C, and satisfies the Helmholtz equation
+                                                                                                            100
+                                                                                    point2
+                    2     2
+              (−∇ − k )p(x) = fext (x),           x ∈ Ω,                                                     10                             pressure at point1
+                                                                     (1)       point1
+                                                                                                                   10   20    30     40     50         60       k
+                                                                                                              0
+where fext (x) is the source term that represents a forced vibra-
+                                                                                               magnitude
+
+
+
+
+tion from an excitation mechanism located inside the medium Ω.                                               0.1                                 pressure at point 2
+For example, a point source at xsrc with unit magnitude results in                      10cm                                                            minimum
+                                                                                                            0.01
+fext (x) = δ(xsrc − x), where δ is the Dirac delta function. We                                                                                         eigenvalue
+assume the object’s surface is very hard and reflects the sound com-                                       0.001
+pletely, i.e., the normal velocities of the air particles are zero at the                            0.0001
+surface. This can be written as a Neumann boundary condition
+                                                                                                  0.00001
+                           ∂p                                                                                            fundamental mode        1st overtone mode
+                              = 0, on S.                             (2)
+                           ∂n                                                 Figure 5: Sound is emitted and observed at the two points near a
+                                                                              tube with one end open. The magnitude of the observed reflection
+The Helmholtz equation can be solved with many different dis-                 sound has a significant relationship with the minimum eigenvalue
+cretization methods. We use the Boundary Element Method                       of the acoustic system.
+(BEM), which compactly represents the three-dimensional pressure
+distribution in Ω with the pressure values on the object’s surface            Given a fixed wavenumber k in (4), the problem of finding the min-
+mesh S. Since the BEM-based formulation naturally satisfies the               imal reflection pressure p is equivalent to finding the magnitude of
+Sommerfeld radiation condition, it can model the radiation from the           the minimum eigenvalue of matrix A(k). If this minimum eigen-
+surface to infinitely far away. The BEM discretizes the Helmholtz             value is small, the magnitude of reflection pressure becomes large
+equation into a matrix formulation                                            compared to the magnitude of incident pressure (see a more de-
+                                                                              tailed discussion in Appendix B). Figure 5 shows an air column vi-
+                              A(k)p = fext ,                         (3)
+                                                                              bration example, where the strong relationship between minimum
+where fext ∈ CN is a vector storing incident pressure at vertices             eigenvalue and pressure wave magnitude is shown at several ob-
+and p ∈ CN is the resulting reflection pressure value at the vertices         servation points. Since the matrix A(k) changes nonlinearly with
+of the object. The coefficient matrix A(k) ∈ CN ×N is a dense                 respect to k, finding k that minimizes the smallest eigenvalue of
+non-Hermitian matrix that varies with respect to the wavenumber k.            A(k) by sampling many different wavenumbers is very time con-
+Details of the matrix A are given in (A.5) in the supplemental ma-            suming. Section 6 describes our novel approximation to solve for
+terial. Note that A changes nonlinearly with respect to k, since the          this wavenumber efficiently.
+first derivative of the coefficient matrix is k-dependent. Once the
+reflection pressure p is computed by solving (3), the pressure value          Relationship to the modal vibration.        Our resonance defini-
+at the observation point inside the medium xobs ∈ Ω is given by               tion (4) is a generalization of a modal vibration, where the coef-
+integrating pressure over the surface. See (A.4) in the supplemental          ficient matrix can be decomposed into a positive-definite Hermi-
+material.                                                                     tian matrix K and a squared-frequency-scaled identity matrix as
+                                                                                ACM Trans. Graph., Vol. 35, No. 6, Article 184, Publication Date: November 2016
+184:6    •   N. Umetani et al.
+
+A(k) = K − ω 2 I. Solving (4) for such problems is identical to                   Hence, as long as the hole is small, we can still expect that A(k)
+the solution of the eigenvalue problem: A(k)p = Kp − ω 2 p = 0                    is numerically close to Hermitian (meaning that its eigenvalues are
+for non zero p. However, such a matrix decomposition is impossi-                  numerically close to real-valued, i.e. the magnitude of the imag-
+ble for exterior acoustic simulations (the exterior acoustics means               inary component is small relative to the real component). Hence,
+the medium Ω is unbounded). In our BEM simulation, the sec-                       for some specific resonance wavenumber, the smallest eigenvalue
+ond derivative of the coefficient matrix with respect to the k is k-              of A(k) will still be much smaller than the second smallest eigen-
+dependent (see (A.5) in the supplemental material). Moreover, the                 value. Figure 7 illustrates how a small hole in a cavity smoothly
+matrices for exterior acoustic problems are typically non-singular,               changes the profile of smallest and second smallest eigenvalues.
+thus there is no non-trivial solution for A(k)p = 0.
+                                                                                                hole                                        0   2     4     6   8   10   12 wavenumbers
+                                                                                            h
+5.3     Spectral Properties of the Coefficient Matrix
+
+
+
+
+                                                                                                       magnitude of eigen values
+                                                                                                                                      0.1
+                                                                                                                                            2nd smallest eigen values(h=1,4,and 8mm)
+We defined the resonance frequency as that where the minimum
+                                                                                                                                     0.01
+eigenvalue of the system’s coefficient matrix is small. Before ex-                                                                          smallest eigen values
+plaining how to find such a frequency, we briefly explain why cavity                                                                0.001
+shapes produce resonance sound in terms of the spectral properties                       10cm
+of the coefficient matrix. Acoustic resonance is a unique phenom-                                                                  0.0001
+                                                                                                                                                                h=8mm
+ena observed in cavities, i.e., convex shapes typically do not have                                                           0.00001
+resonance modes. Since the cavity resonance depends on the shape                                                                                      h=4mm
+of the cavity, i.e., the exterior shape typically does not affect res-                                                0.000001                      h=1mm
+onance, we only consider the properties of the coefficient matrix
+related to the interior. Note that this is an informal observation,               Figure 7: The minimum and the second-smallest eigenvalues of the
+rather than a mathematical proof, which we found to provide useful                coefficient matrices for a cavity with a small hole. As the hole size
+insight into the connection between cavity shape and the spectral                 grows, the profile of the eigenvalues continuously shifts.
+properties of the matrix. A more precise discussion can be found in
+mathematics literature [Brüning et al. 2009].
+                                                                                  Origin of the Helmholtz resonance.       The fully enclosed cavity
+                                                                                  with the Neumann boundary condition (2) has a trivial zero eigen-
+                         totally enclosed              almost enclosed            value at k = 0 (i.e., zero frequency) where the interior pressure is
+                                                                                  constant. A small hole in the cavity perturbs this eigenmode, and
+                                                                                  thus there is always a small eigenvalue with low frequency. This
+                                                                                  low-frequency resonance corresponds to the Helmholtz resonance
+                                                                                  because as the hole becomes smaller the Helmholtz resonance fre-
+                                                                                  quency converges to zero [Mohring 1999].
+matrix                     Hermitian                   almost Hermitian
+eigenvalues                   real                       almost real              6     Approximating Resonance
+min. eigenvalue           0 for some k                 small for some k
+                                                                                  In the previous section, we defined the resonance frequency as the
+                                                                                  frequency which produces the smallest minimum eigenvalue of the
+Figure 6: Spectral properties of the coefficient matrix for totally               coefficient matrix A(k). Computing the matrix A requires O(N 2 )
+enclosed cavity (left) and cavity with small holes (right). Since the             operations and is very expensive, thus we cannot compute A(k) for
+difference in the coefficient matrix is small, the spectral properties            many different wavenumbers if our system is to run at interactive
+of the cavity-with-holes inherits these of the totally enclosed cavity.           rates. In this section, we present a method to estimate resonance
+                                                                                  from a few discretely sampled wavenumbers.
+The coefficient matrix A(k) is a discretization of the operator
+A(k) = L − k2 I, where the L is the Laplace operator (−∇2 )                       6.1   Generalized Eigenvalue Problem Approximation
+and the I is the identity operator. The domain of the acoustic
+medium Ω is a cavity where the internal hull and the outside region               We sample the wavenumber at km (m = 1, . . . , M ). At each
+are weakly connected with small finger holes. Assuming that the                   discretely sampled wavenumber km , we approximate the k-varying
+holes are small relative to the overall cavity surface area, we expect            coefficient matrix A(k) with a first-order Taylor expansion as
+that the spectral properties of the matrix are numerically similar to
+the properties for the matrix of a totally enclosed cavity.                                            A(k) ≃ Am + (k − km )Dm ,                                                       (5)
+In a fully enclosed region without holes, under the Neumann bound-                where Am = A(km ) and Dm = ∂A(k)/∂k is the derivative of
+ary condition (2), the Laplace operator is non-negative and Hermi-                the coefficient matrix at km . The derivative of the operator A(k)
+tian, which means it has real non-negative eigenvalues. When the                  with respect to the wavenumber gives a scaled identity operator
+squared wavenumber k 2 is identical to one of the eigenvalues of the              ∂A(k)/∂k = −2kI. Since Dm is essentially a discretization of
+Laplace operator L, the operator A has a zero eigenvalue. The nu-                 an identity operator, it is close to a real-valued diagonally-dominant
+merical discretization of an operator inherits its spectral properties,           matrix (similar to the mass matrix in a solid mechanics simulation).
+thus matrix A(k) is also expected to be Hermitian and have real
+eigenvalues. Furthermore, at some specific wavenumbers it has a                   Finding the resonance wavenumber (4) using this first-order ap-
+zero eigenvalue.                                                                  proximation (5) is closely related to the generalized non-Hermitian
+                                                                                  eigenvalue problem:
+An infinitesimal hole that connects the internal cavity and the exte-
+rior region produces only a small change to the matrix A(k) (see                             A (λ)v = 0,                                   A (λ) = Am − λDm ,                        (6)
+Figure 6). Since A(k) for an open boundary is a non-singular
+matrix, such perturbation continuously changes the eigenvalues.                   where λ ∈ C is the eigenvalue and v ∈ CN is an eigenvector.
+ACM Trans. Graph., Vol. 35, No. 6, Article 184, Publication Date: November 2016
+                                             184:7   •   Printone: Interactive Resonance Simulation for Free-form Print-wind Instrument Design
+
+Since A0 is just a shifted version of A: A(k) = A0 (km − k),                  frequency kmax and rij is bounded by the diameter of the circum-
+if (km − k) is close to λ, the minimum eigenvalue of A(k) be-                 scribed shape D. Hence, in our paper, we chose the wavenumber
+comes small. In other words, when (k − km ) is the real part of λ, a          sampling interval as ∆k < 1/D|1 + kmax D|, which can guaran-
+vector p similar to v makes the |A(k)p|/|p| small. Since the first            tee that the entry-wise linearization error is less than 3%, which we
+order Taylor expansion (5) is valid only when the wavenumber is               believe is a sufficient accuracy. For example, if the cavity shape is
+close to the sampled km , we are interested in finding a resonance            about 10 cm and the highest target frequency is 1000 Hz, then the
+wavenumber nearest to the sampled km . The eigenvalue of smallest             wavenumber can be sampled at roughly 150Hz interval (∆k = 3).
+magnitude λ0 gives a resonance wavenumber as
+
+                kresonance = km − Re(λ0 ).                        (7)
+                                                                                                                                                imag
+                                                                                                                                                4
+This is a good approximation because imaginary
+the eigenvalue λ is close to a real
+number for the cavity resonance. The
+                                                                                                                                                           real
+generalized eigenvalue problem (6) is                                                                                           -4
+                                                                                                                                 -        0            4
+identical to the conventional eigen- 0
+value problem for matrix Am D−1                               real
+                                  m . As
+we discussed in the previous section,                                                                                                     -4-
+Am has nearly-real eigenvalues. Since
+the Dm is close to a real-valued diagonally-dominant matrix, mul-
+tiplying by its inverse does not alter the properties of Am .                 Figure 8: (Left) our first-order approximation of the coefficient ma-
+                                                                              trix at a wavenumber km (green line). (Right) an entry of a BEM
+Inverse power method.     The eigenvalue with smallest magnitude              coefficient matrix changes proportionally to the curve g(γ) above.
+λ0 can be easily computed using the inverse power method [Dem-                Denser sampling is required as curvature increase with γ.
+mel et al. 2000]. More specifically, by repeatedly multiplying
+the inverse of the matrix Am D−1m with an arbitrary vector v as
+v ← Dm A−1  m v, the Rayleigh quotient                                        Culling inaccurate resonance estimation.             We can estimate
+                                                                              a resonance frequency for each of the sampled wavenumbers
+                           hDm A−1
+                                 m v, vi                                      km (m = 1, . . . , M ). After the M -number of resonance frequency
+                        θ=                                        (8)
+                               |v|2                                           estimations, we must determine which is the most accurate. The lin-
+                                                                              ear approximation in (5) and (9) is accurate if kresonance and km
+converges to the inverse of the minimum eigenvalue. Convergence               are close. Hence, we pick the most accurate estimation by choosing
+is defined as |w − θv|/|v| < , we use  = 10−5 in this paper.                the one that has the minimum difference between kresonance and
+Once the iteration converges, the inverse of the Rayleigh quotient            km . In other words, we choose a computed resonance wavenum-
+gives the minimum eigenvalue λ0 = θ̄/|θ|2 .                                   ber as the best estimation if the difference is smaller than half of
+                                                                              the sampling interval |kresonance − km | < 0.5∆k. Furthermore,
+6.2   Sparse Wavenumber Sampling                                              the convergence ratio of the inverse power method is bounded by
+                                                                              the ratio between the magnitudes of the first and second smallest
+We uniformly sample the wavenumbers such that the range of these              eigenvalues |λ0 |/|λ1 |. Since the |λ0 |/|λ1 | is very small (< 10−3 )
+frequencies covers the target frequencies. The computation of the             around the resonance wavenumbers (see Fig. 7), several iterations
+matrix derivative Dm is as expensive as the computation of the co-            are enough to reach convergence. If km is very far from kresonance ,
+efficient matrix Am . Hence, as shown in Fig.8-left, we approx-               convergence is slow. Hence, if a segment does not reach conver-
+imate the matrix derivative with a central differential of sampled            gence after Niter iterations, we regard this segment as far from the
+coefficient matrices                                                          resonance frequency (we use Niter = 5 in this paper).
+                          Am+1 − Am−1
+                  Dm =                .                           (9)         We use BiCGStab method [van der Vorst 1992] to solve the linear
+                          km+1 − km−1                                         system. We did not use any preconditioner in the iterative solve, but
+                                                                              we observed a stable convergence in the wavenumbers we use to
+For the first and last sampled wavenumber k1 and kM , we cannot               simulate fundamental resonance frequency. The overall algorithm
+compute the central difference and we must use forward and back-              is shown in Algorithm 1.
+ward finite difference schemes.
+
+Entry-wise accuracy of linearization.       The accuracy of the lin-          Algorithm 1: resonance detection algorithm at wavenumber km
+ear approximation of (5) under the finite difference (9) depends on       1 while #iteration < Niter do
+the density of the wavenumber sampling. Hence, we carefully de-           2     v ← v/|v| ;                         /* normalizing */
+termine sampling intervals such that the error of the linearization
+                                                                          3     x ← A−1  m v
+is below a certain threshold for all entries of the coefficient ma-
+                                                                          4     w ← (Am+1 x − Am−1 x)/(km+1 − km−1 )
+trix. The (i, j)-entry of the coefficient matrix can be written as
+                                                                          5     θ ← hw, vi ;               /* Rayleigh quotient */
+aij (k) = a0ij g(krij ), where a0ij ∈ C is a scaling factor indepen-
+                                                                          6     if |w − θv| <  then
+dent of the wavenumber, g(γ) = exp(+iγ)(1 − iγ), and rij is
+the distance between point i and point j (see (A.5) in the supple-        7          λ0 = θ̄/|θ|2
+mental material). The Figure 8-right illustrates the trajectory of the    8          kresonance = km − Re(λ0 )
+curve g(γ). The second derivative of this curve (|g 00 | = |1 + γ|)       9          if kresonance ∈
+                                                                                                   / [km−1/2 , km+1/2 ], discard this solution
+indicates that the error of our linear approximation is on order of      10       v←w
+∆krij |1 + krij |, where ∆k is the wavenumber sampling inter-
+val. Here, k is bounded by the wavenumber of maximum target
+                                                                               ACM Trans. Graph., Vol. 35, No. 6, Article 184, Publication Date: November 2016
+184:8    •   N. Umetani et al.
+
+7    Hole Size Optimization                                                       where Φ is the set of all hole size parameters, G is the set of finger
+                                                                                  configurations where the goal is specified. For a finger configura-
+We have described our novel framework to simulate a resonance                     tion g ∈ G, kg denotes the current resonance wavenumber and k̂g
+frequency in response to geometry edits with a latency of several                 is the goal wavenumber. The number of holes and number of target
+seconds. Our system is usable with these response rates, however,                 frequencies can be arbitrary. If the number of target frequencies is
+because the resonance frequencies are sensitive to hole sizes, the                larger than the number of holes, the system returns the best possible
+user may need to make many trial-and-error adjustments. We en-                    hole size to achieve the target.
+hance this design workflow with a faster real-time tone estimation
+during hole resizing, and an automatic optimization of the finger
+hole sizes. We use sensitivity analysis for both of these tasks.                  8   Implementation Details
+                                                                                  Our resonance simulation framework described in the previous sec-
+Sensitivity-based real-time response.        Let φ be the diameter of             tion is designed such that it gives interactive feedback during in-
+a finger hole. When the system is idle, the tool computes a sensitiv-             cremental changes in the geometry. This section describes how we
+ity ∂kresonance /∂φ, which denotes the linear approximation of the                implement this computation.
+resonance wavenumber change with respect to the change in hole
+size. When the user is interactively changing the hole diameter φ,
+the system instead estimates the resulting frequency change as                    Local matrix update.       The coefficient matrix Am is very expen-
+                                                                                  sive to compute. Thus, when the geometry is updated, we incre-
+              0                                ∂kresonance
+             kresonance = kresonance +                     ∆φ.             (10)   mentally update the coefficient matrix computed from the previous
+                                                   ∂φ                             geometry rather than recomputing from scratch. In other words, we
+Since this estimation does not involve expensive matrix opera-                    only recompute the coefficients in the matrix that would be affected
+tions, it can be computed at real-time rates (>30FPS). The user                   by the geometry change. As the size of the coefficient matrix de-
+can then quickly adjust the hole size to achieve a specific fre-                  pends on the number of vertices of the mesh, we constrain our mesh
+quency goal. The next time the system is idle, we compute the                     edits such that the total number of the vertices does not change.
+higher-accuracy resonance frequency solution with the technique
+described in Sec. 6, and then update the sensitivities for all open               After the user finishes a geometry edit (e.g, moving a finger
+holes.                                                                            hole), we determine which vertices are affected, and recompute the
+                                                                                  columns and rows which belong to the affected vertices. This com-
+                                                                                  putation is order O(N n) where n is the number of the affected
+Sensitivity computation.      The sensitivity of a resonance fre-                 vertices.
+quency can be approximated by observing how the solution changes
+during one iteration of Algorithm 1 under a small change in φ. The                We also locally update the matrix when the geometry is scaled.
+change in the Rayleigh quotient is approximated as                                When the mesh is uniformly scaled by a factor s, we scale all the
+                                                                              sampled wavenumbers by the factor 1/s. This is correct because
+    ∂θ       ∂w                 ∂w                   ∂Am x
+       =         , v , where        ≃ −Dm A−1  m               .                  our coefficient matrix depends only on the relative distances be-
+   ∂φ        ∂φ                 ∂φ                    ∂φ                          tween two points on the surface, scaled by wavenumber (see (A.5)
+                                                               (11)               in the supplemental material). The coefficient matrix and eigen-
+                                                                                  values are unaffected and the resulting resonance frequency is just
+Please refer to Appendix C for a detailed derivation. The term
+                                                                                  scaled by 1/s. This agrees with the physical effect of scaling down
+∂Am x/∂φ is computed using finite differences, where a small
+                                                                                  a musical instrument, which produces a higher pitch sound. Dur-
+change is applied to the hole size and the change in Am x is mea-
+                                                                                  ing the scaling operation, we maintain the size of the mouth piece,
+sured. Using this estimated Rayleigh quotient derivative, the eigen-
+                                                                                  hence we update only the part of the matrix associated with the
+value and resonance wavenumber change is computed as
+                                                                                  vertices around the fipple.
+                  ∂λ0
+                                                      
+                           1 ∂θ       2θ̄       ∂θ
+                       = 2         − 4 Re h , θi ,              (12)
+                  ∂φ      |θ| ∂φ     |θ|        ∂φ                                Mesh import and export.         The user can import an arbitrary 3D
+                                 0
+         ∂kresonance              ∂λ                                              manifold mesh into our design tool. Figure 9 shows the overall
+                       = − Re             .                     (13)              procedure from mesh importing to mesh exporting. The tool first
+              ∂φ                   ∂φ
+                                                                                  creates an internal cavity with uniform shell thickness h (in all our
+Although this sensitivity approach is a first order approximation, it             examples, h = 0.4 cm). We use a discrete signed distance field to
+gives strong guidance as to how much a hole size must be changed                  compute this internal cavity robustly. Next we prepare a simulation
+to achieve a goal frequency. Because the relationship between the                 mesh by resampling the internal cavity mesh with a specific number
+resonance wavenumber and the hole size is nonlinear, the error be-                of vertices and extruding it by the thickness h. After the user’s mesh
+comes large when the hole size changes dramatically. In our exper-                editing is finished, we join the cavity mesh and input surface mesh
+iments, we observed that if the change in hole size is on the order               by inserting the finger holes and the fipple hole. Finally, we use a
+of the frequency of a half note, then the error in sensitivity-based              mesh Boolean operation to insert a nozzle for the fipple.
+estimation is less than 10%.
+                                                                                  Mesh editing during simulation.        During the interactive design
+AutoTune.     When the user presses the “AutoTune” button, the tool               session, the resonance simulation is performed on the simplified
+automatically optimizes multiple hole sizes using the sensitivity in-             mesh (see Figure 9-(c)). Our tool allows the user to manipulate a
+formation. The hole size updates are computed with the Newton-                    finger hole by placing, moving, resizing and opening/closing it. The
+Raphson method to minimize the squared sum of wavenumber dif-                     user can also manipulate the fipple by placing, moving and orient-
+ferences between the current and target wavenumbers. The hole                     ing it. We compute these operations with mesh stitching. We first
+size update can be written as                                                     add vertices to the mesh such that these vertices specify the outline
+       "
+         X  ∂kg   ∂kg T
+                                #−1
+                                       X ∂kg g
+                                                           !                      of the finger holes or the fipple shape. Then, we change connec-
+                                                         g                        tivity of the triangles in the mesh to insert these shapes. These
+∆Φ =                                            (k̂ − k ) , (14)
+         g∈G
+                ∂Φ       ∂Φ            g∈G
+                                            ∂Φ                                    operations only modify vertex positions and triangle connectivity
+ACM Trans. Graph., Vol. 35, No. 6, Article 184, Publication Date: November 2016
+                                                      184:9      •     Printone: Interactive Resonance Simulation for Free-form Print-wind Instrument Design
+                                                                                             1000Hz         1800Hz   1000Hz            1800Hz    500Hz          900Hz
+       importing                simulation&design                exporting               C                           C                          C
+                                                                                         D                           D                          D
+                                                                                         E                           E                          E
+                                             stitch mesh
+                                                                                         F                           F                          F
+
+
+
+
+                                                                           add
+                   hollo lify
+                                                                                                                     G
+
+
+
+
+                                                                             noz
+                    simp                                                                 G                                                      G
+                                                           (d)
+
+
+
+
+                                                                                 zle
+ (a)                    w out
+                                                                                         A                           A                          A
+                                                                                                  FLUTE1                      FLUTE2                     FLUTE3
+                           de      (c)
+                         tru
+
+                                                                                         Figure 10: Flute-like free-form musical instruments designed using
+                        ex
+
+
+
+                                                                                         our system. Red lines shows the frequencies of target notes and the
+        (b)                        editing holes                 (e)                     light and dark green lines show ranges of the measured frequency.
+Figure 9: Overall workflow of geometry processing. (a) the in-
+put mesh. (b) the simplified internal cavity mesh. (c) the mesh for
+acoustic simulation. (d) input mesh and cavity mesh are joined. (e)                      Accuracy. Figure 17 compares the target frequencies and actual
+the final mesh with an air nozzle.                                                       measured frequencies of the instruments we designed. Red lines are
+                                                                                         the target frequencies, while the measured frequencies are shown as
+                                                                                         ranges between the light and dark green lines. This range occurs be-
+                                                                                         cause the sound is influenced by the speed of blowing (higher speed
+in the neighbourhood of the edit. Furthermore, in order to make                          produces higher frequencies). We gradually increased the blowing
+the coefficient matrix reusable, we maintain a constant vertex count                     speed and recorded the lowest and highest frequencies that produce
+by allowing floating/disconnected vertices. Although these float-                        clear sound. We observe that the target frequencies generally fall
+ing vertices are not part of the simulation mesh, they have reserved                     within measured ranges, i.e., the user can play the exact tones with
+spaces in the coefficient matrix. The entries of the coefficient matrix                  proper blowing speed. This type of fine-scale tuning by adjusting
+are adjusted for these floating vertices such that they are decoupled                    the blowing speed is very common in wind instruments.
+from the active vertices. By limiting the number of the finger holes,
+we constrain the maximum number of vertices that may be used in                          Among the 104 target frequencies we created with various instru-
+the mesh, thus we can maintain a constant-sized matrix for solving                       ment shapes, we experienced only 4 instances where the instrument
+during shape editing.                                                                    could not play a target frequency: at the highest frequencies of
+                                                                                         B EETHOVEN, B UNNY, L IZARD and F LUTE 3. Each of these er-
+                                                                                         rors is observed where the instrument produces one octave higher
+Sound synthesis. During editing, the system plays the predicted
+resonance sound from a speaker. As our system only predicts fun-
+damental frequencies, no overtones or timbre are simulated. Since
+a sound with only one frequency sounds artificial, we create a more                                                                                      loud speaker
+                                                                                                microphone
+natural sound by heuristically widening the peak using a normal
+distribution with 3.0 Hz standard deviation. The audio waveform is
+then generated by an inverse fast Fourier transform.
+
+
+9      Results
+
+Figure 1, 10, 15 and 17 show sixteen wind instruments created us-
+ing our tool. Figure 1, 15 and 17 show various free-form instru-                             SHEEP         dB
+ments, which are designed to play a specific song. The input mod-
+els were selected from a public 3D model-sharing website, with
+choices inspired by the theme of their songs. In addition, we made
+three instruments that have elongated flute-like shapes (see Fig-
+ure 10), which were modeled using Teddy [Igarashi et al. 1999].
+These free-form shapes would be difficult to approximate with an
+assembly of easily-analyzable primitives such as tubes, cones, or                                          100                      1000                        10000 Hz
+spheres. Specifically, several of our results have non-convex inte-                          CUBE          dB
+rior cavities, such as the star-shaped instrument in Fig. 1. We en-
+courage readers to watch the accompanying video to hear the wind
+instruments’ sound. We also include 3D-printable mesh files of
+these instruments’ shapes in the supplemental material.
+
+Figure 17 shows the simulated frequencies (blue lines) and the tar-
+get frequencies (red lines) for various instrument shapes. With our
+design system equipped with the interactive simulation and opti-                                           100                      1000                        10000 Hz
+mization, the user can design instruments in which simulation fre-
+quencies agree with target frequencies. Furthermore, we have been                        Figure 11: (Top) passive resonance measurement setup. Sound
+able to achieve between 5 to 8 target frequencies for the shapes we                      from a loud speaker is recorded with a microphone for various fre-
+have tested, with three to four finger holes. For example the B UNNY                     quencies. (Bottom) sharp pressure drops in the frequency response
+model can play eight tones with four holes. Without out interactive                      indicate resonance frequencies of the cavities. The measured fre-
+simulation feedback, it would be difficult to explore such designs                       quencies (solid lines) agree well with the simulated resonance fre-
+since each hole cannot be tuned independently.                                           quencies (dotted lines).
+
+                                                                                           ACM Trans. Graph., Vol. 35, No. 6, Article 184, Publication Date: November 2016
+184:10       •     N. Umetani et al.
+
+than the lowest frequency. This occurs because the simulation loses                         value over a range of frequencies. We compared our frequency
+accuracy when the total area of the finger holes becomes large com-                         estimation result (M = 5) against the ground truth frequency
+pared to the cavity surface area. These frequencies are at most 3%                          sweep where the magnitude of eigenvalues sampled with a small
+lower than the target frequency, i.e., the deviation is smaller than                        frequency interval (0.1 Hz). Figure 13-bottom compares the ground
+half of the deviation of the flat tones. Although we did not tune                           truth and our resonance frequency prediction for the C UBE and C AT
+these instruments at all, such small deviations can be easily fixed                         models. We observe that our resonance frequency estimation agrees
+by tuning.                                                                                  well with the peaks of the eigenvalue spectrum (error for six tones
+                                                                                            was within 3 Hz.)
+To eliminate the effect of the blowing speed, we also analyzed
+passive resonance frequencies of the cavities. We measure how
+                                                                                                                                    hole2
+the magnitude of reflecting sound emitting from a sound source                                                   hole1
+                                                                                                                                     10mm
+                                                                                                                                              hole3
+                                                                                                                                                                     11.4mm
+                                                                                                                  8mm                          12mm         10.2mm            13.2mm                                              hole3                           4.61mm
+changes with respect to the frequency. Figure 11-top shows our                                                                                                                                                                     4mm
+                                                                                                                                                                                                                                      hole2                            7.22mm
+                                                                                                                                                                                                                                       6mm
+measurement setup, where we hang an instrument in the air, then                                                                                                                                                                          hole1                           7.01mm
+                                                                                                                                                                                                                                          8mm
+emit sound of various frequencies with a speaker, and record the
+reflected sound with a microphone. This experimental set-up is
+                                                                                                                                                 AutoTune                                                                                        AutoTune
+common in finding the frequency response between input and out-
+put [Benade and Ibisi 1987]. With constant energy input, the out-
+                                                                                                                         0.01                                                                                          0.01
+put pressure drops at resonance because resonance mode requires
+
+
+
+
+                                                                                           magnitude of eigen values
+
+
+
+
+                                                                                                                                                                                          magnitude of eigen values
+higher energy to drive it. We used the software FuzzMeasureTM to
+                                                                                                                        0.001                                                                                         0.001
+sample the reflection magnitude across many different frequencies.
+Note that the resonance frequency is insensitive to the location of
+                                                                                                                       0.0001                                                                                     0.0001
+the microphone and sound source, thus we sampled the spectrum
+with several miscophone/speaker spatial configurations and aver-                                                0.00001                                                            [Hz]                      0.00001                                                               [Hz]
+aged them. Figure 11-bottom shows the comparison of simulated                                                                   0      200      400   600    800     1000   1200                                              0      200    400     600   800   1000    1200    1400
+
+
+
+resonance frequency against measured passive resonance frequency                                                                    initial    target       optim.      sweep                                                     initial target    optim.                 sweep
+for the S HEEP model and C UBE models. The C UBE has three holes                                                                    654.2      698.5 (F)    698.8       697.7                                                     996.1   1046.5(C) 1045.7                 1044.9
+and an edge length of 4cm. We observed up to 10 Hz deviation                                                                        864.3      880.0 (A)    881.2       878.9                                                     1109.6 1174.7(D) 1174.2                  1173.7
+                                                                                                                                    991.7      1046.5(C)    1046.3      1046.5                                                    1290.0 1318.5(E) 1318.1                  1317.6
+between the simulation and the experiment.
+In Figure 12, we explored the effect of simulation accuracy by vary-                        Figure 13: (Top) the optimization of the hole sizes using the Au-
+ing the mesh resolution (i.e., the number of vertex N ) and also                            toTune for the C UBE (left) and C AT (right) model. (Middle) com-
+the number of sampled wavenumbers M . The predicted resonance                               parison between frequency sweep of the eigenvalues for very small
+frequencies converge smoothly to the experimental result as these                           sampling interval (curves) and our estimation of resonance fre-
+numbers are increased. All the designed examples shown in the pa-                           quency (vertical lines). (Bottom) comparison between the initial
+per are made with N = 1700 and M = 5 to maintain interactivity                              resonance frequencies, target frequencies, optimized resonance fre-
+with reasonable accuracy. Since changes in the blowing speed can                            quencies after AutoTune and ground truth resonance frequencies
+easily compensate for a 10Hz error, we believe the parameters we                            obtained from frequency sweep of the eigenvalue.
+used are reasonable.
+
+       changing mesh resolution                         changing wavenumber #sampling       Performance.       We profile the speed of the each iteration of reso-
+ Hz                     at M=8                            Hz                at N=2.0k
+                                               hole2
+                                                                                            nance simulation, total time to find the resonance frequency from
+                                                         1000
+1000                                                                                        scratch, and the speed of updating the resonance while editing the
+                                                                                            mesh. Table 1 lists statistics for our examples, measured on a Mac-
+                                                         800
+                                                                                            Book Pro with Core i7 (3.0GHz) CPU. We observed that the per-
+800
+                                       hole3    hole1
+                                                                                            formance is quadratic in the mesh vertex count, as the dense matrix
+                                                                                            update is the bottleneck. Since performance is determined by the
+600
+                                                         600                                mesh size, and we held mesh size fixed, all the models in Figure 17
+                                                                                            exhibit timings similar to the CAT and PIG models in Table 1. Our
+                                                                                            tool is written in C++ and the entire resonance computation is per-
+400                                                      400
+ 0.5k       1.0k    1.5k   2.0k                                3   4   5   6   7   8
+                                                                                            formed by a single CPU thread. We use Lapack implemented on
+                                  N                                                    M
+                                                                                            the Intel Math Kernel LibraryTM to efficiently compute the matrix-
+Figure 12: Change in the resonance frequency with respect to the                            vector product for the linear solver. On average our tool runs at 5
+mesh resolution and the number of the sampled frequencies. Dotted                           frames-per-second and the resonance frequency can be computed
+lines shows resonance frequencies obtained from the actual physi-                           in several seconds after the user completes geometry manipulations
+cal measurement. In the legend, ◦ ◦ • means that hole 1 and hole 2                          (opening/closing, relocating a hole). Compared to the frequency
+are open and hole 3 is closed.                                                              sweep approach with a 10 Hz frequency interval, our tool achieves
+                                                                                            at least a 50× speedup. Our tool provides sufficient interactivity
+                                                                                            to design functional free-form wind musical instruments shown as
+We optimize the hole size of the C UBE and C AT models such that                            in Figure 17. Note that our implementation could be significantly
+they can produce three different target tones. Our AutoTune op-                             faster with multi-threading or stream processing, since we can in-
+timizes the sizes of the holes such that the simulated frequency is                         dependently construct the coefficient matrix and compute the reso-
+within 2 Hz. The optimization took two iterations and 24 seconds                            nance for each wavenumber sampling point.
+in total for the C UBE model and three iterations and 41 seconds for
+the cat model. Figure 13-top shows close-ups of the holes before
+and after AutoTune.                                                                         3D printing.    We print the designed wind instruments using PLA
+                                                                                            filament on a MakerBot Replicator 2 printer, which is a widely
+Next, we verified the accuracy of our matrix interpolation approach                         available printer/material combination. In order to create an empty
+(Sec. 6) in our fast approximation of the smallest minimum eigen-                           cavity inside the shape, we cut the model in half, print each half
+ACM Trans. Graph., Vol. 35, No. 6, Article 184, Publication Date: November 2016
+                                               184:11   •   Printone: Interactive Resonance Simulation for Free-form Print-wind Instrument Design
+
+      Shape                  #vtx.           #tri.      time/iter.      # iter.   time ini.          time open/close         time move             time freq. sweep
+      C AT                   1.70k           3.40k      0.149s          15        14.6s              2.2s                    2.0s                            2m15s
+      P IG                   1.70k           3.40k      0.151s          15        14.8s              2.1s                    1.9s                            2m16s
+      C UBE (60% res.)       0.97k           1.94k      0.047s          15        4.2s               0.85s                   0.70s                             39.2s
+      C UBE                  1.65k           3.30k      0.127s          15        12.9s              2.1s                    2.0s                            1m59s
+      C UBE (150% res.)      2.55k           5.10k      0.305s          15        32.6s              6.2s                    5.8s                            2m57s
+
+Table 1: Statistics and timing; the number of vertex (#vtx.), the number of triangles (#tri.), average time for each iteration (time/iter.),
+maximum total number of iterations to find resonance frequency (#itr.), initialization time to compute coefficient matrices for all wavenumber
+points prior to the design session (time ini.), average time for updating the resonance frequency for opening/closing a finger hole (time
+open/close), average time for updating the resonance frequency for moving a finger hole (time move), and total computation time for updating
+resonance frequency using the frequency sweep approach (time freq. sweep).
+
+
+separately, and then glue the halves together. The cutting was                     cantly higher resolution than consumer FDM printers (inset-left),
+done manually using a standard mesh editing software, with the cut                 we did not observe any audible difference in fundamental tone be-
+placed such that we can remove the support material inside the cav-                tween the three prints. Note that we did not sand, grind or smooth
+ity after printing. We carefully orient each part on the print bed so              the interior of the 3D shapes, and our experimental results were
+that the joint faces are not covered with support material, to produce             still very accurate. We conclude that surface roughness has only a
+a cleaner assembly. Note that with a powder-based 3D printer, this                 small effect on the dominant frequency. Also at the object scales
+cutting step would be unnecessary, as we can extract the powder via                we explored, fabrication error is small compared to the range of
+the finger holes.                                                                  frequencies the mouthpiece can produce by changing the blowing
+                                                                                   speed. Please refer to the supplemental video for a demonstration.
+Saxophone mouthpiece.           We also tested our approach with a
+saxophone mouthpiece, which uses a reed (i.e., a thin mechanically                 Size dependency. To explore generality of our simulation across
+vibrating sheet) as the excitation mechanism. In the simulation, the               instrument sizes, we also made some quite large wind instruments.
+saxophone mouthpiece is modeled as a completely closed geome-                      As discussed in Sec. 8 and Appendix A, the system matrix is invari-
+try, whereas the fipples in our other examples are modeled as holes                ant under scaling of geometry and wavenumber. This means that if
+with a sharp edge. We used an actual saxophone mouthpiece by                       the geometry is scaled by a factor of two, the resonance frequency
+plugging it into a socket added to the 3D-printed cavity geometry.                 is reduced by half (one octave lower). To validate this we printed
+Figure 14 shows an example instrument with a saxophone mouth-                      models at scales of 3/2×, 2×, and 3×, and analyzed recordings
+piece. We observed that with this configuration the generated tones                to see whether they produced sound with frequencies 2/3×, 1/2×,
+still agree well with the simulation.                                              and 1/3× lower than the original frequency. Fig. 15 show the result
+                                                                                   of this analysis with the H EN model. The scaled models generate
+                                     400Hz      500Hz    600Hz       700Hz         lower tones at the predicted ratios, implying that our simulation can
+                                 A                                                 be applied at varying scale.
+                                 B
+
+                                 C
+                                                                                    HEN   3 holes 5 tones                   3x
+                                                                                    Song:                                                                              5cm
+                                 D                                                   Old MacDonalds Farm                                           2x
+                                                                                                                                                            1.5x
+                                 E                                                                                                                                       1x
+                                 F
+
+Figure 14: (Left) free-formed instrument with saxophone mouth-                                      400Hz                             800Hz                     1200Hz
+piece. (Middle) simulation mesh for resonance frequency predic-                     C4             G4            C5              G5
+tion. (Right) the measured tone agrees with the simulation except
+for the lowest two notes (A,B) by a small margin.                                             D4            A4         D5                      A5
+                                                                                         F4                       C5             F5                       C6
+                                                                                              G4                       D5               G5                      D6
+10    Discussion
+                                                                                               A4                           E5                A5                          E6
+Material dependency.       We solve
+the Helmholtz equation under the                                                   Figure 15: Scaled instruments. The geometry of H EN model
+assumption that the surface re-                                                    (5cm×5cm×7cm) is scaled by 1.5×, 2×, and 3× and the result-
+flects the sound wave perfectly (2).                                               ing sound is recorded.
+If the wall is soft, the reso-
+nance frequency is affected as
+the object surface vibrates, altering the phase and ampli-                         Helmholtz resonator model. Some of the qualitative behaviors
+tude of reflection wave.         To examine the effect of the                      of our free-form resonator (e.g., larger finger holes produce higher
+printing material, we printed the S HEEP instrument with a                         pitch) can be explained with the Helmholtz resonator model (see
+Objet Connex 260 3D printer [http://stratasys.com] with the                        Figure 3-left). However, we cannot use the Helmholtz resonator
+VeroWhitePlusTM material (inset-middle), and with an Autodesk                      model as a low order approximation, or for a quantitative predic-
+EmberTM printer [https://ember.autodesk.com/] with UV-curable                      tion of resonance frequency. Figure 16 compares our resonance
+resin material (inset-right). Although these printers have signifi-                frequency prediction with that produced by the Helmholtz res-
+                                                                                    ACM Trans. Graph., Vol. 35, No. 6, Article 184, Publication Date: November 2016
+184:12     •   N. Umetani et al.
+
+onator model for the S TAR instrument shown in Figure 1. For                        11    Conclusion
+the Helmholtz resonator model, we employed Rayleigh’s end cor-
+rections for a circular aperture on a thin wall [Howe 1998]. The                    We presented an interactive interface to design free-form wind in-
+Helmholtz resonator model does not take into account the cavity                     struments. The dominant tones of the instruments’ sound are mod-
+shape or the interference between multiple holes, and thus it is inap-              eled as the resonance frequency, which can be formulated as the
+plicable for free-form wind instruments with multiple finger holes.                 smallest minimum eigenvalue of the nonlinear system matrix. Then
+                                                                                    we present a new discrete wavenumber sampling approach to effi-
+                 600Hz   1000Hz                2000Hz                               ciently compute such smallest minimum eigenvalues. We demon-
+               G                                                                    strated the effectiveness of our approach with numerous functional
+               A                                        Helmholtz resonator model   free-form instruments designed with our tool, and with many quan-
+               B                                                                    titative experiments.
+                                                        Helmholtz resonator model
+               C                                        with end corrections
+               D
+               E
+                                                                                    Acknowledgement
+                                                                                    We thank the anonymous reviewers for their feedback. We also
+Figure 16: Comparison of the resonance frequency prediction be-                     thank Dr. Alex Barnett for insightful advice. This project is par-
+tween our method (red) and the Helmholtz resonator model (dark                      tially supported by the National Science Foundation under Grant
+purple) and the Helmholtz resonator model with end corrections                      No. 1464267.
+(light purple). We used for the S TAR instrument. While our pre-
+diction agrees with the measured ground truth data (light and dark
+green), the Helmholtz resonator model is significantly inaccurate.                  References
+                                                                                    A LI , A., AND R AJAKUMAR , C. 2004. The boundary element
+The three flute-like instruments in Fig. 10 are much longer along                      method: Applications in sound and vibration. CRC Press.
+one axis and thus are known to be more accurately modeled by the
+air column resonator. For example, when all the holes are closed,                   A LLEN , A., AND R AGHUVANSHI , N. 2015. Aerophones in flat-
+the F LUTE 1 produces 600 Hz sound whose wavelength (54cm) is                          land: Interactive wave simulation of wind instruments. ACM
+approximately four times the flute’s length (12cm). This agrees                        Trans. Graph. 34, 4 (July), 134:1–134:11.
+with the air column vibration model with one open end (see Fig-
+ure 3-middle). Our model is based on the wave equation, thus is                     B ÄCHER , M., W HITING , E., B ICKEL , B., AND S ORKINE -
+not limited to the primitive shapes that simple models can handle.                     H ORNUNG , O. 2014. Spin-it: Optimizing moment of inertia for
+Please see supplemental videos for sample sounds.                                      spinnable objects. ACM Trans. Graph. 33, 4 (July), 96:1–96:10.
+                                                                                    B ENADE , A. H., AND I BISI , M. I. 1987. Survey of impedance
+The bottlenecks in our resonance simulation are the construction                       methods and a new piezo-disk-driven impedance head for air
+of the coefficient matrices and the matrix-vector products. These                      columns. The Journal of the Acoustical Society of America 81,
+computations are O(N 2 ) since the straightforward implementation                      4, 1152–1167.
+of BEM requires dense matrices. To further improve performance,
+we applied the fast multipole method [Coifman et al. 1993] which                    B HARAJ , G., L EVIN , D. I. W., T OMPKIN , J., F EI , Y., P FISTER ,
+reduces the order to O(N log N ). However, we only observed a                          H., M ATUSIK , W., AND Z HENG , C. 2015. Computational de-
+10-20% speedup at our problem scale N = 1.6k. This is because it                       sign of metallophone contact sounds. ACM Trans. Graph. 34, 6
+is difficult to find a good decomposition (i.e., separating geometry                   (Oct.), 223:1–223:13.
+with minimum overlap) of the smooth, featureless cavity surface.
+                                                                                    B ONNEEL , N., D RETTAKIS , G., T SINGOS , N., V IAUD -D ELMON ,
+                                                                                       I., AND JAMES , D. 2008. Fast modal sounds with scalable
+Limitations and future work.        To make interactive free-form                      frequency-domain synthesis. ACM Trans. Graph. 27, 3 (Aug.),
+wind-instrument design tractable, we simulated the dominant tone                       24:1–24:9.
+of a free-form musical instrument, and ignored the effects of timbre.
+Simulation of timbre requires the computation of the entire spec-                   B R ÜNING , J., M ARTIN , G., AND PAVLOV, B. 2009. Calculation
+trum, including overtones and also modeling of the mouthpiece.                         of the kirchhoff coefficients for the helmholtz resonator. Russian
+As the mouthpiece greatly affects the timbre, the design and opti-                     Journal of Mathematical Physics 16, 2, 188–207.
+mization of the mouthpiece is an interesting area for future work.                  C OIFMAN , R., ROKHLIN , V., AND WANDZURA , S. 1993. The fast
+Example-based modeling of the mouthpiece would be an interest-                         multipole method for the wave equation: A pedestrian prescrip-
+ing way to add timbre specification to our system.                                     tion. Antennas and Propagation Magazine, IEEE 35, 3, 7–12.
+The range of frequencies a wind instrument can achieve depends                      C OOK , P. R. 1991. Tbone: An interactive waveguide brass instru-
+on the resonator’s shape. For example, it is known that achieving                      ment synthesis workbench for the next machine. In Proceedings
+a frequency range beyond one octave is difficult for a sphere-like                     of the International Computer Music Conference, 297–297.
+resonator [Fletcher and Rossing 2010]. We are interested in opti-
+mizing the overall shape of resonators to achieve arbitrary target                  DA S ILVA , A. R. 2008. Numerical studies of aeroacoustic aspects
+frequencies.                                                                          of wind instruments. PhD thesis, McGill University.
+                                                                                    D EMMEL , J., D ONGARRA , J., RUHE , A., AND VAN DER VORST,
+We presented a technique to predict resonance frequencies for the                      H. 2000. Templates for the Solution of Algebraic Eigenvalue
+Helmholtz equation interactively in the context of free-form instru-                   Problems: A Practical Guide. Society for Industrial and Applied
+ment design. Aside from music applications, resonance simulation                       Mathematics, Philadelphia, PA, USA.
+is important in many engineering applications such as design of
+acoustic devices (e.g, speaker enclosure and mufflers) or electro-                  E L KOURA , G., AND S INGH , K. 2003. Handrix: animat-
+magnetic devices (e.g., antenna and waveguides).                                       ing the human hand. In Proceedings of the 2003 ACM SIG-
+ACM Trans. Graph., Vol. 35, No. 6, Article 184, Publication Date: November 2016
+                                            184:13        •   Printone: Interactive Resonance Simulation for Free-form Print-wind Instrument Design
+
+    HORSE                 3 holes 5 tones   Old MacDonald Had a Farm                 SHEEP                   3 holes 4 tones      Marry Had a Little Lamb
+                                                     800Hz          1200Hz
+                                              G                                                                                              800Hz        1200Hz
+
+
+                                              A                                                                                    G
+
+                                              C                                                                                    A
+
+                                              D                                                                                    B
+
+                                              E                                                                                    D
+
+
+
+    CAT                   3 holes 5 tones   Old MacDonald Had a Farm                 PIG                     3 holes 5 tones      Old MacDonald Had a Farm
+                                                      800Hz          1200Hz                                                               400Hz         600Hz
+                                              G                                                                                    G
+                                              A                                                                                    A
+                                              C                                                                                    C
+                                              D                                                                                    D
+                                              E                                                                                    E
+
+
+
+    BEETHOVEN             4 holes 6 tones   Symphony #9                              SNOWMAN                 3 holes 5 tones      Jingle Bells
+
+                                                     400Hz                   800Hz                                                     500Hz                    800Hz
+
+                                              G                                                                                    C
+                                              C                                                                                    D
+                                              D                                                                                    E
+                                              E                                                                                    F
+                                              F                                                                                    G
+                                              G
+
+    STANFORD DRAGON       4 holes 7 tones   Puff the Magic Dragon                    LIZARD                  4 holes 6 tones      The Good, the Bad,
+                                                                                                                                   and the Ugly (theme)
+                                                                                                                                     800Hz                  1800Hz
+                                                  600Hz                  1200Hz
+                                              E                                                                                    A
+
+                                              F                                                                                    C
+
+                                              G                                                                                    D
+
+                                              A                                                                                    E
+
+                                              B                                                                                    G
+
+                                              C                                                                                    A
+
+                                              D
+
+
+    DOUGHNUT              5 holes 9 tones   Yummy Yummy Yummy                        STANFORD BUNNY          4 holes 8 tones      Little Peter Rabbit
+
+                                                  600Hz                  1000Hz                                                        600Hz                1400Hz
+                                              A                                                                                    E
+                                              B                                                                                    F
+                                              C                                                                                    G
+                                              E                                                                                    A
+                                              F                                                                                    B
+                                              G                                                                                    C
+                                              A                                                                                    D
+                                              B                                                                                    E
+                                              C
+Figure 17: Examples of free-form wind instrument design. The name of the model, number of holes, number of target notes and the target
+songs are listed together with frequencies of each note. For each instrument, the red lines show the target frequencies, the blue lines show the
+simulated frequencies, the light green shows the minimum and the dark green line shows the maximum measured frequencies.
+                                                                                       ACM Trans. Graph., Vol. 35, No. 6, Article 184, Publication Date: November 2016
+184:14     •   N. Umetani et al.
+
+   GRAPH/Eurographics symposium on Computer animation, Eu-                        O’B RIEN , J. F., C OOK , P. R., AND E SSL , G. 2001. Synthesizing
+   rographics Association, 110–119.                                                 sounds from physically based motion. In Proceedings of SIG-
+                                                                                    GRAPH 2001, 529–536.
+F LETCHER , N. H., AND ROSSING , T. 2010. The Physics of Musi-
+   cal Instruments. Springer, 12.                                                 P R ÉVOST, R., W HITING , E., L EFEBVRE , S., AND S ORKINE -
+                                                                                     H ORNUNG , O. 2013. Make it stand: Balancing shapes for 3d
+F UNKHOUSER , T., M IN , P., AND C ARLBOM , I. 1999. Real-time                       fabrication. ACM Trans. Graph. 32, 4 (July), 81:1–81:10.
+   acoustic modeling for distributed virtual environments. In Pro-
+   ceedings of SIGGRAPH, 365–374.                                                 R AGHUVANSHI , N., S NYDER , J., M EHRA , R., L IN , M., AND
+                                                                                     G OVINDARAJU , N. 2010. Precomputed wave simulation for
+G IORDANO , N. 2014. Simulation studies of a recorder in three                       real-time sound propagation of dynamic sources in complex
+   dimensions. The Journal of the Acoustical Society of America                      scenes. ACM Trans. Graph. 29, 4 (July), 68:1–68:11.
+   135, 2, 906–916.
+                                                                                  R EN , Z., Y EH , H., AND L IN , M. C. 2013. Example-guided phys-
+H IRSCHBERG , A., P ELORSON , X., AND G ILBERT, J. 1996.                             ically based modal sound synthesis. ACM Trans. Graph. 32, 1
+   Aeroacoustics of musical instruments. Meccanica 31, 2, 131–                       (Feb.), 1:1–1:16.
+   141.
+                                                                                  S CHOOFS , A., VAN A SPEREN , F., M AAS , P., AND L EHR , A.
+H IRSCHMAN , S. 1991. Digital Waveguide Modeling and Sim-                            1987. I. computation of bell profiles using structural optimiza-
+   ulation of Reed Woodwind Instruments. PhD thesis, Stanford                        tion. Music Perception: An Interdisciplinary Journal 4, 3, 245–
+   University, Stanford, CA.                                                         254.
+H OWE , M. 1998. Acoustics of fluid-structure interaction. Cam-                   T SINGOS , N., F UNKHOUSER , T., N GAN , A., AND C ARLBOM ,
+   bridge University Press.                                                          I. 2001. Modeling acoustics in virtual environments using the
+                                                                                     uniform theory of diffraction. In Proceedings of SIGGRAPH
+I GARASHI , T., M ATSUOKA , S., AND TANAKA , H. 1999. Teddy:                         2001, 545–552.
+   A sketching interface for 3d freeform design. In Proceedings of
+   SIGGRAPH, 409–416.                                                             U METANI , N., M ITANI , J., AND I GARASHI , T. 2010. Design-
+                                                                                    ing custom-made metallophone with concurrent eigenanalysis.
+JAMES , D. L., BARBI Č , J., AND PAI , D. K. 2006. Precom-                         NIME.
+  puted acoustic transfer: Output-sensitive, accurate sound gener-
+                                                                                  VAN DEN D OEL , K., K RY, P. G., AND PAI , D. K. 2001. Foleyauto-
+  ation for geometrically complex vibration sources. ACM Trans.
+  Graph. 25, 3 (July), 987–995.                                                     matic: Physically-based sound effects for interactive simulation
+                                                                                    and animation. In Proceedings of SIGGRAPH 2001, 537–544.
+K IRKUP, S. M. 1998. The Boundary Element Method in Acous-
+                                                                                  VAN DER VORST, H. A. 1992. Bi-cgstab: A fast and smoothly con-
+   tics: A Development in Fortran (Integral Equation Methods in
+                                                                                    verging variant of bi-cg for the solution of nonsymmetric linear
+   Engineering). Integrated Sound Software, 10.
+                                                                                    systems. SIAM J. Sci. Stat. Comput. 13, 2 (Mar.), 631–644.
+L EFEBVRE , A., AND S CAVONE , G. P. 2012. Characterization of                    WANG , L., AND W HITING , E. 2016. Buoyancy optimization for
+   woodwind instrument toneholes with the finite element method.                   computational fabrication. Comput. Graph. Forum 35, 2, 49–58.
+   The Journal of the Acoustical Society of America 131, 4, 3153–
+   3163.                                                                          YOKOYAMA , H., M IKI , A., O NITSUKA , H., AND I IDA , A. 2015.
+                                                                                    Direct numerical simulation of fluid–acoustic interactions in a
+L I , D., F EI , Y., AND Z HENG , C. 2015. Interactive acoustic                     recorder with tone holes. The Journal of the Acoustical Society
+    transfer approximation for modal sound. ACM Transactions on                     of America 138, 2, 858–873.
+    Graphics 35, 1.
+                                                                                  Z HENG , C., AND JAMES , D. L. 2010. Rigid-body fracture sound
+L I , D., L EVIN , D. I., M ATUSIK , W., AND Z HENG , C. 2016.                       with precomputed soundbanks. ACM Trans. Graph. 29, 4 (July),
+    Acoustic voxels: Computational optimization of modular acous-                    69:1–69:13.
+    tic filters. ACM Trans. Graph. (to appear) 35, 4.
+                                                                                  Z HENG , C., AND JAMES , D. L. 2011. Toward high-quality modal
+L ORENZONI , V., D OUBROVSKI , E., AND V ERLINDEN , J.                               contact sound. ACM Trans. Graph. 30, 4 (July), 38:1–38:12.
+   2013. Embracing the digital in instrument making: Towards a
+   musician-tailored mouthpiece by 3d printing. In Proceedings of
+   the Stockholm Music Acoustics Conference.
+L U , L., S HARF, A., Z HAO , H., W EI , Y., FAN , Q., C HEN , X.,
+   S AVOYE , Y., T U , C., C OHEN -O R , D., AND C HEN , B. 2014.
+   Build-to-last: Strength to weight 3d printed objects. ACM Trans.
+   Graph. 33, 4 (July), 97:1–97:10.
+M OHRING , J. 1999. Helmholtz resonators with large aperture.
+  Acta Acustica united with Acustica 85, 6, 751–763.
+M USIALSKI , P., AUZINGER , T., B IRSAK , M., W IMMER , M.,
+  AND KOBBELT, L. 2015. Reduced-order shape optimization
+  using offset surfaces. ACM Trans. Graph. 34, 4 (July), 102:1–
+  102:9.
+N EDERVEEN , C. J. 1998. Acoustical Aspects of Woodwind Instru-
+   ments, Revised Edition, rev sub ed. Northern Illinois University
+   Press, 7.
+ACM Trans. Graph., Vol. 35, No. 6, Article 184, Publication Date: November 2016
+

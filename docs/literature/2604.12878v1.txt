@@ -1,0 +1,1486 @@
+DRAFT
+
+
+
+
+                       Four Decades of Digital Waveguides
+
+                  PABLO TABLAS DE PAULA,1 AES Member, JULIUS O. SMITH III,2 AES Fellow,
+                     VESA VÄLIMÄKI,3 AES Fellow, AND JOSHUA D. REISS,1 AES Fellow
+           (p.tablasdepaula@qmul.ac.uk)       (jos@ccrma.stanford.edu)    (vesa.valimaki@aalto.fi)   (joshua.reiss@qmul.ac.uk)
+
+        1 Centre For Digital Music (C4DM), Queen Mary University of London, London, United Kingdom
+ 2 Center for Computer Research in Music and Acoustics (CCRMA), Stanford University, Stanford, CA, USA
+      3 Acoustics Lab, Dept. Information and Communications Engineering, Aalto University, Espoo, Finland
+
+
+
+
+                          Digital waveguide physical modeling offers efficient simulation of acoustic wave
+                       propagation as compared to general finite-difference schemes commonly used in
+                       computational physics. This efficiency has enabled the real-time implementation
+                       of physically modeled musical instruments and sound effects, as well as real-time
+                       vocal models and artificial reverberation. This paper provides an overview of the
+                       historical evolution and applications of digital waveguide modeling and highlights
+                       recent advances in the field. Parametric optimization using classical, evolutionary
+                       and neural approaches are also discussed and compared. Digital waveguides provide
+                       physically accurate simulations with reduced computational cost, and can now be
+                       optimized with modern machine learning and differentiable digital signal processing
+                       techniques.
+
+
+
+
+Keywords: digital filters, electronic music, optimiza-                   physics by means of finite-difference schemes was com-
+tion, reverberation, sound synthesis                                     putationally prohibitive. Although advances in meth-
+                                                                         ods have made physical modeling more feasible, fur-
+                                                                         ther acceleration remains a valuable objective.
+0 INTRODUCTION                                                              The digital-waveguide approach to acoustic mod-
+                                                                         eling tackles this challenge by optimizing the physi-
+   Since their introduction forty years ago, digital                     cal computations for nearly lossless one-dimensional
+waveguide (DWG) models have become a corner-                             wave-propagation media, such as vibrating strings,
+stone of physically based sound synthesis and process-                   acoustic tubes, and woodwind bores. In the frequency
+ing, spanning musical-instrument modeling, sound ef-                     domain, all such systems exhibit quasi-harmonic res-
+fects, artificial reverberation, and singing-voice syn-                  onant modes. The method has also been extended
+thesis [1–5]. Here we review four decades of DWG                         beyond one dimension through waveguide meshes. A
+research, drawing together their historical evolution,                   rectangular lattice of 1D waveguides can approximate
+theoretical foundations, and modern applications.1                       a 2D membrane, enabling efficient simulation of mem-
+   In musical sound synthesis, physics-based equations                   branes and plates, with N -dimensional extensions fol-
+are rarely used, even when the goal is to create real-                   lowing similarly.
+istic and expressive models of real-world instruments                       The rest of this article is organized as follows. §1
+and effects. Instead, the prevailing approach often in-                  charts key developments from the 1985 reverbera-
+volves making numerous recordings that span the de-                      tor prototype to contemporary DWG-based products,
+sired range of sounds—a process that is both labor-                      comparing to related methods. §2 lays out the founda-
+intensive and memory-hungry. Historically, this prefer-                  tions and building blocks of DWGs. §3 surveys major
+ence arose because solving the differential equations of                 extensions, and §4 surveys methods to optimize the
+                                                                         DWG parameters, from classical physics-based, filter-
+  1
+    Interactive audio examples and supplementary ma-                     design and system-identification techniques to genetic,
+terials are available at https://joshreiss.github.io/                    modern machine learning and differentiable digital sig-
+digital-waveguides-review/, The full source code is                      nal processing techniques.
+openly accessible, and the demos synthesize audio in real-
+time within any modern web browser using the Web Audio
+API.
+
+Submitted to J. Audio Eng. Soc., 2026 April                                                                                      1
+TABLAS DE PAULA ET AL.                                                                                                  DRAFT
+
+
+1 HISTORICAL BACKGROUND                                      waveguides, it usually remains a high-quality approx-
+                                                             imation, despite the lack of commutative invariance.
+   Digital waveguides were introduced in the 1985 pa-           In the early history of digital signal processing, there
+per ‘A new approach to digital reverberation using           was a well developed technology of ladder and lat-
+closed waveguide networks’ [6]. The backstory is that        tice digital filters that could be derived from sampled
+Gary Kendall was working on large artificial reverber-       traveling-wave theory [13]. Along those lines, a digi-
+ation systems, which he discussed with Julius Smith on       tal singing voice having a ladder-filter vocal tract was
+the way to a conference. Kendall’s problem was that          demonstrated at Bell Labs by Kelly and Lochbaum
+when he added a new feedback connection to enrich            [14] with computer-music accompaniment by Math-
+the response, the network would usually go unstable.         ews [15]. To get to a DWG voice model, it was only
+   Since Schroeder and Logan in 1961 [7], there have         necessary to “erase” scattering junctions over suffi-
+been well-developed methods for using allpass filters to     ciently uniform stretches of vocal tract, such as from
+walk the boundary between stable and unstable sys-           the larynx to the velum.
+tems for artificial reverberation. But there was not            It is surprising that ladder filters were not routinely
+yet a general approach for adding arbitrary signal           being used as computationally efficient and robust
+feedback paths without significantly affecting stabil-       physical models of wave propagation. Instead, their
+ity or overall reverberation time. An allpass construc-      use was normally abstracted away from their physi-
+tion approach was needed that supported any signal-          cal underpinnings, leaving single-input single-output
+path delay and interconnection topology. Smith pon-          digital filters, insufficient for use as physical model-
+dered this while studying Belevitch [8] regarding all-       ing building blocks [16]. The field of signal processing
+pass networks, and the idea of closed networks of loss-      became more rooted in applied math, abandoning its
+less DWGs struck him as a promising solution.                origins in physical analog circuits for the most part,
+   In hindsight, DWGs can be regarded as a straight-         with one exception being wave digital filters (§1.3).
+forward application of the following:
+                                                             1.1 Digital Waveguide Synthesis
+1. D’Alembert’s traveling-wave solution of the wave
+                                                               In the original DWG paper [6], it was suggested that
+   equation [9];
+2. Scattering theory implicit in d’Alembert’s deriva-           “waveguide structures can provide accurate
+   tion and later developed for transmission lines;             models of coupled vibrating strings, wind in-
+3. Sampling of bandlimited signals and systems as               struments, reed instruments, and many other
+   taught by Whittaker, Nyquist, and Shannon [10].              physical systems. ... coupled to a nonlinear ‘ex-
+                                                                citation element,’ such as a reed, bow, switching
+However, it was many years after d’Alembert’s solu-             air-jet, or lips [17]. ”
+tion that Lagrange calculated the first demonstration        Subsequent work in that direction led to ‘Efficient
+of reflection and transmission at the boundary of two        Simulation of the Reed-Bore and Bow-String Mech-
+ideal strings having different mass densities (1759),        anisms’ [18] the following year.
+and scattering theory developed about a century later           Coincidentally, Stanford’s frequency-modulation
+in optics (e.g., Fresnel 1823, Lord Rayleigh 1871). The      (FM) synthesis patent was nearing expiration, so
+concept of wave impedance awaited Heaviside’s “tele-         the Stanford Office of Technology and Licensing sent
+grapher’s equations” (coining “impedance” in 1886).          the patent’s author David Lovejoy to CCRMA to
+   It can also be argued that standard physical-             obtain all the latest papers. A patent application
+modeling formulations teach away from DWGs, be-              was submitted entitled ‘Digital Signal Processing
+cause we normally begin with a differential equation         Using Closed Waveguide Networks.’ It was initially
+giving constraints at every point in time and space,         rejected due to its emphasis on ‘closed networks of
+and we discretize that to make a generative model us-        lossless digital waveguides’ (for reverberator proto-
+ing finite differences. Since all practical models require   types) and the patent office’s rule that all proposed
+damping, pure delay lines do not emerge from practi-         ‘perpetual-motion machines’ lack utility because they
+cal finite-difference schemes. One must come up with         are physically impossible to realize [19]. After a lot
+the psychoacoustically valid approximation of summa-         of back and forth, the patent was issued [20], and so
+rizing losses and dispersion at waveguide boundaries.        lossless reverberator prototypes apparently became
+Schroeder introduced delay-line simulation of sampled        the first patented virtual perpetual-motion invention
+1D wave propagation [11], extended by Moorer to in-          in the United States (at least when roundoff-error
+clude wall-reflection damping filters [12]. In the case      feedback is used, which was done in some cases).
+of 1D linear, time-invariant waveguides, point-to-point         Yamaha began developing waveguide synthesis right
+transfer functions remain invariant as damping and/or        away, and in 1989 signed a non-exclusive license
+dispersion filtering are commuted with delay elements        with Stanford. Yamaha’s Director of Engineering was
+to either endpoint, yielding an exact simplification; in     present at the presentation of [18], as was Bob Moog,
+higher dimensions, and for nonlinear or time-varying         who wrote a newsletter article about it. In 1994, the
+                                                             Yamaha VL1 Virtual Lead synthesizer [21] was intro-
+
+2                                                                                    Submitted to J. Audio Eng. Soc., 2026 April
+DRAFT                                                                                                                                       FOUR DECADES OF DIGITAL WAVEGUIDES
+
+
+
+                               Digital Waveguides
+                                                                                                                                     Commuted Synthesis
+
+                                                                                         Strings
+       (Schroeder-
+
+       Logan)                         (Moorer)                                                                                (Van Duyne-Smith)
+                                                                         (Smith)
+            Filters for Artificial
+                                                 Winds
+
+
+
+
+                                                                      el ent
+
+                Reverberation
+
+
+
+
+                                                                            g
+                                                                                                                    Waveguide Mesh         Banded Waveguides
+
+
+
+
+                                                                  od m
+                                                                                                         (Cook)
+
+
+
+
+                                                                        lin
+                                                                                Brass
+
+
+
+
+                                                                M tru
+                        Classical Network
+
+     (Belevitch)
+                              Theory
+
+
+
+
+                                                                    s
+                                                                 In
+                                  Wave Digital
+                        Percussion                            (Van Duyne)                   (Essl)
+                (Fettweis)
+                                        Filters
+
+                                                                                                                  (Savioja et al.)         Scattering Delay Networks
+                         Digital Speech
+          (Smith)         Reverberation
+                             Synthesis
+
+
+
+
+                                                                                                                       Sp
+     (Kelly-
+                                                                                                                                                     Waveguide Web
+
+
+
+
+                                                                                                                         at
+     Lochbaum)                                                                                                                                      Indoors
+
+
+
+
+                                                                                                                         ia
+                                      (Jaffe-Smith)
+                                                                                   So
+
+
+
+
+                                                                                                                            l
+                                                                                        un                                              (Karjalainen et al.)
+
+
+
+
+                                                                                                                           Au
+                                                                                                                                                                       Warping Circular Waveguide
+                             Wavetable
+                                 V                 d
+
+
+
+
+                                                                                                                              di
+                                                                          oc                  FX
+
+
+
+
+                                                                                                                                 o
+                             Synthesis                                 M al                     s                                          Outdoors
+                                                                                                                                                              (Stevens et al.)
+                                                   (Karplus-
+            od Tr
+                                                    Strong)                 el ac
+                                                                              in   t
+
+                                                                                 g                                                            (Cascone)                          (Farnell)
+                                                                                               (Cook)
+
+                                                                                                    1D
+
+                                                                                                                         (Mullen et al.)
+                                                                                                                                               2D
+                                                                                                                                                        (Speed et al.)
+
+
+                                                                                                                                                               3D
+
+
+                                                              Fig. 1. The lineage of digital waveguide modeling.
+
+
+duced, based on digital waveguide modeling. The time
+was ripe for this approach to physical modeling syn-
+thesis, as computational power at the time could not
+afford a full finite-difference-scheme approach as would
+be typical in computational physics.
+
+1.2 Relation to the Karplus-Strong Algorithm
+                                                                                                         Fig. 2. A digital signal-processing diagram of the Karplus-
+   The Karplus-Strong Algorithm (KSA) [22], intro-                                                       Strong Digitar algorithm, with additive input added.
+duced in 1983, is often described as physical modeling
+synthesis. But that’s not how it was understood at
+the time. Instead, KSA was seen as wavetable synthe-                                                        Strong played in a string quartet with Music doc-
+sis that modified its wavetable on each pass through                                                     toral student David Jaffe, to whom he demonstrated
+the table. For plucked string sounds, each sample was                                                    the ‘Digitar’ algorithm. Jaffe brought it to EE PhD
+replaced by the average of itself and the previous sam-                                                  student Smith to see about making it play in tune,
+ple, requiring no multiplies. Pitch control was achieved                                                 adding dynamic level variations, and so on. Smith
+by setting the wavetable length to N = fs /f0 − 1/2                                                      translated the KSA to a signal processing formula-
+samples, where fs and f0 are the sampling and funda-                                                     tion and recast it as a delay line with explicit additive
+mental frequency respectively. As Kevin Karplus and                                                      input, as seen in Fig. 2 above. It was then straightfor-
+Alex Strong noted [22]:                                                                                  ward to develop Jaffe’s desired signal-processing ex-
+                                                                                                         tensions [24].
+   ‘interesting to compare the theoretical analy-                                                           The tuning problem was solved by calculating the
+   sis of our synthesis technique [calculating over-                                                     phase delay of the attenuation filter [25, p. 170]
+   tone decay times] with an existing analysis of                                                        (now more general than the two-point average
+   a guitar, lute, mandolin, or other string instru-                                                     seen in Fig. 2), and compensating with delay-line
+   ment. Unfortunately, we could not find a pub-                                                         interpolation—initially first-order allpass interpo-
+   lished analysis and did not have the tools to                                                         lation [25, p. 175] and later Lagrange polynomial
+   perform our own analysis. Some previous work                                                          interpolation [26, 27]. Smith recognized the filter’s
+   has been done using physical models for synthe-                                                       equivalence to point-to-point transfer-functions on
+   sizing string sounds (Hiller and Ruiz 1971 [23]),                                                     an ideal string [25, pp. 158-194]. Impulse responses
+   but these models do not help to explain the high                                                      representing the vibrating-string ‘history’ had already
+   quality of the sound produced with our tech-                                                          been introduced for bowed strings [28], but no one had
+   nique. . . . interesting to convert the recurrence                                                    suggested a round-trip string impulse-response as sim-
+   relations to differential equations, and to assign                                                    ple and sparse as that of a delay-line feeding back to
+   a physical interpretation.”                                                                           its input through a two-point average. These insights
+
+Submitted to J. Audio Eng. Soc., 2026 April                                                                                                                                                    3
+TABLAS DE PAULA ET AL.                                                                                                  DRAFT
+
+
+gave rise to the pick-position illusion added in the
+Extended Karplus Strong algorithm [24]. Modulating
+the attenuation filter explicitly alters the decay and
+timbre. As we will see in §4.2, multiple attenuation
+filter designs have been proposed.
+   This was not yet digital waveguide modeling, how-
+ever, because all signal paths involved unidirectional
+                                                             Fig. 3. Discrete-time simulation of ideal, lossless wave
+transfer functions with no notion of physical param-         propagation using a DWG. Red lines indicate right-going
+eters such as string tension, mass, and/or damp-             traveling waves, while blue stands for left-going traveling
+ing. DWGs, in contrast, were conceptually bidirec-           waves.
+tional delay lines associated with a real, positive wave
+impedance calculated as the square root of string ten-
+                                                             digital piano hammer [36, 37], and the wave digi-
+sion divided by mass density [6, 16]. To avoid termi-
+                                                             tal tonehole model [38]. WDFs are also used to cre-
+nology collisions with ladder and lattice digital filters,
+                                                             ate real-time digital models of nonlinear audio effects
+delay line here means two or more samples of delay.
+                                                             [39, 40] such as diode clippers [41] and tube ampli-
+Typically, the final DWG model is simplified to re-
+                                                             fiers [42, 43]. DWGs efficiently implement distributed
+duce computational complexity while maintaining the
+                                                             wave propagation media, such as vibrating strings,
+physical interpretation. As an example, KSA was de-
+                                                             acoustic tubes and tonal percussion. WDFs, in con-
+rived as a simplified physical model of a lossy vibrat-
+                                                             trast, digitize lumped networks, such as mass-spring
+ing string, randomly struck and plucked at each sam-
+                                                             systems or RLC circuits.
+ple across its length [16]. That interpretation becomes
+more transparent when the order of the string and its
+resonator are swapped, or ‘commuted’. This is shown          2 FOUNDATIONS
+in §2.5 (“Commuted Synthesis”), where KSA emerges
+                                                                A digital waveguide is a bidirectional delay line [16]
+as a simplified waveguide model.
+                                                             associated with real, positive wave impedance R which
+                                                             is given by the ratio of force to velocity in a traveling
+1.3 Relation to Wave Digital Filters
+                                                             wave [16, 44, 45]. In practice, two separate delay lines
+   While DWGs hold sampled traveling waves, wave             may be used, one containing ‘left-going’ traveling-wave
+digital filters hold bilinearly transformed traveling        components and the other ‘right-going’ waves. Sum-
+waves. Both use traveling-wave scattering theory,            ming a signal into a DWG corresponds to superim-
+which has its origins in 19th-century optics (Fresnel        posing a disturbance at one point. The original state
+1823), acoustics (Lord Rayleigh 1871), and electrical        is unaffected; the input signal enters the waveguide in
+engineering (Heaviside 1886). Lord Rayleigh is said to       superposition with the current traveling wave. This is
+have first observed the proportionality of pressure and      depicted in Fig. 3, as a DWG with input at n = 0 and
+velocity in a traveling wave [29]. The scattering formu-     output at n = N1 .
+lation for circuit-theory ports was introduced by Bele-         The sum of left- and right-going components yields
+vitch [30], and “s parameters” have been used since          the physical wave variable such as velocity, pressure,
+as optional port descriptions by microwave engineers,        force, current or voltage [16]. In many applications one
+physicists, and others. This formulation was taken to        can use a single delay line in which the first half cor-
+the digital domain by Fettweis [31, 32] who coined the       responds to traveling waves to the right, say, while
+term wave digital filter (WDF).                              the second half contains left-going samples, thereby
+   The bilinear transform, introduced by Tustin [33]         implicitly modeling a non-inverting reflection at the
+and Steiglitz [34, 35], maps continuous voltage waves        midpoint of the single shared delay line.
+to discrete time in WDFs. Unlike sampling, bilinear             A DWG models a 1D traveling-wave medium, such
+transforms introduce no aliasing. The price for this         as an ideal vibrating string or acoustic tube. For fre-
+is frequency warping according to ωc ∝ tan(ωd T /2),         quencies up to Nyquist limit, the modeling is exact in
+where ωc and ωd denote continuous- and discrete-time         the ideal case because there are no losses, dispersion,
+radian frequency, respectively, and T denotes the sam-       or nonlinearities in an ideal string or acoustic tube.
+pling interval in seconds. The WDF port impedances
+are chosen such that capacitors and inductors become         2.1 Vibrating Strings
+unit delays [16], thus preserving system order.
+                                                                For vibrating strings, the simulated variables are
+   Both DWGs and WDFs simulate traveling-wave
+                                                             typically velocity, force, displacement, or the acceler-
+components in known wave impedances. So they are
+                                                             ation at each sample point along the string. A typ-
+readily interconnected despite having divergent fre-
+                                                             ical choice is transverse string velocity, as measured
+quency axes at high frequencies. WDFs are often used
+                                                             directly by a magnetic pickup in an electric guitar.
+to model lumped systems involving masses, springs,
+                                                             The scattering formulas are unchanged for displace-
+and friction which are direct analogs of inductors,
+                                                             ment and acceleration, and force waves are similar
+capacitors, and resistors. Examples include the wave
+                                                             with some sign flips.
+
+4                                                                                    Submitted to J. Audio Eng. Soc., 2026 April
+DRAFT                                                                                  FOUR DECADES OF DIGITAL WAVEGUIDES
+
+
+                                                                v1− [n − M1 ] to the left, and transmission v2+ (n) to the
+                                                                right. Given no second incoming wave from the right,
+                                                                v2− (n) = 0. Since all waves on the left at the junction
+                                                                have time index n − M1 , and all waves on the right
+                                                                at the junction have time index n, we can omit the
+                                                                indices for notational simplicity. So we know v1+ , want
+                                                                to calculate v1− and v2+ , and have two constraints:
+                  Fig. 4. Scattering junction.                  1. By Newton’s third law, the transverse forces must
+                                                                   sum to zero at the junction:
+   Let v[n, m] denote the physical velocity at tem-                      [f1+ + f1− ] + [f2+ + f2− ] = 0                  (4)
+poral sample n = 0, 1, 2, . . ., and spatial sample m =
+0, 1, 2, . . . , M − 1. So our digital string is simulated at              v1+ − v1−    v + − v2−
+M uniformly spaced samples over discrete time. For                   ⇒               + 2          = 0.            (5)
+                                                                              R1           R2
+more physical time and position notation, we can de-
+                                                                2. If the string does not break, then the string end-
+fine vp [nT, mX] = v[n, m] where T is the temporal
+                                                                   point velocities are equal at the junction:
+sampling interval in seconds, and X is the spatial sam-
+pling interval in meters. Then in terms of traveling-                vJ = v1+ + v1− = v2+ + v2− = v2+ .                   (6)
+wave components we have [16]
+                                                                   These physical constraints are counterparts of
+   v[n, m] = v+ [n, m] + v− [n, m]
+                                                                Kirchhoff’s voltage and current laws in circuit analy-
+             = v+ [n − m, 0] + v− [n + m, 0]                    sis. We can solve for the outgoing waves:
+             = v + [n − m] + v − [n + m],                (1)                 R1 − R2                    2R1
+                                                                  v1− = v1+           , v2+ = v1+            .            (7)
+where v+ [n, m] denotes the right-going and v− [n, m]                        R1 + R2                 R1 + R2
+the left-going traveling-wave components at time n              In terms of the force reflection coefficient
+and position m. We define the simpler v + [n − m] and                    R2 − R1
+v − [n + m], which only depend on time, making use                r1 =             ,                                (8)
+                                                                         R1 + R2
+of the fact that a spatial shift corresponds to a time
+delay or advance in a delay line.                               we can write the complete scattering equations for this
+   Wave impedance of an ideal string is given by the            series junction of Fig. 4:
+square root of the string tension√ K times the lin-               f1− = r1 f1+ ,     f2+ = [1 + r1 ] f1+ ,                (9)
+ear mass density µ, or R = Kµ [16]. The wave
+                                                                  v1− = −r1 v1+ ,    v2+   =   [1 − r1 ] v1+ .           (10)
+impedance is thus the geometric mean of the two re-
+sistances to motion: a spring constant K andp  inertial         It is a ‘series’ junction because there is a common ve-
+mass µ. Similarly, wave speed is given by c = K/µ.              locity, while forces sum to zero. By contrast, a ‘paral-
+   Traveling velocity waves can be easily converted to          lel’ junction has a common force, and velocities sum
+traveling force waves using wave impedance R:                   to zero.
+                                                                   As R2 → ∞ (rigid termination), v1− = −v1+ (an in-
+   f + [n] = R v + [n],                                  (2)
+                                                                verting reflection) and v2+ = 0 (no transmission). Sim-
+   f − [n] = −R v − [n].                                 (3)    ilarly, when R2 = 0 (a ‘free end’ which can be imag-
+                                                                ined as a frictionless guide-pole) we get v1− = v1+
+   Input to a DWG is usually added equally to left- and         (non-inverting reflection) and v2+ = 2v1+ (giving ve-
+right-going directions [16]. This is often accompanied          locity continuity across the junction). Finally, when
+by left and right reflections (“scattering”) at the input       R2 = R1 , we get v1− = 0 and v2+ = v1+ (no scattering).
+point, because physical inputs will change the wave                Note that power is conserved, i.e., the scattering is
+impedance seen at that point in the waveguide [16].             lossless. The incident traveling power is f1+ v1+ , and the
+                                                                outgoing power after scattering is f2+ v2+ − f1− v1− . Cal-
+2.2 Wave Impedance and Scattering                               culation is easy in terms of the reflection coefficient:
+   Digital Waveguides can be interconnected to form
+Digital Waveguide Networks by joining them at scat-               f2+ v2+ − f1− v1− = [1 + r1 ] f1+ [1 − r1 ] v1+
+tering junctions. When a waveguide at impedance                                            − r1 f1+ [−r1 v1+ ]
+R1 connects to a waveguide at a different impedance
+                                                                                    = [1 − r12 ] f1+ v1+ + r12 f1+ v1+
+R2 , scattering occurs, meaning partial reflection and
+transmission in both directions. Consider a right-going                             = f1+ v1+ .                          (11)
+traveling-wave v1+ [n − M1 ] at wave impedance R1 en-
+countering the impedance R2 , which creates a scat-             2.3 Acoustic Tubes
+tering junction at the R1 : R2 interface, as shown                The vocal tract in speech is often modeled as a
+in Fig. 4. The incident wave splits into a reflection           piecewise-cylindrical acoustic tube [16], as shown in
+
+Submitted to J. Audio Eng. Soc., 2026 April                                                                                 5
+TABLAS DE PAULA ET AL.                                                                                                   DRAFT
+
+
+
+
+Fig. 5. Kelly-Lochbaum piecewise cylindrical tube model
+of the vocal tract, where A indicates the cross-sectional
+area of each corresponding section.
+
+                                                             Fig. 6. Discrete simulation of a string using filters as bridge
+Fig. 5. In this model, the joining planes between dif-       and nut terminations. In the rigid case, the filters become
+ferent sections are scattering junctions (as in Fig. 4)      a -1 multiplication for velocity or displacement waves.
+in the sampled traveling-wave formulation.
+   Signal samples are typically acoustic pressure, and
+                                                             2.5 Commuted Synthesis
+wave impedance in the mth tube section (pressure di-
+vided by volume-velocity) is given by Rm = ρc/Am ,              Since basic waveguide string models consist of lin-
+where ρ is air mass density (kg/m3 ), c is the speed of      ear, time-invariant elements, the elements can be re-
+sound (m/s), and Am is the cross-sectional area of the       ordered in series without changing the transfer func-
+mth tube section (m2 ).                                      tion. So the two delay lines of a DWG may be com-
+   The scattering formulas at the junction of cylindri-      bined into one doubly long delay line. Similarly, the
+cal segments m and m + 1 can be written in terms of          two reflection filters can be commuted to the same
+the reflection coefficient rm , defined by                   point in the delay-loop and combined in a single fil-
+                                                             ter realizing all the filtering necessary in the whole
+           Rm+1 − Rm   Am − Am+1
+    rm =             =           .                   (12)    delay loop. We refer to this generic structure, similar
+           Rm+1 + Rm   Am + Am+1                             to that of the KSA (see §1.2), as a filtered delay loop
+  Thus, the reflection coefficient rm depends on the         (FDL) [16, 49].
+area ratio Am /Am+1 = Rm+1 /Rm between sections.                In a plucked-string instrument, the output signal
+Using this notation for the string gives v1− = −r1 v1+ ,     y[n] can be expressed as a cascade of convolutions:
+where the minus sign arises because we used velocity
+                                                               y[n] = e[n] ∗ h[n] ∗ b[n],                                  (13)
+instead of pressure as the wave variable.
+                                                             where e[n] is the excitation signal (e.g., the pluck) and
+2.4 Waveguide String Models                                  h[n] and b[n] stand for the impulse response of the
+   A basic waveguide string model is based on a pair         string and instrument body respectively. Since convo-
+of delay lines, where the upper delay line simulates         lution is commutative, these elements can be reordered
+the wave propagation from the bridge to the nut and          without changing the output.
+the lower delay line propagates in the opposite direc-          This affords great computational savings for strings
+tion [16]. All samples move one position each sampling       attached to resonators [50]. Instead of plucking a string
+interval by incrementing (or decrementing) a pointer         and driving a high-order body resonator, such as a gui-
+to a string endpoint in the circular-buffer implemen-        tar body or piano soundboard [51, 52], one can pluck
+tation of the delay line. At each end of the string, the     the resonator and feed that into the string [46, 50, 53].
+sampled wave reflects backward, optionally transmit-         The savings comes from storing only the impulse re-
+ting as well. In the lossless case, the reflection coef-     sponse (or ‘pluck response’) of the resonator e[n] ∗ b[n].
+ficient is −1 for velocity (or displacement) at a rigid      So the large digital resonator models needed for acous-
+termination. Ideal reflection at the bridge end means        tic stringed instruments (hundreds or thousands of
+that the incoming velocity sample arriving along the         poles and zeros occurring in the audio range) are
+lower rail gets its sign inverted as it jumps to the upper   replaced by a basic wavetable lookup and playback
+rail, where it travels toward the other end. However,        through a small filter that can model variations in
+oscillations never decay in this undamped model, so a        plucking details. This also applies to bowed strings
+periodic signal is produced after any excitation.            modeled as periodically plucked strings [50, 54, 55].
+   A more realistic waveguide string model has lowpass
+filters at one or both ends, which model the frequency-      2.6 Digital Waveguide Mesh
+dependent propagation losses along the string as well        The digital waveguide mesh (DWM) simulates a mem-
+as the reflection from the string end [46–48]. If the        brane or volume using a lattice of 1D strings, analo-
+total gain of the round-trip filtering is less than 1 at     gous in 2D to a tennis racket [56]. A 2D membrane
+all frequencies, the sample amplitudes decay gradually,      is thus approximated by a mesh of intersecting 1D
+which corresponds to the decay of the string vibration.      waveguides, as depicted in Fig. 7. Each intersection
+                                                             forms a four-port scattering junction. Typically, all
+                                                             wave impedances are equal so that the junction veloc-
+                                                             ity vJ can be computed using no multiplies as vJ =
+
+6                                                                                     Submitted to J. Audio Eng. Soc., 2026 April
+DRAFT                                                                            FOUR DECADES OF DIGITAL WAVEGUIDES
+
+
+
+
+Fig. 7. 2D rectilinear waveguide mesh. S stands for scat-   Fig. 8. Digital waveguide model of a single-reed woodwind
+tering junctions.                                           instrument.
+
+
+1 P4     +                                     +            embouchure) was a linearly interpolated table-lookup.
+2   i=1 vi ; i.e., sum of four incoming waves vi divided    This pre-solved nonlinear scattering junction can
+                                      −
+by 2. Each outgoing wave is then vi = vJ − vi+ for a        be regarded as a 1D version of the K Method [87],
+total of seven additions and one bit-shift (in fixed-       also applicable to root-node scattering in nonlinear
+point). Lossless wave propagation is exact along the        Wave Digital Filters (WDF) [39]. Later implemen-
+diagonals but dispersive along horizontal and vertical      tations included piecewise polynomial spline approx-
+directions [57]. To reduce dispersion at the cost of mul-   imations [88, 89]. Some reed models also included
+tiplies, the triangular mesh is a good choice [58–60].      mass [85, 90] which cannot be pre-solved, so a few
+   For multiply-free scattering in 3D, the tetrahedral      Newton iterations or the like are used to solve for the
+mesh geometry is preferred [61, 62]. Later mesh de-         nonlinear junction outputs.
+velopments include acoustic room simulation [63–67],           The second waveguide wind-instrument model was
+the bilinearly deinterpolated waveguide mesh [68, 69],      the flute [91–94]. The mouthpiece excitation was mod-
+high-frequency mode modeling [70, 71], the frequency-       eled as an air jet [17] that swung in and out of the tube
+warped waveguide mesh [59, 72, 73], violin body mod-        based on air-jet dynamics and the traveling pressure
+eling [74], boundary conditions [75], quadratic residue     wave in the bore at the mouthpiece. Since the flute
+diffusers [76], extensions to higher dimensions [77],       mouthpiece is in the interior of the bore, two wave-
+rigid and diffuse boundary modeling [78, 79], and           guides are used, one on each side of the excitation.
+vocal-tract modeling [80–84].                                  The first real-time waveguide saxophone was in
+                                                            the Yamaha VL-1 synthesizer [21]. It is said to have
+                                                            used Benade’s two-cylinder model for the conical bore
+3 ADVANCEMENTS                                              [95–97]. Conical bores become interesting near the tip,
+                                                            which behaves like an open end for pressure [98]. An-
+3.1 Instrument Modeling                                     other oddity is that the impulse-response of an in-
+3.1.1 Winds                                                 crease in the conical taper-angle has a growing ex-
+   The first waveguide synthesis instrument was the         ponential component [99]. Woodwind toneholes were
+clarinet [18] (Fig. 8). Pressure waves p propagate          modeled as variable scattering junctions in the digital
+through the bore and interact with the mouthpiece,          waveguide bore [100, 101], and a wave digital tonehole
+where subscripts m and b denote mouth and bore,             was developed [38].
+and superscripts + and − indicate right- and left-
+going waves. Half-pressures h = p/2 are used, where         3.1.2 Strings
+h+
+ ∆ across the reed corresponds to the pressure drop            Waveguide synthesis for strings began with simpli-
+driving nonlinear flow. The clarinet reed was modeled       fied bowed strings [18], which affixed a bow-string in-
+as a massless spring flap [85, 86], acting as a nonlin-     teraction model [17, 28] to a one-branch digital wave-
+ear reflection coefficient ρ̂ at the tube end—mapping       guide network [6], as shown in Fig. 9. In the model,
+the pressure difference across the reed to the resulting    velocity-wave components v travel along the string,
+airflow—and a nonlinear variable gate for airflow into      with subscripts s, r and s, l referring to string seg-
+the tube.                                                   ments to the right and left of the bow respectively.
+   The initial implementation of the reed-bore              This divided the string into two waveguides joined by
+reflection-coefficient (a function of the incoming          a nonlinear two-port scattering junction, where the
+pressure waves from both sides, and the player’s            bow-string interaction is governed by the differential
+
+Submitted to J. Audio Eng. Soc., 2026 April                                                                         7
+TABLAS DE PAULA ET AL.                                                                                                  DRAFT
+
+
+                                                             which has been applied to cymbals, is the banded wave-
+                                                             guides technique, which identifies closed wavetrains
+                                                             modeled by 1D digital waveguide loops [122–124].
+
+                                                             3.1.5 The Synthesis Tool Kit (STK) and Faust
+                                                               The Synthesis Tool Kit (STK) [89] is a major soft-
+                                                             ware repository of example DWG instruments. An ex-
+                                                             tended subset of the STK examples was ported to the
+                                                             Faust distribution as well [125]. The Web Audio ex-
+                                                             amples for this review include ports of STK examples.
+                                                               In addition to ports of the original STK classes,
+                                                             the Faust Libraries [126] provide many additional syn-
+                                                             thesis and effects algorithms using digital waveguides.
+                                                             The term ‘waveguide’ appears 55 times, as of this writ-
+    Fig. 9. Digital waveguide model of a bowed string.       ing, spanning the libraries for oscillators, noises, filters,
+                                                             physical models, and miscellaneous effects.
+            +
+velocity v∆   (bow velocity minus incoming string ve-        3.2 Vocal Tract Modeling
+locity) and the nonlinear reflection function ρ̂, which
+                                                                The Kelly-Lochbaum model [14] is thought to be the
+depends on bow force and velocity.
+                                                             first digital scattering-based model of the vocal tract,
+   Bow position is varied by adjusting the relative
+                                                             and influenced ladder and lattice filter development for
+lengths of the left and right delay lines, with inter-
+                                                             linear prediction of speech [13]. Smith has provided a
+polation providing continuous control. Assuming the
+                                                             detailed derivation of wave impedance and scattering
+bow-hairs present only a nonlinear frictional force (i.e.,
+                                                             theory starting with D’Alembert’s wave equation [16].
+neglecting bow-hair traveling waves), a table-lookup
+                                                                DWG modeling of singing human voice, introduced
+or piecewise polynomial solution is obtained for the
+                                                             by Cook [127], can be considered a generalization
+instantaneous reflection and transmission coefficients
+                                                             and extension of the Kelly-Lochbaum model. A real-
+[18]. Later models introduced friction-loop hysteresis
+                                                             time interactive singing-voice model called SPASM
+and thermodynamic models of rosin friction [102–106].
+                                                             (“Singing Physical Articulatory Synthesis Model”) [2,
+   DWGs have been used for modeling various plucked
+                                                             128] included a nasal tract branching off from the vo-
+string instruments, such as the acoustic guitar [48, 53,
+                                                             cal tract through a variable three way velum/pharynx
+107], the Finnish kantele [108,109], and the geomungo,
+                                                             junction, turbulence noise injectable at any point
+a traditional Korean instrument [110]. To capture the
+                                                             along the vocal tract, variable glottal and lip reflec-
+unusually wide vibrato effect of the geomungo, digi-
+                                                             tion coefficients, and separate outputs for neck, lip,
+tal waveguide synthesis with a time-varying attenua-
+                                                             and nose radiation. A related interactive implementa-
+tion filter was used [110]. Some keyboard instruments,
+                                                             tion called ‘Pink Trombone’ is available online [129].
+which are also based on vibrating steel strings, have
+                                                                Later advancements used DWMs (§2.6) for the vo-
+been emulated with DWGs, such the piano [111–114],
+                                                             cal tract. Early 1D vs 2D comparisons and band-
+the harpsichord [115], and the Clavinet [116]. The
+                                                             width control [130, 131] revealed that 2D relaxation
+electric guitar is a popular target for DWG synthe-
+                                                             of the plane-wave assumption introduces lateral modes
+sis [117–120].
+                                                             and provides approximately linear formant-bandwidth
+                                                             control across vowels [132]. Real-time dynamic ar-
+3.1.3 Brasses
+                                                             ticulations in a fixed rectangular 2D mesh using
+   Waveguide brass instruments began with the trom-          impedance mapping were then introduced [133], and
+bone [88]. In brass models, the lips are typically mod-      3D meshes that match measured transfer functions
+eled as one or two mass-spring elements driving the          for tract analogs demonstrated close acoustic match
+waveguide tube. Flared bells inspired applications of        to physical analogs over a wide frequency band [81,
+Sturm-Liouville theory [121], and the most efficient         134]. Recent results use MRI-derived geometry and
+known filter structure for the flared bell is truncated      time-varying impedance maps to synthesize diph-
+infinite-impulse-response filters [99].                      thongs with improved formant accuracy and natural-
+                                                             ness [135], and voiced stop consonants via controlled
+3.1.4 Percussion                                             occlusions in a 3D DWM [84].
+  Tonal percussion, such as glockenspiel and triangle,          Beyond the human laryngeal tract, waveguide prin-
+are straightforward to model as DWGs, being com-             ciples have also been applied to other vocal organs.
+posed of ≈ 1D metal rods. Membrane percussion, such          In songbirds, the syrinx—a bifurcated airway with
+as tympani and other drums, can use a 2D waveguide           vibrating membranes—has been modeled using clas-
+mesh for their membranes, and a 3D mesh for the              sical waveguide synthesis [136–138]. Mammalian vo-
+enclosed air cavity. Another approach to membranes,          cal tracts were implemented using a waveguide filter
+
+8                                                                                    Submitted to J. Audio Eng. Soc., 2026 April
+DRAFT                                                                              FOUR DECADES OF DIGITAL WAVEGUIDES
+
+
+
+
+                                                             Fig. 11. Scattering Delay Network (SDN). Wall nodes
+Fig. 10. Four-cylinder engine model using digital wave-      (S), bidirectional delay lines (purple), source paths (dash-
+guides. Pink and orange arrows indicate FM control signals   dotted blue), receiver paths (dashed red), direct path (dot-
+(not audio inputs).                                          ted blue).
+
+
+model in [139]. Subjective tests showed that it was ef-      of a jackhammer using parallel waveguides for longitu-
+fective in reproducing harsh, spectrally dense sounds        dinal and transversal vibrations [145]. Use of banded
+such as a lion’s roar or a wolf’s growl.                     DWGs for generating the twang sound of a ruler being
+                                                             pushed while it is hung over a desk was described by
+3.3 Sound Effects                                            Selfridge et al. [146], though they opted for a modal
+   DWGs are also used to simulate various mechanical         synthesis approach in their implementation.
+devices, thus creating realistic sound effects for use          In [147] and references therein, Keenan and Pauletto
+in creative media and computational modeling. The            simulated the sound of an acoustic wind machine,
+most common example of this is in simulating vehicle         which is a mechanical device that in turn simulates
+engine sounds, where DWGs are often used for engine          wind sounds. The machine has a slatted cylinder
+cylinders and exhaust pipes. The first example was           whose slats rub against a cloth as the cylinder moves.
+perhaps given by Cascone et al. [140], for which a Faust     The resultant friction produces a wind-like sound. A
+implementation is available [141].                           digital waveguide in series with low-pass and all-pass
+   Farnell introduced DWGs with anti-phase                   filters was used to simulate dispersion of the friction
+frequency-modulated delays for simulating engine             sound through one side of the cloth. Use of DWGs
+exhausts, controlled by a ramp generator mimicking           for real-time, controllable sound effect generation is
+mechanical inertia [4]. These delay lines are split          discussed and put in the wider context of Procedural
+into four quadrants, with some expanding and others          Audio in a review paper by Menexopoulos et al. [148].
+compressing while maintaining constant length, as
+shown in Fig. 10. He coined this the Warping Circular        3.4 Reverberation
+Waveguide [4]. The Engine Vibration Function applies            The first digital audio effect using a 1D waveguide
+a parabolic waveshaper to model low-frequency body           network was an “invertible waveguide reverberator”,
+resonance, while Overtone generators inject bursts of        showcased in the finale of “Invisible Cities” (“City of
+higher-frequency content at specific positions, simu-        Reflection” movement) by Michael M. McNabb [149].
+lating mechanical transients (valve clicks, combustion       In this striking effect, a saxophone passage is scattered
+noise). Separately, cylinders are simulated by produc-       to “sonic dust” by a closed, lossless network, and then
+ing pulses from the phase-shifted ramp, multiplied by        that network runs in reverse to congeal the dust back
+noise for jitter. This approach was further developed        to the original sax passage. Despite this early artis-
+by Baldan et al. who described car engine sound              tic success, there was little widespread application to
+synthesis with multiple DWGs [142]. Two subsequent           reverberation until the introduction of the waveguide
+works incorporated Baldan’s implementation into              mesh (see §2.6). Widely adopted Feedback delay net-
+soundscape synthesis of traffic sounds [143, 144].           works [150] can be described as DWGs having one
+   Farnell’s use of DWGs, though informal and often          scattering junction, but they were not derived that
+heuristic, was wide in scope. DWGs were incorporated         way.
+into models of not just automotive engines, but models          Physical modeling networks of 1D waveguides for
+of old telephones, impacts on windows, switches and          spatial audio awaited the advent of scattering delay
+levers, and helicopters [4].                                 networks [151, 152], illustrated in Fig. 11. In the SDN,
+   Other applications of DWGs for generating sound           the source drives the wall nodes via unmodified, uni-
+effects are of note. Oksanen et al. modeled the sound        directional paths, while the receiver collects scattered
+
+Submitted to J. Audio Eng. Soc., 2026 April                                                                             9
+TABLAS DE PAULA ET AL.                                                                                                     DRAFT
+
+
+                                                                added into the system, it becomes computationally in-
+                                                                efficient, however.
+                                                                   In the Waveguide Web model proposed by Stevens
+                                                                et al. [153], each node combines the acoustic proper-
+                                                                ties of an entity, such as a building, by storing its re-
+                                                                flection properties for the first-order reflection of the
+                                                                source signal and the second-order reflections from the
+                                                                other nodes. For open scenes, such as a courtyard sur-
+                                                                rounded by a couple of facades, the necessary filters
+                                                                can be measured or simulated. This way, a fairly com-
+                                                                plicated scene can be simulated with a small number of
+                                                                nodes. The Waveguide Web model accurately charac-
+Fig. 12. Treeverb (digital waveguide web). Tree-nodes           terizes both the first- and the second-order reflections
+(T1 –T3 ), bidirectional lines (purple), source paths (blue),   from the nodes [153]. Now the scattering junctions
+receiver paths (red).                                           cannot be energy-preserving, since some of the acous-
+                                                                tic energy escapes the scene between the buildings. A
+components via unidirectional paths. The direct sound           sky node may be defined to simulate such losses [153].
+from source to receiver follows the free-field direct           Nodes for ground reflections could also be incorpo-
+path. The first-order reflection paths from source to           rated, if they appear to be acoustically important.
+receiver pass through the scattering junctions. Four
+scattering junctions denoted S are located at the phys-         4 PARAMETRIC OPTIMIZATION IN DIGITAL
+ical first-order-reflection points along the walls. Six         WAVEGUIDES
+bidirectional delay lines interconnect the four scat-
+tering junctions, forming a digital waveguide network.             Often we wish to calibrate a DWG model to resem-
+The purpose of the network is to simulate the higher-           ble a target sound for realism, or to obtain physical pa-
+order reflections efficiently, albeit with approximation        rameters of the sound-producing object, such as bow
+error: While the scattering junctions are located cor-          force or reed pulse. In this sense, parametric optimiza-
+rectly for first-order reflections, they are not generally      tion in DWGs can be viewed as an architecture-specific
+correct for higher-order reflections.                           instance of the broader synthesizer sound-matching
+   Thus, the efficiency of the SDN reverberator is              problem overviewed by Shier [189].
+obtained by moving the point of reflection for each                Over the last four decades, multiple strategies have
+higher-order reflection from its exact location along           been applied to DWGs, which we organize chronolog-
+the wall to the location of the first-order reflection on       ically. Physics-based approaches rely on analytical re-
+that wall. The main error is that the exact timings             lations and measurements. Filter-design methods ap-
+of the higher-order reflections are perturbed, but the          proximate the DWG by placing poles, zeros or coef-
+echo distribution and density are preserved. As estab-          ficients of its transfer function H(z). System identifi-
+lished by De Sena et al., "according to various objective       cation methods pre-compute input-output mappings
+measures of perceptual features, SDN achieves a re-             for online inference (for an early review of filter de-
+verberation quality similar to that of the [theoretically       sign and system identification, see [25]). Genetic ap-
+precise Image Method] while having a computational              proaches perform random searches where successful
+load one to two orders of magnitude lower" [152].               parameter sets survive and others are discarded. Fi-
+   While SDNs target enclosed room acoustics, similar           nally, neural methods optimize parameters by back-
+principles have been adapted for outdoor scenarios.             propagating loss-gradients through differentiable neu-
+The Waveguide Web is a digital reverberation algo-              ral operations. Neural approaches can be further di-
+rithm designed to simulate the acoustics of sparsely            vided into black-box methods, where the synthesizer’s
+reflecting outdoor environments, such as a scene with           inner workings are unknown, and white-box methods,
+a few buildings, by using interconnected digital wave-          where they are known and explicitly modeled.
+guides and scattering junctions to model reflection
+points [153]. The Waveguide Web extends the Tree-               4.1 Physics-based
+verb architecture proposed by Spratt and Abel, which              Resonating acoustic bodies are often modeled via
+models the acoustics formed by trees in a forest [154].         modal expansion to obtain an impulse response in the
+The Treeverb, shown in Fig. 12, may be interpreted as           form of a sum of exponentially damped sinusoids,
+a 2.5D model of a forest, where the source excites the                     N
+                                                                           X
+                                                                                 An e−αn t cos ωn t + φn ,
+                                                                                                        
+tree nodes and the receiver gathers the post-scattering           x(t) ≈                                                     (14)
+components, including the horizontal acoustic path                         n=1
+from the source to the receiver point and all scatter-          and we estimate the modal parameter set (An , ωn , αn )
+ing paths between the tree nodes. As more trees are             with some spectral method to design the attenuation
+                                                                filter of a FDL system. Guillemain et al. [155] and
+
+10                                                                                      Submitted to J. Audio Eng. Soc., 2026 April
+DRAFT                                                                                                     FOUR DECADES OF DIGITAL WAVEGUIDES
+
+Table 1. Optimization Methods for Digital Waveguides.
+              Paradigm                DWG                         References
+                                      Filtered Delay Loop         [155, 156]           Analytical Relations
+              Physics-Based
+                                      Clarinet                    [157, 158]           Real-Life Measurements
+                                                                  [159]                Prony
+              Filter Design           Filtered Delay Loop         [46, 47, 160, 161]   Iterative Weighted Error
+                                                                  [113, 162, 163]      Steiglitz–McBride
+                                      Kelly–Lochbaum              [164]                Nearest Neighbor
+                                      Reed–Bore                   [165]                Cosine-Similarity
+              System Identification
+                                      Bowed String                [166]                Gaussian Mixture Model
+                                      Avian Vocal Tract           [138]                Maximum Likelihood
+                                      Flute                       [93]
+                                                                                       Spectral Fitness
+                                      Filtered Delay Loop         [167]
+              Genetic
+                                      2D Vocal Tract DWM          [168]                Perceptually-Informed Fitness
+                                      Pink Trombone               [169, 170]           Covariance Matrix Adaptation Evolution Strategy
+                                      String                      [171]                Distal Teacher
+                                      Filtered Delay Loop         [172]                Neural Network with Perceptual Mapping
+                        Black-Box     Reed–Bore                   [173, 174]           Neural Exciter Models
+                                      Flue-Organ                  [175–177]            Convolutional Neural Network
+            Neural                    Bowed-String                [178]                Adversarial Autoencoder
+                                      Pink Trombone               [179]                Transformer
+                                      Guqin, Plucked-Strings...   [180–184]            Scattering Recurrent Networks
+                                      Filtered Delay Loop         [185, 186]
+                        White-Box
+                                      Pink Trombone               [187]                Differentiable Digital Signal Processing
+                                      Scattering Delay Network    [188]
+
+
+
+Ystad [156] match (ωn , αn ) to viscothermal losses in                         ilarly, Smyth and Wang [165] estimate saxophone fin-
+tubes and stiffness-induced dispersion on strings. How-                        gering with a 1D reed-bore DWG. The bore values
+ever, they report this method does not guarantee re-                           are pre-computed per fingering, choosing the one that
+alism [155, 156]. In practice, physics-based approaches                        maximizes time-domain cosine similarity from bell-
+are often hybridized with other methods due to their                           mic recordings [165]. Serafin et al. use Linear Predic-
+potential to simplify optimization by fixing variables:                        tive Coding and Principal Component Analysis to ex-
+Smyth and Abel, for example, anchor a clarinet wave-                           tract features from a pre-computed bowed-string (see
+guide with measured bell reflection filter to obtain its                       §3.1.2) dataset, then use a Gaussian Mixture Model to
+exciting reed pulse [157, 158].                                                learn a probabilistic mapping that predicts bow force
+                                                                               and velocity [166]. Similarly, Smyth, Abel, and Smith
+4.2 Filter Design                                                              invert a hybrid DWG-FDTD avian vocal tract model
+   Alternatively, (An , ωn , αn ) can be used to derive the                    (see §3.2) by pre-computing the power spectra for dif-
+location of poles and zeros of the transfer function                           ferent bronchial pressure and air volume flow values,
+H(z) through some filter-design method [47,160]. The                           used then with maximum-likelihood to estimate their
+strategies used are summarized in Table 1. Fundamen-                           trajectories from new recordings [138].
+tal frequency f0 can be recovered as the lowest de-
+tected harmonic [159] or via harmonic spacing [190];                           4.4 Genetic
+while many works report accurate estimation through                               Vuori and Välimäki first used genetic algorithms to
+autocorrelation [46, 47, 160, 191].                                            optimize a flute model (see §3.1.1), defining a spectral
+   Instrument bodies can be simulated once the string                          fitness over fundamental and early harmonics [93]. Ri-
+h[n] has been optimized. Välimäki et al. rearrange the                         ionheimo and Välimäki extended this approach by in-
+terms of Eq. 13 to y[n] ∗ h−1 [n] = e[n] ∗ b[n], obtain-                       troducing psychoacoustic weighting into the spectral
+ing the pluck response. This is then stored and re-                            fitness to optimize a plucked-string FDL [167]. Cooper
+produced online to simulate guitar, mandolin, kan-                             et al. scaled this approach to a 2D-DWM vocal tract
+tele, and banjo [46]. Later, Tolonen and Välimäki                              (see §3.2) tuning hundreds of spatial parameters [168].
+note the non-harmonic modes of b[n] (for ex. 100-Hz                            Modern research by Cámara et al. on Pink Trombone
+Helmholtz resonance in guitars), can bias the filter-                          optimization demonstrates genetic algorithms remain
+design method of h[n] and propose modeling b[n] sep-                           useful and can compete with Black-Box Neural Net-
+arately with Warped-IIRs, which can be shared along                            work approaches [169]. Furthermore, this strategy can
+multiple strings [46, 47, 160].                                                be successfully hybridized; their recent work utilizes
+                                                                               Differentiable Digital Signal Processing (DDSP) - see
+4.3 System Identification                                                      §4.5.2 - to initialize parameters before refining the re-
+  Kestian and Smyth [164] use a Kelly–Lochbaum                                 sults with a genetic search [170].
+model (see Fig. 5) to precompute a lookup table, map-
+ping area sections to formants. At runtime, nearest-
+neighbor matches the area from recordings [164]. Sim-
+
+Submitted to J. Audio Eng. Soc., 2026 April                                                                                               11
+TABLAS DE PAULA ET AL.                                                                                                  DRAFT
+
+
+4.5 Neural                                                 Table 2. Comparison of Optimization Methods. Nuance is
+                                                           indicated with “~”, discussed below.
+4.5.1 Black-Box
+                                                             Technique        DWG-        Real         Data-       Quality
+   Casey introduced the first neural approach to DWG                         agnostic     Time        Hungry
+optimization by inverting a simple bowed-string model        Physics-Based    Yes~         No           No          Low
+through supervised training [171]. He fed DWG-               Filter-Design    No~          Yes          No         Medium
+                                                             System ID        Yes          Yes          Yes        Medium
+synthesized audio y to a neural network and mini-            Genetic          Yes          No~          No          High
+mized the parameter loss |θ̂ − θ|, where θ̂ and θ are        Black-Box        Yes          Yes          Yes         High
+the predicted and known DWG parameters respec-               White-Box        Yes~         Yes          No~         High
+
+tively, obtaining a controller network able to predict
+θ̂ from y. Additionally, he trained a second network       approach to optimize pluck position, playing dynam-
+as a teacher to predict output waveform ŷ by mini-        ics, timbre and decay separately in a time-domain
+mizing |ŷ − y|—which we refer to here as a synthesizer    time-variant implementation [186].
+network—to help the controller network navigate non-          The same technique, gradient descent reducing
+convex optimization landscapes.                            LM SS , is applied to the Kelly-Lochbaum ladder-filter,
+   Cemgil and Erkut furthered this idea by training a      where the vocal tract area sections are optimized, scor-
+controller network for a plucked-string FDL, with an       ing higher results in perceptual listening tests than
+additional perceptual loss: a subjective mapping of θ      optimization with genetic algorithms, Particle-Swarm
+obtained through listening tests [172]. Other work fo-     Optimization and Gabrielli’s Black-Box method from
+cused on using synthesizer networks to predict e[n] for    §4.5 [187]. Recently, DDSP techniques have been ap-
+reed-bore DWGs, expanding the capabilities of DWGs         plied to SDNs (see §3.4) to match spectro-temporal
+through a data-driven nonlinearity [173, 174].             features of a target room impulse response. The opti-
+   The introduction of modern neural network archi-        mized SDN captures energy decay behavior more real-
+tectures has seen substantial improvements in the last     istically than those modeled solely from geometry and
+decade. Sinclair trained an adversarial autoencoder on     tabulated wall absorption coefficients [188].
+bowed-string (θ, y) pairs, obtaining a controllable syn-
+thesizer network that mirrors the behavior of the orig-    4.6 Comparisons and Current Challenges
+inal DWG [178]. Gabrielli et al. demonstrated that
+                                                              In this review, physics-based and filter-design ap-
+Convolutional Neural Networks achieve high-quality
+                                                           proaches have mostly targeted LTI FDLs. However,
+results when scaled to large datasets, culminating in
+                                                           the former can target arbitrary DWG complexity
+a patented controller network for a flue-organ DWG
+                                                           given derivable or measurable parameters, while the
+[175–177]. Most recently, Xu and Reiss applied Trans-
+                                                           latter supports precise frequency-dependent attenua-
+formers to optimize area sections in the Pink Trom-
+                                                           tion [196,197]. System Identification strategies remain
+bone vocal tract model, surpassing neural audio syn-
+                                                           useful for deriving input-output mappings, but their
+thesis in reconstruction quality for vowel sounds [179].
+                                                           generalizability is limited. Genetic Algorithms achieve
+                                                           high quality without data requirements, but recon-
+4.5.2 White-Box
+                                                           struction quality depends on population size, affecting
+   In white-box approaches, the DWG is embedded            real-time performance (Table 2). Modern approaches
+within the network, allowing backpropagation from          can significantly accelerate this process [170].
+output to parameters. Early research by Su, Liang and         Once trained, neural approaches infer DWG pa-
+collaborators exploited the equivalence between Re-        rameters in real-time and generalize to unseen data.
+current Neural Networks (RNN) and IIR filters (see         Black-box quality depends on data quality and size
+[192] for a mathematical derivation). Hence, they de-      (data-hungry), while white-box methods mitigate this
+signed RNNs whose structure mirrors DWG topolo-            through synthesizer knowledge at the cost of requiring
+gies, where neuron weights act as scattering coeffi-       precise differentiable implementations. Both remain
+cients [180–184]. However, RNN units need to be cas-       limited by loss functions and network capacity.
+caded or parallelized to extend beyond first-order,           While parameter losses provide direct gradients,
+hence complicating the topology of DWGs and im-            DDSP overrelies on LM SS . For sinusoidal frequency
+pacting computational load at synthesis.                   prediction, such as f0 , LM SS yields uninformative gra-
+   Differentiable Digital Signal Processing addresses      dients [198–201]). To address this limitation, recent
+this by implementing DWGs as native differentiable         work explores alternative loss functions—including
+operations [193]. Parameters can then be optimized         combinations of spectral, parameter, and discrimi-
+through a controller network or directly via gradient      native objectives [202–204], along with hybridization
+descent in a self-supervised manner. In the accompa-       with traditional heuristic searches to refine parameter
+nying materials of Hayes et al. [194] an FDL filter’s      initialization [170].
+decay is optimized by minimizing the spectral dis-            Subsequently, when permutation symmetry is
+tance between target and synthesized audio at mul-         present, point-based regressors will degrade per-
+tiple resolutions [185], known as Multi-Scale Spectral     formance, even when combined with permutation-
+Loss (LM SS ) [195]. Tablas de Paula et al. extend this    invariant losses or symmetry-breaking heuristics [205].
+
+12                                                                                   Submitted to J. Audio Eng. Soc., 2026 April
+DRAFT                                                                            FOUR DECADES OF DIGITAL WAVEGUIDES
+
+
+Hayes et al. demonstrated that generative, flexible            [5] S. Bilbao and M. Ducceschi, “Models of Musical
+symmetry-equivariant architectures yields consistent        String Vibration,” Acoust. Sci. Technol., vol. 44, no. 3,
+gains in black-box controllers [205].                       pp. 194–209 (2023 May), doi:10.1250/ast.44.194.
+   While generative prediction has entered DDSP, flex-         [6] J. O. Smith, “A New Approach to Digital Rever-
+ible symmetry-equivariant architectures remain ab-          beration using Closed Waveguide Networks,” in Proc.
+sent [206]. In a related development, DDSP has              Intl. Computer Music Conf. (Vancouver, Canada)
+opened a new direction: the combination of physically       (1985 Aug.).
+interpretable-control of physical models with neural           [7] M. R. Schroeder and B. F. Logan, “Colorless Ar-
+audio [207].                                                tificial Reverberation,” IRE Trans. Audio, vol. AU-
+                                                            9, no. 6, pp. 209–214 (1961 Nov.–Dec.), doi:10.1109/
+5 CONCLUSION                                                TAU.1961.1166351.
+                                                               [8] V. Belevitch, Classical Network Theory, Holden-
+   Over the past four decades, DWG applications have        Day series in information systems (Holden Day, San
+proliferated, as substantially covered in this review. It   Francisco, 1968), URL https://books.google.com/
+is a perfect example of how physically accurate sim-        books?id=q-JSAAAAMAAJ.
+ulations can be perturbed to reduce computations by            [9] J. l. R. d’Alembert, “Investigation of the Curve
+orders of magnitude while preserving psychoacoustic         Formed by a Vibrating String, 1747,” in R. B. Lind-
+equivalence. Just as the FM oscillator-pair efficiently     say (Ed.), Acoustics: Historical and Philosophical De-
+approximated a great number of oscillators in addi-         velopment, pp. 119–123 (Dowden, Hutchinson & Ross,
+tive synthesis, the bidirectional delay lines and scat-     Stroudsburg, 1973).
+tering junctions of DWG networks greatly reduced the           [10] C. E. Shannon, “Communication in the Pres-
+burdensome finite-difference schemes of computational       ence of Noise,” Proc. IRE, vol. 37, no. 1, pp. 10–21
+physics for wave propagation. The straightforward           (1949 Jan.), doi:10.1109/JRPROC.1949.232969.
+calculus of lossless wave scattering—often multiply-           [11] M. R. Schroeder, “Digital Simulation of Sound
+free—at sparse points within a general framework of         Transmission in Reverberant Spaces (Part I),” J.
+bidirectional delay lines has been found to be intu-        Acoust. Soc. Am., vol. 47, no. 2, pp. 424–431 (1970
+itively appealing, physically meaningful, and compu-        Feb.), doi:10.1121/1.1911541.
+tationally hyperefficient—frequently sounding equiv-           [12] J. A. Moorer, “About this Reverberation Busi-
+alent to the ear while saving orders of magnitude           ness,” Computer Music J., vol. 3, no. 2, pp. 13–18
+in computation. Readers are encouraged to explore           (1979 Jun.), doi:10.2307/3680280.
+interactive demonstrations of these principles at the          [13] J. D. Markel and A. H. Gray, Linear Prediction
+companion website: https://joshreiss.github.io/             of Speech (Springer Verlag, New York, 1976).
+digital-waveguides-review/.                                    [14] J. L. Kelly and C. C. Lochbaum, “Speech Syn-
+                                                            thesis,” Proc. Intl. Congr. on Acoustics, pp. 1–4 (1962
+6 ACKNOWLEDGMENTS                                           Sep.), paper G42.
+                                                               [15] J. L. Kelly, C. Lochbaum, and M. Mathews,
+  The authors thank David Marttila for directing us         “Daisy Bell (Bicycle Built for Two) - First Computer-
+to modern literature on voice modeling. This research       Sung Song (1961),” https://www.youtube.com/
+was supported by UK Research and Innovation [grant          watch?v=41U78QP8nBk (accessed Nov. 18, 2025),
+number EP/S022694/1].                                       YouTube video.
+                                                               [16] J. O. Smith III, Physical Audio Signal Pro-
+7 REFERENCES                                                cessing (https://ccrma.stanford.edu/~jos/pasp/,
+                                                            2010 Dec.), W3K Publishing, online book.
+  [1] J. O. Smith, “Physical Modeling Using Digital            [17] M. E. McIntyre, R. T. Schumacher, and
+Waveguides,” Computer Music J., vol. 16, no. 4, pp.         J. Woodhouse, “On the Oscillations of Musical In-
+74–91 (1992 Dec.), doi:10.2307/3680470.                     struments,” J. Acoust. Soc. Am., vol. 74, no. 5, pp.
+  [2] P. R. Cook, “SPASM, a Real-Time Vocal Tract           1325–1345 (1983 Nov.), doi:10.1121/1.390157.
+Physical Model Controller; and Singer, the Compan-             [18] J. O. Smith, “Efficient Simulation of the Reed-
+ion Software Synthesis System,” Computer Music J.,          Bore and Bow-String Mechanisms,” in Proc. Intl.
+vol. 17, pp. 30–44 (1993 Jun.), doi:10.2307/3680568.        Computer Music Conf. (The Hague, The Netherlands)
+  [3] V. Välimäki, J. Pakarinen, C. Erkut, and              (1986 Oct.).
+M. Karjalainen, “Discrete-Time Modelling of Musical            [19] United States Patent and Trademark Of-
+Instruments,” Rep. Prog. Phys., vol. 69, no. 1, pp.         fice, “Manual of Patent Examining Procedure, Sec-
+1–78 (2006 Jan.), doi:10.1088/0034-4885/69/1/R01.           tion 2104: Utility,” https://www.uspto.gov/web/
+  [4] A. Farnell, Designing Sound (MIT Press,               offices/pac/mpep/s2104.html (accessed Nov. 18,
+2010 Sep.), URL https://mitpress.mit.edu/                   2025).
+9780262014410/designing-sound/.                                [20] J. O. Smith, “Digital Signal Processing us-
+                                                            ing Waveguide Networks,” US Patent 4,984,276 (1991
+                                                            Jan.).
+
+Submitted to J. Audio Eng. Soc., 2026 April                                                                        13
+TABLAS DE PAULA ET AL.                                                                                               DRAFT
+
+
+  [21] R. Rideout, “Yamaha VL1 Virtual Acoustic                [36] S. A. Van Duyne and J. O. Smith III, “The
+Synthesizer,” Keyboard Magazine, vol. 20, pp. 104–118       Wave Digital Hammer: A Computationally Efficient
+(1994 Jun.).                                                Traveling Wave Model of the Piano Hammer and the
+  [22] K. Karplus and A. Strong, “Digital Synthesis of      Felt Mallet,” J. Acoust. Soc. Am., vol. 96, pp. 3300–
+Plucked-String and Drum Timbres,” Computer Music            3301 (1994 Nov.), doi:10.1121/1.410815.
+J., vol. 7, no. 2, pp. 43–55 (1983 Jun.), doi:10.2307/         [37] S. D. Bilbao, J. O. Smith III, J. Bensa,
+3680062.                                                    and R. Kronland-Martinet, “The Wave Digital Pi-
+  [23] L. Hiller and P. Ruiz, “Synthesizing Musical         ano Hammer: A Passive Formulation,” J. Acoust.
+Sounds by Solving the Wave Equation for Vibrating           Soc. Am., vol. 112, pp. 2239–2239 (2002 Nov.), doi:
+Objects. Part I.” J. Audio Eng. Soc., vol. 19, no. 6, pp.   10.1121/1.4778886.
+462–470 (1971 Jul.).                                           [38] M. van Walstijn, “The Wave Digital Tonehole
+  [24] D. A. Jaffe and J. O. Smith, “Extensions of the      Model,” in Proc. Intl. Computer Music Conf. (2000
+Karplus-Strong Plucked-String Algorithm,” Computer          Aug.).
+Music J., vol. 7, no. 2, pp. 56–69 (1983 Jun.), doi:           [39] K. Werner, V. Nangia, J. Smith, and
+10.2307/3680063.                                            J. Abel, “Resolving Wave Digital Filters with Multi-
+  [25] J. O. Smith III, Techniques for Digital Filter       ple/Multiport Nonlinearities,” in Proc. Intl. Conf. on
+Design and System Identification, with Application to       Digital Audio Effects (2015 Nov.).
+the Violin, Ph.D. thesis, Stanford University (1983).          [40] K. J. Werner, V. Nangia, J. O. Smith, and J. S.
+  [26] M. Karjalainen and U. K. Laine, “A Model for         Abel, “A General and Explicit Formulation for Wave
+Real-Time Sound Synthesis of Guitar on a Floating-          Digital Filters with Multiple/Multiport Nonlinearities
+Point Signal Processor,” in Proc. IEEE Intl. Conf.          and Complicated Topologies,” in Proc. IEEE Work-
+on Acoustics, Speech, and Signal Processing, vol. 5,        shop on Applications of Signal Processing to Audio
+pp. 3653–3656 (Toronto, Canada) (1991 Apr.), doi:           and Acoustics (WASPAA), pp. 1–5 (2015 Oct.), doi:
+10.1109/ICASSP.1991.151066.                                 10.1109/WASPAA.2015.7336908.
+  [27] T. I. Laakso, V. Välimäki, M. Karjalainen, and          [41] K. J. Werner, V. Nangia, A. Bernardini, J. O.
+U. K. Laine, “Splitting the Unit Delay—Tools for            Smith, III, and A. Sarti, “An Improved and Gen-
+Fractional Delay Filter Design,” IEEE Signal Pro-           eralized Diode Clipper Model for Wave Digital Fil-
+cess. Mag., vol. 13, no. 1, pp. 30–60 (1996 Jan.), doi:     ters,” presented at the Audio Engineering Society
+10.1109/79.482137.                                          Convention139 (2015 Oct.), URL http://www.aes.
+  [28] M. E. McIntyre and J. Woodhouse, “On the             org/e-lib/browse.cfm?elib=17918.
+Fundamentals of Bowed-String Dynamics,” Acta                   [42] M. Karjalainen and J. Pakarinen, “Wave Digi-
+Acust. united Acust., vol. 43, no. 2, pp. 93–108 (1979      tal Simulation of a Vacuum-Tube Amplifier,” in Proc.
+Sep.).                                                      IEEE Intl. Conf. on Acoustics, Speech and Signal Pro-
+  [29] L. Rayleigh, Theory of Sound, Volumes I and          cessing, vol. 5 (2006 May), doi:10.1109/ICASSP.2006.
+II (Dover, New York, 1991), 1st ed. 1894.                   1661235.
+  [30] V. Belevitch, Theory of Linear Network Analy-           [43] W. R. Dunkel, M. Rest, K. J. Werner, M. J.
+sis and Synthesis, Ph.D. thesis, Catholic University of     Olsen, and J. O. Smith III, “The Fender Bassman
+Louvain, Louvain, Belgium (1945).                           5F6-A Family of Preamplifier Circuits—A Wave Dig-
+  [31] A. Fettweis, “Digital Filter Structures Related      ital Filter Case Study,” in Proc. Intl. Conf. on Digital
+to Classical Filter Networks,” Archiv für Elektronik        Audio Effects (2016 Sep.).
+und Übertragungstechnik (AEÜ), vol. 25, no. 2, pp.             [44] J. C. Maxwell, A Treatise on Electricity and
+79–89 (1971 Feb.).                                          Magnetism, 1st ed. (Clarendon Press, Oxford, UK,
+  [32] A. Fettweis, “Wave Digital Filters: Theory and       1873).
+Practice,” Proc. IEEE, vol. 74, no. 2, pp. 270–327             [45] L. Rayleigh, The Theory of Sound, vol. 1
+(1986 Feb.), doi:10.1109/PROC.1986.13458.                   (Macmillan, London, 1877).
+  [33] A. Tustin, “A Method of Analysing the Be-               [46] V. Välimäki, J. Huopaniemi, M. Karjalainen,
+haviour of Linear Systems in Terms of Time Series,” J.      and Z. Jánosy, “Physical Modeling of Plucked String
+Inst. Electr. Eng., Part IIA: Automatic Regulators and      Instruments with Application to Real-Time Sound
+Servo Mechanisms, vol. 94, no. 1, pp. 130–142 (1947         Synthesis,” J. Audio Eng. Soc., vol. 44, no. 5, p.
+May), doi:10.1049/ji-2a.1947.0020.                          331–353 (1996 May).
+  [34] K. Steiglitz, The General Theory of Digital Fil-        [47] V. Välimäki and T. Tolonen, “Development and
+ters with Applications to Spectral Analysis, D.Eng.Sc.      Calibration of a Guitar Synthesizer,” J. Audio Eng.
+dissertation, New York University, New York, NY             Soc., vol. 46, no. 9, pp. 766–778 (1998 Sep.).
+(1963 May).                                                    [48] M. Laurson, C. Erkut, V. Välimäki, and M. Ku-
+  [35] K. Steiglitz, “The Equivalence of Digital and        uskankare, “Methods for Modeling Realistic Playing
+Analog Signal Processing,” Information and Control,         in Acoustic Guitar Synthesis,” Computer Music J.,
+vol. 8, no. 5, pp. 455–467 (1965 Oct.), doi:10.1016/        vol. 25, no. 3, pp. 38–49 (2001 Sep.), doi:10.1162/
+S0019-9958(65)90374-8.                                      014892601753189529.
+
+
+14                                                                                Submitted to J. Audio Eng. Soc., 2026 April
+DRAFT                                                                           FOUR DECADES OF DIGITAL WAVEGUIDES
+
+
+   [49] M. Karjalainen, V. Välimäki, and T. Tolonen,        15th International Congress on Acoustics (Norway)
+“Plucked-String Models: From the Karplus-Strong Al-         (1995 Jun.).
+gorithm to Digital Waveguides and beyond,” Com-                [64] M. Beeson and D. Murphy, “RoomWeaver: A
+puter Music J., vol. 22, no. 3, pp. 17–32 (1998 Sep.),      Digital Waveguide Mesh Based Room Acoustics Re-
+doi:10.2307/3681155.                                        search Tool,” in Proc. Intl. Conf. on Digital Audio Ef-
+   [50] J. O. Smith III, “Efficient Synthesis of Stringed   fects, pp. 268–73 (2004 Oct.).
+Musical Instruments,” in Proc. Intl. Computer Music            [65] D. T. Murphy, M. J. Beeson, J. Mullen, and
+Conf., pp. 64–71 (1993 Sep.).                               D. M. Howard, “RoomWeaver and Digitract: Two
+   [51] J. O. Smith III and S. A. Van Duyne, “Com-          Digital Waveguide Mesh Acoustic Modeling Research
+muted Piano Synthesis,” in Proc. Intl. Computer Mu-         Tools,” J. Acoust. Soc. Am., vol. 116, p. 2579 (2004
+sic Conf., pp. 319–326 (1995 Sep.).                         Oct.), doi:10.1121/1.4785299.
+   [52] S. A. Van Duyne and J. O. Smith III, “Develop-         [66] D. T. Murphy, “The Digital Waveguide Mesh:
+ments for the Commuted Piano,” in Proc. Intl. Com-          Applications in Acoustic Modeling and Current Re-
+puter Music Conf., pp. 335–343 (1995 Sep.).                 search Directions,” J. Acoust. Soc. Am., vol. 116, p.
+   [53] M. Karjalainen, V. Välimäki, and Z. Jánosy,         2562 (2004 Oct.), doi:10.1121/1.4785231.
+“Towards high-quality sound synthesis of the guitar            [67] D. Murphy, A. Kelloniemi, J. Mullen, and
+and string instruments,” in Proc. Intl. Computer Mu-        S. Shelley, “Acoustic Modeling Using the Digital
+sic Conf., pp. 56–56 (1993 Jan.).                           Waveguide Mesh,” IEEE Signal Process. Mag., vol. 24,
+   [54] D. A. Jaffe and J. O. Smith III, “Perfor-           no. 2, pp. 55–66 (2007 Mar.), doi:10.1109/MSP.2007.
+mance Expression in Commuted Waveguide Synthe-              323264.
+sis of Bowed Strings,” in Proc. Intl. Computer Music           [68] L. Savioja and V. Välimäki, “The Bilinearly
+Conf., pp. 343–346 (1995 Sep.).                             Deinterpolated Waveguide Mesh,” in Proc. IEEE
+   [55] J. O. Smith III, “Nonlinear Commuted Synthe-        Nordic Signal Processing Symposium, pp. 443–446 (Es-
+sis of Bowed Strings,” in Proc. Intl. Computer Music        poo, Finland) (1996 Sep.).
+Conf. (1997 Sep.).                                             [69] F. Fontana, L. Savioja, and V. Välimäki, “A
+   [56] S. A. Van Duyne, “Physical Modeling with the        Modified Rectangular Waveguide Mesh Structure with
+2-D Digital Waveguide Mesh,” in Proc. Intl. Computer        Interpolated Input and Output Points,” in Proc. Intl.
+Music Conf. (Ann Arbor, MI: Michigan Publishing,            Computer Music Conf. (Havana, Cuba) (2001 Sep.).
+University of Michigan Library) (1993 Sep.).                   [70] P. Huang, S. Serafin, and J. O. Smith III, “Mod-
+   [57] S. D. Bilbao, Wave and Scattering Methods for       eling High-Frequency Modes of Complex Resonators
+Numerical Simulation (J. Wiley, Chichester, West Sus-       Using a Waveguide Mesh,” in Proc. Intl. Conf. on Dig-
+sex, England, 2004).                                        ital Audio Effects, pp. 269–272 (2000 Dec.).
+   [58] F. Fontana and D. Rocchesso, “A new formula-           [71] P. Huang, S. Serafin, and J. O. Smith III,
+tion of the 2D-waveguide mesh for percussion instru-        “A Waveguide Mesh Model of High-Frequency Vio-
+ments,” in Proc. XI Colloquiun on Musical Informat-         lin Body Resonances,” in Proc. Intl. Computer Music
+ics, pp. 27–30 (Bologna, Italy) (1995 Nov.).                Conf. (2000 Aug.).
+   [59] L. Savioja and V. Välimäki, “Reduction of the          [72] L. Savioja and V. Välimäki, “Reducing the Dis-
+Dispersion Error in the Triangular Digital Waveguide        persion Error in the Digital Waveguide Mesh Using
+Mesh using Frequency Warping,” IEEE Signal Pro-             Interpolation and Frequency-Warping Techniques,”
+cess. Lett., vol. 6, no. 3, pp. 58–60 (1999 Mar.), doi:     IEEE Trans. Speech Audio Process., pp. 184–194 (2000
+10.1109/97.744624.                                          Mar.), doi:10.1109/89.824704.
+   [60] F. Fontana and D. Rocchesso, “Online correc-           [73] L. Savioja and V. Välimäki, “Interpolated 3-
+tion of dispersion error in 2D waveguide meshes,” in        D Digital Waveguide Mesh with Frequency Warping,”
+Proc. Intl. Computer Music Conf., pp. 78–81 (Berlin,        in Proc. IEEE Intl. Conf. on Acoustics, Speech, and
+Germany) (2000 Sep.).                                       Signal Processing, vol. 5, pp. 3345–3348 (2001 May),
+   [61] S. Van Duyne and J. Smith, “The Tetrahedral         doi:10.1109/ICASSP.2001.940375.
+Digital Waveguide Mesh,” in Proc. IEEE Workshop                [74] F. Fontana, S. Serafin, et al., “Modelling
+on Applications of Signal Processing to Audio and           Savart’s trapezoidal violin using digital waveguide
+Acoustics (WASPAA), pp. 234–237 (1995 Oct.), doi:           mesh,” in Proc. Stockholm Musical Acoustics Confer-
+10.1109/ASPAA.1995.482998.                                  ence (SMAC) (Stockholm, Sweden) (2003 Aug.).
+   [62] S. Van Duyne, “The 3D Tetrahedral Digi-                [75] L. Savioja, A. Kelloniemi, V. Välimäki, and
+tal Waveguide Mesh with Musical Applications,” in           D. T. Murphy, “Current State of Research on Bound-
+Proc. Intl. Computer Music Conf. (Ann Arbor, MI:            ary Conditions in the Digital Waveguide Mesh,” in
+Michigan Publishing, University of Michigan Library)        Proc. Intl. Congr. on Acoustics, pp. 477–478 (2004
+(1996).                                                     Apr.).
+   [63] L. Savioja, J. Backman, A. Järvinen, and               [76] K. Lee, “Implementation of a Highly Diffusing
+T. Takala, “Waveguide Mesh Method for Low-                  2-D DigitalWaveguide Mesh with a Quadratic Residue
+Frequency Simulation of Room Acoustics,” in Proc.           Diffuser,” in Proc. Intl. Computer Music Conf. (2004
+                                                            Nov.).
+
+Submitted to J. Audio Eng. Soc., 2026 April                                                                       15
+TABLAS DE PAULA ET AL.                                                                                              DRAFT
+
+
+   [77] A. Kelloniemi, P. Huang, V. Välimäki, and             [89] P. R. Cook, “Synthesis Tool Kit in C++, Ver-
+L. Savioja, “Hyper-Dimensional Digital Waveguide           sion 1.0,” in Proc. SIGGRAPH (1996 May), URL
+Mesh for Reverberation Modeling,” in Proc. Intl.           https://ccrma.stanford.edu/software/stk/.
+Conf. on Digital Audio Effects (Bordeaux, France)             [90] G. Scavone, “Digital Waveguide Modeling of
+(2007 Sep.).                                               the Non-Linear Excitation of Single-Reed Woodwind
+   [78] J. Laird, P. Masri, and N. Canagarajah, “Mod-      Instruments,” in Proc. Intl. Computer Music Conf.,
+elling Diffusion at the Boundary of a Digital Wave-        pp. 521–524 (1995 Sep.).
+guide Mesh,” in Proc. Intl. Computer Music Conf.              [91] V. Välimäki, M. Karjalainen, Z. Jánosy, and
+(Beijing, China) (1999 Oct.).                              U. Laine, “A Real-Time DSP Implementation of a
+   [79] S. Shelley and D. Murphy, “The Modeling            Flute Model,” in Proc. IEEE Intl. Conf. on Acous-
+of Diffuse Boundaries in the 2-D Digital Waveguide         tics, Speech, and Signal Processing, vol. 2 (1992 Apr.),
+Mesh,” IEEE/ACM Trans. Audio Speech Lang. Pro-             doi:10.1109/ICASSP.1992.226073.
+cess., vol. 16, pp. 651–665 (2008 Apr.), doi:10.1109/         [92] P. R. Cook, “A Meta-Wind-Instrument Physi-
+TASL.2007.913407.                                          cal Model, and a Meta-Controller for Real-Time Per-
+   [80] J. Mullen, D. Howard, and D. Murphy, “Wave-        formance Control,” in Proc. Intl. Computer Music
+guide Physical Modeling of Vocal Tract Acoustics:          Conf., p. 273–276 (1992 Oct.).
+Flexible Formant Bandwidth Control from Increased             [93] J. Vuori and V. Välimäki, “Parameter Esti-
+Model Dimensionality,” IEEE/ACM Trans. Audio               mation of Non-Linear Physical Models by Simulated
+Speech Lang. Process., vol. 14, no. 3, pp. 964–971 (2006   Evolution—Application to the Flute Model,” in Proc.
+May), doi:10.1109/TSA.2005.858052.                         Intl. Computer Music Conf., pp. pp. 402–404 (Tokyo,
+   [81] M. D. A. Speed, D. T. Murphy, and D. M.            Japan) (1993 Sep.).
+Howard, “Modeling the Vocal Tract Transfer Function           [94] R. Hänninen and V. Välimäki, “An Improved
+Using a 3D Digital Waveguide Mesh,” IEEE/ACM               Digital Waveguide Model of a Flute with Fractional
+Trans. Audio Speech Lang. Process., vol. 22, no. 2,        Delay,” in Proc. Nordic Acoustical Meeting, pp. 437–
+pp. 453–464 (2014 Feb.), doi:10.1109/TASLP.2013.           444 (Helsinki, Finland) (1996 Jun.).
+2294579.                                                      [95] A. H. Benade, “Equivalent Circuits for Conical
+   [82] C. Manfredi, “Perceived Naturalness of a 3D        Waveguides,” J. Acoust. Soc. Am., vol. 83, no. 5, pp.
+Dynamic Digital Waveguide Mesh Model of the Vo-            1764–1769 (1988 May), doi:10.1121/1.396510.
+cal Tract,” in Proc. Pan European Voice Conference            [96] J.-B. Doc, C. Vergez, P. Guillemain, and
+(PEVOC), p. 176 (Firenze, Italy, 2015 Aug.).               J. Kergomard, “Sound production on a "coaxial saxo-
+   [83] A. Rugchatjaroen and D. M. Howard, “An             phone",” J. Acoust. Soc. Am., vol. 140, p. 3917 (2016
+Evaluation of Rectilinear Digital Waveguide Mesh in        Nov.), doi:10.1121/1.4967368.
+Modelling Branch Tube for English Nasal Synthe-               [97] Yamaha Corporation, “Keyboard Sound Lab
+sis,” Appl. Acoust., vol. 122, pp. 1–7 (2017 Jul.), doi:   Interview,”     https://usa.yamaha.com/products/
+10.1016/j.apacoust.2017.02.002.                            contents/proaudio/about/interview/kslab.html
+   [84] A. Gully and B. Tucker, “Modeling Voiced Stop      (accessed Nov. 18, 2025).
+Consonants Using the 3D Dynamic Digital Wave-                 [98] R. D. Ayers, L. J. Eliason, and D. Mahgerefteh,
+guide Mesh Vocal Tract Model,” in Proc. Intl. Congr.       “The Conical Bore in Musical Acoustics,” Am. J.
+of Phonetic Sciences (Melbourne, Australia) (2019          Phys., vol. 53, no. 6, pp. 528–537 (1985 Jun.), doi:
+Aug.).                                                     10.1119/1.14233.
+   [85] S. E. Hirschman, Digital Waveguide Modeling           [99] M. van Walstijn and J. O. Smith III, “Use of
+and Simulation of Reed Woodwind Instruments, Engi-         Truncated Infinite Impulse Response (TIIR) Filters in
+neer thesis, Stanford University, Department of Elec-      Implementing Efficient Digital Waveguide Models of
+trical Engineering (1991).                                 Flared Horns and Piecewise Conical Bores with Unsta-
+   [86] V. Välimäki, T. Laakso, M. Karjalainen, and        ble One-Pole Filter Elements,” in Proc. Intl. Sympo-
+U. Laine, “A New Computational Model for the Clar-         sium on Musical Acoustics, pp. 309–14 (Leavenworth,
+inet,” in Proc. Intl. Computer Music Conf. (1992           Washington) (1998 Jun.).
+Oct.).                                                        [100] G. P. Scavone and J. O. Smith III, “Digi-
+   [87] G. Borin, G. D. Poli, and D. Rocchesso, “Elim-     tal Waveguide Modeling of Woodwind Toneholes,” in
+ination of Delay-Free Loops in Discrete-Time Models        Proc. Intl. Computer Music Conf. (1996 Aug.), doi:
+of Nonlinear Acoustic Systems,” IEEE Trans. Speech         10.1121/1.416582.
+Audio Process., vol. 8, no. 5, pp. 597–605 (2000 Sep.),       [101] G. Scavone and P. Cook, “Real-time Com-
+doi:10.1109/89.871324.                                     puter Modeling of Woodwind Instruments,” in Proc.
+   [88] P. R. Cook, “TBone: An Interactive WaveGuide       Intl. Symposium on Musical Acoustics (Leavenworth,
+Brass Instrument Synthesis Workbench for the NeXT          WA) (1998 Jun.).
+Machine,” in Proc. Intl. Computer Music Conf., pp.            [102] S. Serafin, F. Avanzini, and D. Rocchesso,
+297–299 (1991 Oct.).                                       “Bowed String Simulation using an Elasto-Plastic
+                                                           Friction Model,” in Proc. Stockholm Musical Acous-
+
+
+16                                                                               Submitted to J. Audio Eng. Soc., 2026 April
+DRAFT                                                                           FOUR DECADES OF DIGITAL WAVEGUIDES
+
+
+tics Conference (SMAC) (Stockholm, Sweden) (2003           sichord Using a Computationally Efficient Physi-
+Aug.).                                                     cal Model,” EURASIP J. Adv. Signal Process., vol.
+   [103] S. Serafin, The Sound of Friction: Real-Time      2004, no. 7, p. 860718 (2004 Jun.), doi:10.1155/
+Models, Playability and Musical Applications, Ph.D.        S111086570440211X.
+thesis, Music Department, Stanford University (2004).         [116] L. Gabrielli, V. Välimäki, H. Pentti-
+   [104] E. Maestre, C. Spa, and J. Smith, “Bowed          nen, S. Squartini, and S. Bilbao, “A Digital
+String Simulation Combining Digital Waveguide              Waveguide-Based Approach for Clavinet Modeling
+and Finite-Difference Time-Domain Frameworks,” J.          and Synthesis,” EURASIP J. Adv. Signal Pro-
+Acoust. Soc. Am., vol. 134, no. 5, pp. 4219–4219 (2013     cess., vol. 2013, no. 1, p. 103 (2013 May), doi:
+Nov.), doi:http://dx.doi.org/10.1121/1.4831493.            10.1186/1687-6180-2013-103.
+   [105] S. Serafin and J. O. Smith, “Modeling Stiffness      [117] C. R. Sullivan, “Extending the Karplus-Strong
+in Virtual Bowed-String Instruments,” J. Acoust. Soc.      Algorithm to Synthesize Electric Guitar Timbres with
+Am., vol. 107, no. 5_Supplement, p. 2792 (2000 May),       Distortion and Feedback,” Computer Music J., vol. 14,
+doi:10.1121/1.428982.                                      no. 3, pp. 26–37 (1990 Sep.), doi:10.2307/3679957.
+   [106] T. Tolonen, V. Välimäki, and M. Karjalainen,         [118] M. Karjalainen, T. Mäki-Patola, and
+“Modeling of Tension Modulation Nonlinearity in            A. Huovilainen., “Virtual Air Guitar,” J. Audio Eng.
+Plucked Strings,” IEEE Trans. Speech Audio Pro-            Soc., vol. 54, no. 10, pp. 964–980 (2006 Oct.).
+cess., vol. 8, no. 3, pp. 300–310 (2000 May), doi:            [119] N. Lindroos, H. Penttinen, and V. Välimäki,
+10.1109/89.841212.                                         “Parametric Electric Guitar Synthesis,” Computer
+   [107] G.    Evangelista     and    F.    Eckerholm,     Music J., vol. 35, no. 3, pp. 18–27 (2011 Sep.), doi:
+“Player–Instrument Interaction Models for Dig-             10.1162/COMJ_a_00066.
+ital Waveguide Synthesis of Guitar: Touch and                 [120] T. Yudasaka, G. Scavone, M. Rau, and
+Collisions,” IEEE Trans. Audio Speech Lang. Pro-           K. Ishizaka, “Measurement and Analysis of Elec-
+cess., vol. 18, no. 4, pp. 822–832 (2010 May), doi:        tric Guitar Neck Admittance for Digital Waveguide
+10.1109/TASL.2009.2038822.                                 Models,” Proc. of Meetings on Acoustics, vol. 58,
+   [108] M. Karjalainen, J. Backman, and J. Pölkki,        no. 1, p. 035024 (2025 Dec.), doi:10.1121/2.0002142.
+“Analysis, Modeling, and Real-Time Sound Synthesis            [121] D. P. Berners, Acoustics and Signal Process-
+of the Kantele, a Traditional Finnish String Instru-       ing Techniques for Physical Modeling of Brass In-
+ment,” in Proc. IEEE Intl. Conf. on Acoustics, Speech,     struments, Ph.D. thesis, Elec. Eng. Dept., Stanford
+and Signal Processing, vol. 1, pp. 229–232 (1993 Apr.),    University (CCRMA) (1999 Jun.), https://ccrma.
+doi:10.1109/ICASSP.1993.319097.                            stanford.edu/~dpberner/.
+   [109] C. Erkut, M. Karjalainen, P. Huang, and              [122] G. Essl, S. Serafin, P. R. Cook, and J. O. Smith
+V. Välimäki, “Acoustical Analysis and Model-Based          III, “Theory of Banded Waveguides,” Computer Music
+Sound Synthesis of the Kantele,” J. Acoust. Soc.           J., vol. 28, no. 1, pp. 37–50 (2004 Mar.), doi:10.1162/
+Am., vol. 112, no. 4, pp. 1681–1691 (2002 Sep.), doi:      014892604322970634.
+10.1121/1.1504858.                                            [123] G. Essl, S. Serafin, P. R. Cook, and J. O. Smith
+   [110] S. Kim, M. Kim, and W. S. Yeo, “Digital           III, “Musical Applications of Banded Waveguides,”
+Waveguide Synthesis of the Geomungo with a Time-           Computer Music J., vol. 28, no. 1, pp. 51–63 (2004
+Varying Loss Filter,” J. Audio Eng. Soc., vol. 61, no.     Mar.), doi:10.1162/014892604322970643.
+1-2, pp. 50–61 (2013 Jan.).                                   [124] S. Serafin, P. Huang, and J. Smith III, “The
+   [111] J. O. Smith III and S. A. Van Duyne, “Com-        Banded Digital Waveguide Mesh,” in Proc. Workshop
+muted Piano Synthesis,” in Proc. Intl. Computer Mu-        on Future Directions of Computer Music (Barcelona,
+sic Conf., pp. 319–326 (Banff, AB, Canada) (1995           Spain) (2001 Jan.).
+Sep.).                                                        [125] GRAME-CNCM, “Faust Programming Lan-
+   [112] B. Bank, “Nonlinear Interaction in the Digital    guage,” https://faust.grame.fr (accessed Nov. 18,
+Waveguide With the Application to Piano Sound Syn-         2025).
+thesis,” in Proc. Intl. Computer Music Conf. (Berlin,         [126] GRAME-CNCM, “Faust Libraries,” https://
+Germany) (2000 Aug.).                                      faustlibraries.grame.fr (accessed Nov. 18, 2025).
+   [113] M. Aramaki, J. Bensa, L. Daudet, P. Guille-          [127] P. Cook, Identification of Control Parameters
+main, and R. Kronland-Martinet, “Resynthesis of            in an Articulatory Vocal Tract Model, With Applica-
+Coupled Piano String Vibrations Based on Physical          tions to the Synthesis of Singing, Ph.D. thesis, Stan-
+Modeling,” J. New Music Res., vol. 30, no. 3, pp. 213–     ford University (1991 Jan.).
+226 (2001 Sep.), doi:10.1076/jnmr.30.3.213.7472.              [128] P. R. Cook, “Singing Physical Articula-
+   [114] J. Rauhala, M. Laurson, V. Välimäki, H.-M.        tory Synthesis Model (SPASM),” https://www.cs.
+Lehtonen, and V. Norilo, “A Parametric Piano Syn-          princeton.edu/~prc/SingingSynth.html (accessed
+thesizer,” Computer Music J., vol. 32, no. 4, pp. 17–30    Nov. 18, 2025).
+(2008 Dec.), doi:10.1162/comj.2008.32.4.17.                   [129] P. T. D. Team, “Pink Trombone: A Hands-
+   [115] V. Välimäki, H. Penttinen, J. Knif, M. Laur-      On Vocal Tract,” https://imaginary.github.io/
+son, and C. Erkut, “Sound Synthesis of the Harp-           pink-trombone/ (accessed Nov. 18, 2025).
+
+Submitted to J. Audio Eng. Soc., 2026 April                                                                       17
+TABLAS DE PAULA ET AL.                                                                                               DRAFT
+
+
+   [130] J. Mullen, D. M. Howard, and D. T. Mur-              [142] S. Baldan, H. Lachambre, S. Delle Monache,
+phy, “Digital Waveguide Mesh Modelling of the Vocal        and P. Boussard, “Physically Informed Car Engine
+Tract Acoustics,” in Proc. IEEE Workshop on Appli-         Sound Synthesis for Virtual and Augmented Environ-
+cations of Signal Processing to Audio and Acoustics        ments,” in Proc. IEEE 2nd VR Workshop on Sonic In-
+(WASPAA), pp. 119–122 (New Paltz, NY, USA) (2003           teractions for Virtual Environments (SIVE), pp. 1–6
+Oct.), doi:10.1109/ASPAA.2003.1285834.                     (2015 Mar.), doi:https://doi.org/10.1109/SIVE.2015.
+   [131] J. Mullen, D. Howard, and D. Murphy,              7361287.
+“Acoustical Simulations of the Human Vocal Tract              [143] Y. Fu, D. Murphy, and A. Southern, “Traf-
+Using the 1D and 2D Digital Waveguide Software             fic Flow Auralisation based on Single Vehicle Pass-by
+Model,” in Proc. Intl. Conf. on Digital Audio Effects,     Noise Synthesis,” in Proc, Intl. Congr. on Acoustics
+pp. 311–314 (Naples, Italy) (2004 Oct.).                   (Aachen, Germany) (2019 Sep.).
+   [132] J. Mullen, D. M. Howard, and D. T. Mur-              [144] C. Dreier, J. Hahn, J. Heck, J. Llorca-Bofí, and
+phy, “Waveguide Physical Modeling of Vocal Tract           M. Vorländer, “Real-time Vehicle Pass-by Noise Syn-
+Acoustics: Flexible Formant Bandwidth Control from         thesis for Urban Sound Auralization,” in Proc. Intl.
+Increased Model Dimensionality,” IEEE/ACM Trans.           Congr. on Acoustics (Gyeongju, South Korea) (2022
+Audio Speech Lang. Process., vol. 14, no. 3, pp. 964–      Oct.).
+971 (2006 May), doi:10.1109/TSA.2005.858052.                  [145] S. Oksanen, J. Parker, and V. Välimäki,
+   [133] J. Mullen, D. M. Howard, and D. T. Murphy,        “Physically Informed Synthesis of Jackhammer Tool
+“Real-Time Dynamic Articulations in the 2-D Wave-          Impact Sounds,” in Proc. Intl. Conf. on Digital Audio
+guide Mesh Vocal Tract Model,” IEEE/ACM Trans.             Effects, pp. 168–171 (2013 Sep.).
+Audio Speech Lang. Process., vol. 15, no. 2, pp. 577–         [146] R. Selfridge, M. Andreasson, L. Bengtsson,
+585 (2007 Feb.), doi:10.1109/TASL.2006.876751.             et al., “Twang! A Physically Derived Synthesis Model
+   [134] M. D. A. Speed, D. T. Murphy, and                 for the Sound of a Vibrating Bar,” presented at the Au-
+D. M. Howard, “Three-Dimensional Digital Wave-             dio Engineering Society Convention 152 (2022 May).
+guide Mesh Simulation of Cylindrical Vocal Tract              [147] F. Keenan and S. Pauletto, “Evaluating a
+Analogs,” IEEE/ACM Trans. Audio Speech Lang.               Sonic Interaction Design based on a Historic Theatre
+Process., vol. 21, no. 2, pp. 449–455 (2013 Feb.),         Sound Effect,” Int. J. Human-Computer Studies, vol.
+doi:10.1109/TASL.2012.2224342.                             164, p. 102836 (2022 Aug.), doi:10.1016/j.ijhcs.2022.
+   [135] A. J. Gully, H. Daffern, and D. T. Murphy,        102836.
+“Diphthong Synthesis Using the Dynamic 3D Digital             [148] D. Menexopoulos, P. Pestana, and J. Reiss,
+Waveguide Mesh,” IEEE/ACM Trans. Audio Speech              “The State of the Art in Procedural Audio,” J. Audio
+Lang. Process., vol. 26, no. 2, pp. 243–255 (2018 Feb.),   Eng. Soc., vol. 71, no. 12, pp. 826–848 (2023 Dec.),
+doi:10.1109/TASLP.2017.2774921.                            doi:10.17743/jaes.2022.0108.
+   [136] T. Smyth and J. O. Smith, “The Sounds of the         [149] M. M. McNabb, “Invisible Cities,” https:
+Avian Syrinx–—Are They Teally Flute-like?” in Proc.        //www.mcnabb.com/music/invisiblecities/ (ac-
+Intl. Conf. on Digital Audio Effects (2002 Sep.).          cessed Nov. 26, 2025).
+   [137] T. Smyth and J. O. Smith, “The Syrinx: Na-           [150] J.-M. Jot and A. Chaigne, “Digital Delay Net-
+ture’s Hybrid Wind Instrument,” J. Acoust. Soc. Am.,       works for Designing Artificial Reverberators,” pre-
+vol. 112, no. 5, Suppl., p. 2240 (2002 Dec.), doi:         sented at the Audio Engineering Society Conv. 90
+10.1121/1.4778889.                                         (1991 Feb.).
+   [138] T. Smyth, J. Abel, and J. Smith, “The Estima-        [151] M. Karjalainen, P. Huang, and J. O. Smith III,
+tion of Birdsong Control Parameters Using Maximum          “Waveguide Networks for Room Response Modeling
+Likelihood And Minimum Action,” in Proc. Stock-            and Synthesis,” presented at the Audio Engineering
+holm Musical Acoustics Conference (SMAC), vol. 3,          Society Convention119 (2005 Oct.).
+pp. 413–416 (2003 Jan.).                                      [152] E. De Sena, H. Haciihabiboglu, Z. Cvetkovic,
+   [139] W. Wilkinson and J. D. Reiss, “A Synthesis        and J. Smith, “Efficient Synthesis of Room Acoustics
+Model for Mammalian Vocalization Sound Effects,” in        via Scattering Delay Networks,” IEEE/ACM Trans.
+Proc. 61st Audio Engineering Society Intl. Conf.: Au-      Audio Speech Lang. Process., vol. 23, no. 9, pp. 1478–
+dio for Games (2016 Feb.).                                 1492 (2015 Sep.), doi:10.1109/TASLP.2015.2438547.
+   [140] K. Cascone, D. Petkevich, G. Scandalis,              [153] F. Stevens, D. T. Murphy, L. Savioja, and
+T. Stilson, K. Taylor, and S. A. V. Duyne, “Apparatus      V. Välimäki, “Modeling Sparsely Reflecting Out-
+and Methods for Synthesis of Internal Combustion           door Acoustic Scenes Using the Waveguide Web,”
+Engine Vehicle Sounds,” US Patent 6,959,094 (2005          IEEE/ACM Trans. Audio Speech Lang. Process.,
+Oct.), Filed: April 20, 2001.                              vol. 25, no. 8, pp. 1566–1578 (2017 Aug.), doi:
+   [141] R. Michon, M. Johns, S. O’Modhrain, et al.,       10.1109/TASLP.2017.2699424.
+“A Faust Based Driving Simulator Sound Synthe-                [154] K. Spratt and J. S. Abel, “A Digital Reverber-
+sis Engine,” in Proc. Sound and Music Computing            ator Modeled After the Scattering of Acoustic Waves
+Conf. (Hamburg, Germany) (2016 Aug.), URL https:           by Trees in a Forest,” presented at the Audio Engi-
+//hal.science/hal-03162894.                                neering Society Convention 125 (2008 Oct.).
+
+18                                                                                Submitted to J. Audio Eng. Soc., 2026 April
+DRAFT                                                                            FOUR DECADES OF DIGITAL WAVEGUIDES
+
+
+   [155] P. Guillemain, R. Kronland-Martinet, and             [169] M. Cámara, Z. Xu, Y. Zong, J. L. Blanco, and
+S. Våstad, “Physical Modelling Based on the Analy-         J. D. Reiss, “Optimization Techniques For a Physical
+sis of Natural Sounds,” in Proc. Institute of Acoustics,   Model of Human Vocalisation,” in Proc. Intl. Conf. on
+vol. 19, Part 5, pp. 445–450 (1997 Nov.).                  Digital Audio Effects (2023 Sep.).
+   [156] S. Ystad, Sound Modeling Using a Combina-            [170] M. Cámara, J. L. Blanco, and J. D. Reiss,
+tion of Physical and Signal Models, Ph.D. thesis, Ecole    “Parameter Optimisation for a Physical Model of
+superieure de mecanique de Marseille (1998).               the Vocal System,” EURASIP J. Audio Speech Mu-
+   [157] T. Smyth and J. S. Abel, “Estimating the          sic Process., vol. 2025, no. 1, p. 27 (2025 Jul.), doi:
+Reed Pulse from Clarinet Recordings,” in Proc. Intl.       10.1186/s13636-025-00414-5.
+Computer Music Conf. (2009 Aug.).                             [171] M. A. Casey, “Understanding Musical Sound
+   [158] T. Smyth and J. S. Abel, “Toward an Esti-         With Forward Models and Physical Models,” Connec-
+mation of the Clarinet Reed Pulse from Instrument          tion Science, vol. 6, no. 2-3, pp. 355–371 (1994 Jun.),
+Performance,” J. Acoust. Soc. Am., vol. 131, no. 6,        doi:10.1080/09540099408915730.
+pp. 4799–4810 (2012 Jun.), doi:10.1121/1.3699211.             [172] A. T. Cemgil and C. Erkut, “Calibration of
+   [159] J. Laroche and J.-M. Jot, “Analysis/Synthesis     Physical Models Using Artificial Neural Networks
+of Quasi-Harmonic Sounds By Use of the Karplus-            With Application to Plucked String Instruments,”
+Strong Algorithm,” Le Journal de Physique IV, vol. 2,      Proceedings of the Institute of Acoustics, vol. 19, pp.
+no. C1, pp. C1–117 (1992 Apr.), doi:10.1051/jp4:           213–218 (1997 Nov.), doi:10.25144/15140.
+1992122.                                                      [173] C. Drioli and D. Rocchesso, “Learning Pseudo-
+   [160] T. Tolonen and V. Välimäki, “Automated Pa-        Physical Models for Sound Synthesis and Transforma-
+rameter Extraction for Plucked String Synthesis,” in       tion,” in Proc. IEEE Intl. Conf. on Systems, Man,
+Proc. Intl. Symposium on Musical Acoustics, pp. 245–       and Cybernetics, vol. 2, pp. 1085–1090 (1998 Oct.),
+250 (1997 Aug.).                                           doi:10.1109/ICSMC.1998.727837.
+   [161] B. Bank and V. Välimäki, “Robust Loss Fil-           [174] A. Uncini, “Sound Synthesis by Flexible Acti-
+ter Design for Digital Waveguide Synthesis of String       vation Function Recurrent Neural Networks,” in Proc.
+Tones,” IEEE Signal Process. Lett., vol. 10, no. 1, pp.    Neural Nets, pp. 168–177 (2002 May).
+18–20 (2003 Jan.), doi:10.1109/LSP.2002.806707.               [175] L. Gabrielli, S. Tomassetti, S. Squartini, et al.,
+   [162] L. Daudet, P. Guillemain, and R. Kronland-        “Introducing Deep Machine Learning for Parameter
+Martinet, “Resynthesis of Piano Strings Vibrations         Estimation in Physical Modelling,” in Proc. Intl. Conf.
+Based on Physical Modeling,” in Proc. Intl. Computer       on Digital Audio Effects (2017 Sep.).
+Music Conf., pp. 48–51 (1999 Oct.).                           [176] L. Gabrielli, S. Tomassetti, C. Zinato, and
+   [163] A. Nackaerts, B. De Moor, and R. Lauwereins,      F. Piazza, “End-to-End Learning for Physics-Based
+“Parameter Estimation for Dual-Polarization Plucked        Acoustic Modeling,” IEEE Trans. Emerg. Top. Com-
+String Models,” in Proc. Intl. Computer Music Conf.        put. Intell, vol. 2, no. 2, pp. 160–170 (2018 Apr.), doi:
+(2001 Sep.).                                               10.1109/TETCI.2017.2787125.
+   [164] A. P. Kestian and T. Smyth, “Real-Time Esti-         [177] L. Gabrielli, S. Tomassetti, S. Squartini,
+mation of the Vocal Tract Shape for Musical Control,”      C. Zinato, and S. Guaiana, “A Multi-Stage Algo-
+in Proc. Sound and Music Computing Conf., pp. 206–         rithm for Acoustic Physical Model Parameters Es-
+211 (2010 Jul.).                                           timation,” IEEE/ACM Trans. Audio Speech Lang.
+   [165] T. Smyth and C.-i. Wang, “Toward Real-Time        Process., vol. 27, no. 8, pp. 1229–1240 (2019 Aug.),
+Estimation of Tonehole Configuration,” in Proc. Intl.      doi:10.1109/TASLP.2019.2914530.
+Computer Music Conf. (2014 Sep.).                             [178] S. Sinclair, “Sounderfeit: Cloning a Physical
+   [166] S. Serafin, F. Mazzella, J. Smith, A. Tellier,    Model using a Conditional Adversarial Autoencoder,”
+H. Thornburg, and G. Thonier, “Data Driven Iden-           Rev. Música Hodie, vol. 18, no. 1 (2018 Jun.), doi:
+tification and Computer Animation of Bowed String          10.5216/mh.v18i1.53570.
+Model,” in Proc. Intl. Computer Music Conf. (2001             [179] Z. Xu and J. Reiss, “PinkVocalTransformer:
+Jan.).                                                     Neural Acoustic-to-Articulatory Inversion Based on
+   [167] J. Riionheimo and V. Välimäki, “Parame-           the Pink Trombone,” in International Conference on
+ter Estimation of a Plucked String Synthesis Model         Speech and Computer, pp. 161–173 (2025 Oct.).
+Using a Genetic Algorithm with Perceptual Fit-                [180] A. W. Y. Su and L. San-Fu, “Synthesis of
+ness Calculation,” EURASIP J. Adv. Signal Process.,        Plucked-String Tones by Physical Modeling With Re-
+vol. 2003, no. 8, pp. 1–15 (2003 Dec.), doi:10.1155/       current Neural Networks,” in Proceedings of the First
+S1110865703302100.                                         Signal Processing Society Workshop on Multimedia
+   [168] C. Cooper, D. Murphy, D. Howard, and              Signal Processing, pp. 71–76 (1997 Jun.).
+A. Tyrrell, “Singing Synthesis with an Evolved Phys-          [181] S.-F. Liang and A. W. Y. Su, “Recurrent
+ical Model,” IEEE/ACM Trans. Audio Speech Lang.            Neural-Network-Based Physical Model for the Chin
+Process., vol. 14, pp. 1454–1461 (2006 Aug.), doi:         and Other Plucked-String Instruments,” J. Audio Eng.
+10.1109/TSA.2005.860844.                                   Soc., vol. 48, no. 11, pp. 1045–1059 (2000 Nov.).
+
+
+Submitted to J. Audio Eng. Soc., 2026 April                                                                         19
+TABLAS DE PAULA ET AL.                                                                                              DRAFT
+
+
+   [182] A. W.-Y. Su and S.-F. Liang, “A New Auto-         io/physical-modeling/wave_equation.html (ac-
+matic IIR Analysis/Synthesis Technique for Plucked-        cessed Nov. 18, 2025).
+String Instruments,” IEEE Trans. Speech Audio Pro-           [195] C. J. Steinmetz and J. D. Reiss, “Auraloss:
+cess., vol. 9, no. 7, pp. 747–754 (2001 Oct.), doi:        Audio Focused Loss Functions in PyTorch,” in Proc.
+10.1109/89.952493.                                         Digital Music Research Network One-Day Workshop
+   [183] A. W. Su and S.-F. Liang, “A Class of Physical    (DMRN+ 15) (2020 Dec.).
+Modeling Recurrent Networks for Analysis/Synthesis           [196] H.-M. Lehtonen, J. Rauhala, and V. Välimäki,
+of Plucked String Instruments,” IEEE Trans. Neural         “Sparse Multi-Stage Loss Filter Design for Waveguide
+Networks, vol. 13, no. 5, pp. 1137–1148 (2002 Sep.),       Piano Synthesis,” in Proc. IEEE Workshop on Appli-
+doi:10.1109/TNN.2002.1031945.                              cations of Signal Processing to Audio and Acoustics,
+   [184] W.-C. Chang and A. W.-Y. Su, “A Multichan-        pp. 331–334 (2005 Oct.), doi:10.1109/ASPAA.2005.
+nel Recurrent Network Analysis/Synthesis Model for         1540236.
+Coupled-String Instrument,” IEEE/ACM Trans. Au-              [197] V. Välimäki, K. Prawda, and S. J. Schlecht,
+dio Speech Lang. Process., vol. 14, no. 6, pp. 2233–2241   “Two-Stage Attenuation Filter for Artificial Reverber-
+(2006 Nov.), doi:10.1109/TASL.2006.872610.                 ation,” IEEE Signal Process. Lett., vol. 31, pp. 391–
+   [185] B. Hayes, J. Shier, G. Fazekas, A. McPher-        395 (2024 Jan.), doi:10.1109/LSP.2024.3352510.
+son, and C. Saitis, “A Review of Differentiable Dig-         [198] J. Turian and M. Henry, “I’m Sorry for Your
+ital Signal Processing for Music and Speech Synthe-        Loss: Spectrally-Based Audio Distances Are Bad at
+sis,” Front. Signal Process., vol. 3 (2024 Jan.), doi:     Pitch,” in Proc. ”I Can’t Believe It’s Not Better!”
+10.3389/frsip.2023.1284100.                                NeurIPS 2020 Workshop (2020 Dec.).
+   [186] P. Tablas de Paula, D. Marttila, and J. D.          [199] B. Hayes, C. Saitis, and G. Fazekas, “Sinu-
+Reiss, “Differentiable Karplus-Strong,” in Digital Mu-     soidal Frequency Estimation by Gradient Descent,”
+sic Research Network One-Day Workshop (DMRN+               in Proc. IEEE Intl. Conf. on Acoustics, Speech, and
+20) (2025 Dec.).                                           Signal Processing, pp. 1–5 (2023 Jun.), doi:10.1109/
+   [187] D. Südholt, M. Cámara, Z. Xu, and J. D.           ICASSP49357.2023.10095188.
+Reiss, “Vocal Tract Area Estimation by Gradient De-          [200] S. Schwär and M. Müller, “Multi-scale Spec-
+scent,” in Proc. Intl. Conf. on Digital Audio Effects      tral Loss Revisited,” IEEE Signal Process. Lett.,
+(Copenhaguen, Denmark) (2023 Sep.).                        vol. 30, pp. 1712–1716 (2023 Nov.), doi:10.1109/LSP.
+   [188] A. I. Mezza, R. Giampiccolo, A. Bernardini,       2023.3333205.
+et al., “Differentiable Scattering Delay Networks for        [201] B. Torres, G. Peeters, and G. Richard, “Unsu-
+Artificial Reverberation,” in Proc. Intl. Conf. on Dig-    pervised Harmonic Parameter Estimation using Dif-
+ital Audio Effects, pp. 202–207 (2025 Sep.).               ferentiable DSP and Spectral Optimal Transport,”
+   [189] J. Shier, The Synthesizer Programming Prob-       in Proc. IEEE Intl. Conf. on Acoustics, Speech, and
+lem: Improving the Usability of Sound Synthesiz-           Signal Processing, pp. 1176–1180 (2024 Apr.), doi:
+ers, Master’s thesis, University of Victoria, Victoria,    10.1109/ICASSP48485.2024.10447011.
+Canada (2021).                                               [202] N. Masuda and D. Saito, “Improving semi-
+   [190] K. Bradley, M.-H. Cheng, and V. L. Stonick,       supervised Differentiable Synthesizer Sound Matching
+“Automated Analysis and Computationally Efficient          for Practical Applications,” IEEE/ACM Trans. Au-
+Synthesis of Acoustic Guitar Strings and Body,” in         dio Speech Lang. Process., vol. 31, pp. 863–875 (2023
+Proc. IEEE Workshop on Applications of Signal Pro-         Jan.), doi:{10.1109/TASLP.2023.3237161}.
+cessing to Audio and Acoustics (WASPAA), pp. 238–            [203] H. Han, V. Lostanlen, and M. Lagrange,
+241 (1995 Oct.), doi:10.1109/ASPAA.1995.482999.            “Learning to Solve Inverse Problems for Perceptual
+   [191] C. Erkut, V. Välimäki, M. Karjalainen, and        Sound Matching,” IEEE/ACM Trans. Audio Speech
+M. Laurson, “Extraction of Physical and Expressive         Lang. Process., vol. 32, pp. 2605–2615 (2024 Apr.),
+Parameters for Model-Based Sound Synthesis of the          doi:10.1109/TASLP.2024.3393738.
+Classical Guitar,” presented at the Audio Engineering        [204] Y. Zong, N. Garcia-Sihuay, and J. D. Reiss, “A
+Society Convention 108 (2000 Feb.).                        Machine Learning Method to Evaluate and Improve
+   [192] B. Kuznetsov, J. D. Parker, and F. Esqueda,       Sound Effects Synthesis Model Design,” in Proc. Au-
+“Differentiable IIR Filters for Machine Learning Ap-       dio Engineering Society International Conference on
+plications,” in Proc. Intl. Conf. on Digital Audio Ef-     Audio for Games (London, UK) (2024 Feb.).
+fects, pp. 297–303 (2020 Sep.).                              [205] B. Hayes, C. Saitis, and G. Fazekas, “Audio
+   [193] J. Engel, L. Hantrakul, C. Gu, and A. Roberts,    Synthesizer Inversion in Symmetric Parameter Spaces
+“DDSP: Differentiable Digital Signal Processing,” in       with Approximately Equivariant Flow Matching,” in
+Proc. Intl. Conf. on Learning Representations (2020        Proc. Intl. Society for Music Information Retrieval
+Jan.).                                                     Conference (ISMIR) (2025 Sep.).
+   [194] B. Hayes, A. Sarroff, and J. Engel, “Intro-         [206] C. Peladeau, D. Fourer, and G. Peeters, “Au-
+duction to Differentiable Digital Signal Processing:       dio Processor Parameters: Estimating Distributions
+Physical Modeling,” https://intro2ddsp.github.             Instead of Deterministic Values,” in Proc. Intl. Conf.
+                                                           on Digital Audio Effects (2025 Sep.).
+
+20                                                                               Submitted to J. Audio Eng. Soc., 2026 April
+DRAFT                                                                                    FOUR DECADES OF DIGITAL WAVEGUIDES
+
+
+ [207] Y. Zong and J. Reiss, “Learning Control of                   spired Models,” in Proc. IEEE Intl. Conf. on Acous-
+Neural Sound Effects Synthesis from Physically In-                  tics, Speech, and Signal Processing, pp. 1–5 (2025
+                                                                    Apr.), doi:10.1109/ICASSP49660.2025.10889683.
+
+
+
+                                                         THE AUTHORS
+
+
+
+
+              Pablo Tablas de Paula           Julius O. Smith III     Vesa Välimäki          Joshua D. Reiss
+
+   Pablo Tablas de Paula is a PhD student with the                                             r
+Centre for Digital Music at Queen Mary University
+of London. He received his BSc (Hons) degree in Au-                    Vesa Välimäki is a Full Professor of audio signal pro-
+dio Technology from Glasgow Caledonian University                   cessing and Vice Dean for research at Aalto University,
+in 2024, where he was awarded the JAMES Outstand-                   Espoo, Finland. He received his D.Sc. degree from the
+ing Student Award and the Mediaspec Best Honours                    Helsinki University of Technology in 1995. His research
+Project Award. He completed an internship with the                  interests are in signal processing and machine learn-
+Eurorack synthesizer designer Instruō and was part of              ing for acoustics, audio, and music technology. In 2008,
+the R&D team at Blackstar Amplification. Research                   he was Chair of the 11th International Conference on
+interests include DDSP, synthesizer sound matching,                 Digital Audio Effects DAFx-08. In 2017, he chaired the
+and digital waveguide synthesis.                                    14th International Sound and Music Computing Con-
+                                   r                                ference SMC-17. In 2020-2025, Prof. Välimäki was the
+                                                                    Editor-in-Chief of the Journal of the Audio Engineer-
+   Julius O. Smith III is Professor Emeritus of Mu-                 ing Society and is now the Deputy Editor-in-Chief.
+sic and by courtesy Electrical Engineering at Stanford                                         r
+University, based at the Center for Computer Research
+in Music and Acoustics (CCRMA). He received his                        Josh Reiss is a Professor with Queen Mary Uni-
+B.S.E.E. from Rice University in 1975 (Control, Cir-                versity of London’s Centre for Digital Music. He has
+cuits, and Communication), and M.S. and Ph.D. in                    published more than 200 scientific papers, and co-
+E.E. from Stanford in 1978 and 1983, respectively. He               authored three books. He is a past President and
+joined the Stanford Music faculty part-time in 1989.                Fellow of the Audio Engineering Society (AES). He
+At CCRMA he pursued research and teaching in music                  has served as an expert witness in major cases re-
+and audio signal processing. He was at NeXT Com-                    lated to audio technology and patent litigation. He
+puter, Inc., from 1986 to 1991, tasked with building                is Entrepreneur-in-Resident at QMUL, having co-
+the Sound and Music Group. He was a founding con-                   founded four spin-out companies; LandR, Waveshaper
+sultant for Staccato Systems, Shazam, and moForte.                  AI, RoEx and Nemisindo. His research is primarily on
+For more information, see http://ccrma.stanford.                    state-of-the-art signal processing and machine learn-
+edu/~jos/.                                                          ing techniques for sound design and audio production.
+
+
+
+
+Submitted to J. Audio Eng. Soc., 2026 April                                                                                21
+

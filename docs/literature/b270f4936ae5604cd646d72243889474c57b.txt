@@ -1,0 +1,341 @@
+Presented at the 1997 International Computer Music Conference, Thessaloniki, Greece.
+
+
+
+
+    Digital Waveguide Modeling of Woodwind Toneholes
+                            Gary P. Scavone                      Julius O. Smith, III
+                        gary@ccrma.stanford.edu                jos@ccrma.stanford.edu
+
+                  Center for Computer Research in Music and Acoustics (CCRMA)
+                             Department of Music, Stanford University
+                                 Stanford, California 94305 USA
+
+                                                    Abstract
+        This paper demonstrates a digital waveguide implementation of a six-hole woodwind tonehole
+        lattice, based on theory and measurements published by Keefe (1981). Woodwind tonehole
+        transmission-matrix parameters are converted to traveling-wave scattering parameters suitable for
+        digital waveguide implementation. Second-order digital filters are designed to approximate the re-
+        flection and transmission transfer functions implied by the Keefe data. In this way, the tonehole is
+        implemented by a two-port scattering junction which accounts for both series and shunt complex
+        impedances. Alternatively, the tonehole can be implemented as a one-multiply, one-filter, three-
+        port scattering junction. The results of a digital waveguide six-hole flute bore implementation using
+        both models are compared to Keefe (1990), with excellent agreement. In this way, the best available
+        acoustic theory regarding toneholes is efficiently and accurately simulated in discrete-time.
+
+
+1        Two-Port Tonehole Model                           an analysis of symmetric pressure distribution, or a
+                                                           pressure anti-node, at the tonehole, for which pres-
+                                                           sure is symmetric and equal across the junction. The
+The fundamental acoustic properties of toneholes
+                                                           transmission matrix which results under this analysis
+have been extensively studied and reported by Keefe
+                                                           is given by
+(1981, 1990). The model described by Keefe (1990)
+                                                                   "                            #    
+is an accurate representation for a tonehole unit, as-                        Za             Za
+                                                               P1        1 + 2Z    Z a   1 + 4Z        P2
+suming adjacent tonehole interactions are negligible.                =          s               s           , (1)
+In this description, acoustic variables at the tonehole
+                                                               U1          Zs−1             Za
+                                                                                       1 + 2Z s
+                                                                                                       U2
+junction are related by a transmission matrix of se-
+                                                           obtained by cascading the three matrices which cor-
+ries and shunt impedance parameters. Keefe’s origi-
+                                                           respond to the three impedance terms. Based on the
+nal derivation of the tonehole parameters was based
+                                                           approximation that |Za /Zs |  1, Eq. (1) can be re-
+on a symmetric T section, as shown in Fig. 1 (Keefe,
+                                                           duced to the form
+1981). The series impedance terms, Za , result from                                           
+                                                                       P1         1     Za     P2
+                                                                            =                        ,      (2)
+                                                                       U1        Zs−1 1        U2
+    b          Za /2                    Za /2          b
+
+                                                           which is the basic tonehole unit cell given by Keefe
+    P1                                                P2   for transmission-matrix calculations. The values of
+                            Zs
+    U1                                                U2   Za and Zs vary according to whether the tonehole is
+                                                           open (o) or closed (c) as
+    b                                                  b
+                                                                      Zs(o)   =   Z0 (a/b)2 (jkte + ξe ) ,      (3a)
+Fig. 1: T section transmission-line representation of
+the tonehole.                                                         Zs(c)   =   −jZ0 (a/b)2 cot(kt),          (3b)
+                                                                      Za(o)   =   −jZ0 (a/b)2kt(o)
+                                                                                                a ,             (3c)
+an analysis of anti-symmetric pressure distribution,                  Za(c)   =   −jZ0 (a/b) kta .
+                                                                                             2 (c)
+                                                                                                                (3d)
+or a pressure node, at the tonehole junction. In this
+case, volume flow is symmetric and equal across the Definitions and descriptions of the various parameters
+junction. The shunt impedance term, Zs , results from in Eqs. (3a) – (3d) can be found in (Keefe, 1990).
+     To render these relationships in the digital wave-   method (Smith, 1983, p. 46), in conjunction with the
+guide domain, it is necessary to transform the plane-     equation-error method. That is, a one-pole model
+wave physical variables of pressure and volume veloc-     Ĥ1 (z) was first fit to the continuous-time response,
+ity to traveling-wave variables as                        H(ejΩ ). Subsequently, the inverse error spectrum,
+                                                      Ĥ1 (ejΩ )/H(ejΩ ) was modeled with a two-pole digi-
+              P1            P1+ + P1− 
+                   =                        ,       (4)   tal filter, Ĥ2 (z). The discrete-time approximation to
+              U1        Z0−1 P1+ − P1−
+                                                          H(ejΩ ) was then given by Ĥ1 (z)/Ĥ2 (z). The first step
+where Z0 is the characteristic impedance of the cylin-    of this design process captures the peaks of the spec-
+drical bore, which is equal on both sides of the tone-    tral envelope, while the second step models the “dips”
+hole. Waveguide pressure variables on both sides of       in the spectrum. These particular calculations were
+the tonehole are then related by                          performed for a tonehole of radius b = 4.765 mm,
+          −   −                 + 
+            P1         R     T−       P1                  minimum tonehole height tw = 3.4 mm, tonehole ra-
+                  =                         ,      (5)
+            P2+        T + R+         P2−                 dius of curvature rc = 0.5 mm, and air column radius
+                                                          a = 9.45 mm. The results of Keefe (1981) were exper-
+where
+                                                          imentally calibrated for frequencies less than about 5
+                              Za Zs − Z02
+        R− = R+      ≈                         ,   (6a)   kHz, so that the continuous-time responses evident
+                          Za Zs + 2Z0 Zs + Z02            in the figures are purely theoretical above this limit.
+                                 2Z0 Zs                   Therefore, the discrete-time filter design process was
+        T− =T+       ≈                         ,   (6b)
+                          Za Zs + 2Z0 Zs + Z02            weighted to produce better matching at low frequen-
+                                                          cies.
+calculated using Eqs. (1) and (4) and then making
+appropriate simplifications for |Za /Zs |  1. Figure 2
+                                                                                                      HHj
+                                                                                    0
+depicts the waveguide tonehole two-port scattering                                                 Closed Hole
+                                                                         −10
+junction in terms of these reflectances and trans-                       −20
+                                                            Gain (dB)
+
+
+
+
+                                                                                                    ,
+mittances. This structure is analogous to the four-                      −30
+multiply Kelly-Lochbaum scattering junction (Kelly                       −40
+                                                                                              Open Hole
+and Lochbaum, 1962).                                                     −50
+
+                                                                         −60
+                                                                            0            2        4     6      8      10    12     14   16   18   20
+                                                                                                                   Frequency (kHz)
+                         T (z)
+                          +
+   p+
+    1 (n)                                      p+
+                                                2 (n)
+                                                                                    5
+                                                                                              Open Hole
+                                                                 Phase (radians)
+
+
+
+
+            R− (z)                                                                  0
+                                   R+ (z)                                                                                               Closed Hole
+                                                                                             Continuous−Time Responses
+                                                                                             Discrete−Time Responses
+
+   p−                                          p−
+                                                                                   −5
+    1 (n)                                       2 (n)                                0   2        4     6      8      10    12     14   16   18   20
+                           −
+                         T (z)
+                                                                                                                   Frequency (kHz)
+
+
+                                                       Fig. 3: Two-port tonehole junction closed-hole and
+Fig. 2: Digital waveguide tonehole two-port scatter- open-hole reflectances, derived from Keefe (1981)
+ing junction.                                          shunt and series impedance parameters. (top) Re-
+                                                       flectance magnitude; (bottom) Reflectance phase.
+     For the implementation of the reflectances and
+transmittances given by Eqs. (6a) – (6b) in the dig-        Figure 4 plots the reflection function calculated
+ital waveguide structure of Fig. 2, it is necessary to for a six-hole flute bore, as described in (Keefe,
+convert the continuous-time filter responses to appro- 1990). The upper plot was calculated using Keefe’s
+priate discrete-time representations. In this study, frequency-domain transmission matrices, such that
+use is made of an equation-error minimization tech- the reflection function was determined as the inverse
+nique (Smith, 1983) which matches both frequency Fourier transform of the corresponding reflection co-
+response magnitude and phase. This technique is efficient. This response is equivalent to that provided
+implemented in MATLAB  by the function invfreqz. by Keefe (1990), though scale factor discrepancies ex-
+Figure 3 plots the responses of second-order discrete- ist due to differences in open-end reflection models
+time filters designed to approximate the continuous- and lowpass filter responses. The lower plot was cal-
+time magnitude and phase characteristics of the re- culated from a digital waveguide model using two-
+flectances for closed and open toneholes. The open- port tonehole scattering junctions. Differences be-
+hole discrete-time filter was designed using Kopec’s tween the continuous- and discrete-time results are
+                       0.15                                                      be modeled by another waveguide and the reflec-
+                                                                                 tion/transmission characteristics at its end by an ap-
+Reflection Function
+
+
+
+                        0.1
+
+                       0.05                                                      propriate digital filter. This tonehole model is then
+                         0                                                       attached to the appropriate branch of the three-port
+                      −0.05
+                                                                                 junction. The bore characteristic admittance Y0 is
+                                                                                 equal on either side of the junction, while the real
+                       −0.1
+                           0    1   2   3   4       5
+                                                Time (ms)
+                                                            6   7   8   9   10   tonehole characteristic admittance is Y0th .
+                       0.15                                                          The three-port scattering junction equations for
+                                                                                 pressure traveling-wave components can be deter-
+Reflection Function
+
+
+
+
+                        0.1
+
+                       0.05                                                      mined as
+                                                                                                                            −
+                         0
+                                                                                          p−
+                                                                                           a (t) =   r0 p+
+                                                                                                         a (t) + [1 + r0 ] pb (t)
+                                                                                                                           −2r0 p−
+                      −0.05
+                                                                                                                                   th (t)   (7a)
+                       −0.1
+                                                                                                                            −
+                           0    1   2   3   4       5
+                                                Time (ms)
+                                                            6   7   8   9   10
+                                                                                          p+
+                                                                                           b (t) =
+                                                                                                                +
+                                                                                                     [1 + r0 ] pa (t) + r0 pb (t)
+                                                                                                                           −2r0 p− th (t)   (7b)
+Fig. 4: Reflection functions for note G (three finger                                                                              −
+holes closed, three finger holes open) on a simple flute       p+th (t) =
+                                                                                                                +
+                                                                                                     [1 + r0 ] pa (t) + [1 + r0 ] pb (t)
+[see (Keefe, 1990)]. (top) Transmission-line calcula-                                                                 − [1 + 2r0 ] p−
+                                                                                                                                    th (t), (7c)
+tion; (bottom) Digital waveguide two-port tonehole
+implementation.                                            where
+                                                                                   −Y0th                −Z0
+                                                                       r0 =                   =                    .      (8)
+                                                                              Y0th + 2Y0           Z0 + 2Z0th
+most apparent in early, high-frequency, closed-hole
+reflections. The continuous-time reflection function A one-multiply form of the three-port scattering
+was low-pass filtered to remove time-domain aliasing equations is given by
+effects incurred by the inverse Fourier transform op-                                −
+                                                                  p−a (t) = pb (t) + w                                  (9a)
+eration and to better correspond with the plots of                  +                +
+(Keefe, 1990). By trial and error, a lowpass filter               pb (t) = pa (t) + w                                   (9b)
+                                                                                                −           −
+with a cutoff frequency around 4 kHz was found to                 p+
+                                                                   th (t)  =       p +
+                                                                                     a (t)  + p b (t)  −  p th (t) + w, (9c)
+produce the best match to Keefe’s results. The digital
+waveguide result was obtained at a sampling rate of where
+44.1 kHz and then lowpass filtered to a 10 kHz band-                                         −              −
+                                                                                                                   
+width, corresponding to that of (Keefe, 1990). Fur-
+                                                                      w = r0 p+    a (t) + pb (t) − 2pth (t) .          (10)
+ther lowpass filtering is inherent from the first-order An implementation of these equations in shown in
+Lagrangian, delay-line length interpolation technique Fig. 5.
+used in this model (Välimäki, 1995). Because such
+filtering is applied at different locations along the                      pth-(n)                    pth+(n)
+“bore,” a cumulative effect is difficult to accurately
+determine. The first tonehole reflection is affected by
+only two interpolation filters, while the second tone-
+hole reflection is affected by four of these filtering op-                      -2         -1
+
+erations. This effect is most responsible for the minor pa+(n)                                                          pb+(n)
+
+discrepancies apparent in the plots.
+                                                                                                           r0
+
+
+
+2                             Three-Port Tonehole Model                          pa-(n)                                                   pb-(n)
+
+
+A tonehole junction may also be represented in the                               Fig. 5: Tonehole three-port scattering junction im-
+digital waveguide context by a lossless three-port                               plementation in one-multiply form.
+junction. The three-port junction models sound
+wave interaction at the intersection of the air col-                                 To complete the digital waveguide three-port
+umn and tonehole, as determined by conservation of                               tonehole implementation, it is necessary to determine
+volume flow and continuity of pressure. Wave prop-                               an appropriate model for the tonehole section itself,
+agation within the tonehole itself can subsequently                              and then attach this model to the junction. It is
+possible to implement the tonehole structure as a                               3    Conclusions
+short, fractional delay, digital waveguide and apply
+an appropriate reflectance at its end. Depending on
+                                                                                Current theoretical models of woodwind finger holes
+the tonehole geometry, the reflectance at the end of
+                                                                                can be accurately implemented in the digital wave-
+an open tonehole may be determined from either a
+                                                                                guide domain. The two-port tonehole waveguide im-
+flanged or unflanged (Levine and Schwinger, 1948)
+                                                                                plementation requires four second-order filtering op-
+pipe approximation. The far end of a closed tonehole
+                                                                                erations per tonehole (details regarding a one-filter
+is appropriately modeled by an infinite impedance (or
+                                                                                form are to be published in the proceedings of the
+a pressure reflection without inversion). Given typ-
+                                                                                1997 IEEE Workshop on Applications of Signal Pro-
+ical tonehole heights, however, a lumped reflectance
+                                                                                cessing to Audio and Acoustics). The three-port im-
+model of the tonehole, which accounts for both the
+                                                                                plementation requires one multiply and one filter-
+propagation delay and end reflection is more appro-
+                                                                                ing operation. The results for both implementations
+priate and easily implemented with a single low-order
+                                                                                are very similar, despite the fact that the three-port
+digital filter. In this sense, incoming tonehole pres-
+                                                                                model neglects the series impedance terms. A more
+sure p−th (t) is calculated from the outgoing tonehole                          complete and detailed analysis of this topic, uncon-
+pressure p+ th (t) and the lumped tonehole driving point                        strained by page number limitations, can be found in
+reflectance, while the corresponding pressure radi-
+                                                                                (Scavone, 1997).
+ated from the open tonehole is given by convolu-
+tion of p+th (t) with the lumped tonehole section trans-
+mittance. Figure 6 plots the reflection function ob-                            References
+tained for the six-hole flute bore implemented us-
+ing digital waveguide three-port tonehole junctions.                            Keefe, D. H. (1981). Woodwind Tone-hole Acoustics
+The lumped open-hole reflectance incorporates an                                 and the Spectrum Transformation Function. Ph.D.
+unflanged characteristic, while the closed-hole re-                              thesis, Case Western Reserve University.
+flectance which best matches the Keefe (1990) data
+includes no propagation delay within the side branch.                           Keefe, D. H. (1990). Woodwind air column models.
+Alternatively, the lumped tonehole reflectance fil-                              J. Acoust. Soc. Am., 88(1):35–51.
+ters can be designed from the shunt impedance pa-                               Kelly, Jr., J. L. and Lochbaum, C. C. (1962). Speech
+rameters of Eqs. (3a) and (3b), thus taking advan-                               synthesis. In Proc. Fourth Int. Congress on Acous-
+tage of the data of Keefe (1981). The digital wave-                              tics, pp. 1–4, Copenhagen, Denmark. Paper G42.
+guide three-port tonehole junction implementation
+presented here corresponds to the two-port model                                Levine, H. and Schwinger, J. (1948). On the radiation
+when series impedance terms are neglected. In gen-                                of sound from an unflanged circular pipe. Phys.
+eral, the series impedance terms are much less critical                           Rev., 73(4):383–406.
+to the model performance than the shunt impedance,                              Scavone, G. P. (1997).      An Acoustic Analysis
+which is demonstrated by the similarity of the results                            of Single-Reed Woodwind Instruments with
+for both implementations. Further, the series terms                               an Emphasis on Design and Performance
+have more influence on closed-hole results than those                             Issues and Digital Waveguide Modeling Tech-
+for open holes (Keefe, 1981).                                                     niques.    Ph.D. thesis, Music Dept., Stanford
+                                                                                  University.    Available as CCRMA Technical
+                                                                                  Report No. STAN–M–100 or from ftp://ccrma-
+                       0.15
+                                                                                  ftp.stanford.edu/pub/Publications/Theses/Gary-
+                                                                                  ScavoneThesis/.
+Reflection Function
+
+
+
+
+                        0.1
+
+                       0.05                                                     Smith, J. O. (1983). Techniques for Digital Filter De-
+                         0                                                        sign and System Identification with Application to
+                      −0.05
+                                                                                  the Violin. Ph.D. thesis, Elec. Eng. Dept., Stanford
+                                                                                  University.
+                       −0.1
+                           0   1   2   3   4       5       6   7   8   9   10
+                                               Time (ms) Välimäki, V. (1995). Discrete-Time Modeling of
+Fig. 6: Reflection function for note G (three finger       Acoustic Tubes Using Fractional Delay Filters.
+holes closed, three finger holes open) on a simple flute   Ph.D. thesis, Helsinki University of Technology,
+[see (Keefe, 1990)], determined using a digital wave-      Faculty of Electrical Engineering, Laboratory of
+guide three-port junction tonehole implementation.         Acoustic and Audio Signal Processing, Espoo, Fin-
+                                                           land, Report no. 37.
+

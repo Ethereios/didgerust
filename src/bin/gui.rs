@@ -1,4 +1,13 @@
+//! GUI binary entrypoint for DidgeRust CADSD
+//!
+//! This binary launches the Bevy + egui application with the full
+//! CADSD interface including simulation, optimizer, geometry, and settings panels.
+//!
+//! To run: cargo run --bin gui --features gui-bevy
+
+#[cfg(feature = "gui-bevy")]
 use bevy::prelude::*;
+<<<<<<< HEAD
 use bevy_egui::{EguiPlugin, EguiContexts, egui};
 use egui_plot::{Plot, Line, PlotPoints, VLine};
 
@@ -136,8 +145,16 @@ impl Default for CadsdState {
         }
     }
 }
+=======
+#[cfg(feature = "gui-bevy")]
+use bevy_egui::EguiPlugin;
+#[cfg(feature = "gui-bevy")]
+use cadsd::app::{CadsdState, ui_system, setup};
+>>>>>>> adfb9d3 (feat: comprehensive architecture docs, UI overhaul, research foundations, and evolution engine improvements)
 
+#[cfg(feature = "gui-bevy")]
 fn main() {
+<<<<<<< HEAD
     let state = CadsdState::default();
     let (tx, rx) = mpsc::channel();
     
@@ -881,3 +898,27 @@ fn show_settings_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
         .text("Wall thickness (mm)")
         .step_by(0.5));
 }
+=======
+    App::new()
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "DidgeRust - CADSD GUI".into(),
+                resolution: (1280.0, 720.0).into(),
+                ..default()
+            }),
+            ..default()
+        }))
+.add_plugins(EguiPlugin)
+        .insert_resource(ClearColor(Color::srgb(0.1, 0.1, 0.2)))
+        .insert_resource(CadsdState::default())
+        .add_systems(Startup, setup)
+        .add_systems(Update, ui_system)
+        .run();
+}
+
+#[cfg(not(feature = "gui-bevy"))]
+fn main() {
+    println!("GUI feature is not enabled.");
+    println!("Run with: cargo run --bin gui --features gui-bevy");
+}
+>>>>>>> adfb9d3 (feat: comprehensive architecture docs, UI overhaul, research foundations, and evolution engine improvements)

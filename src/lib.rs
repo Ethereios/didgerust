@@ -5,11 +5,19 @@ pub use cadsd_accurate::geo::Geo;
 pub mod geo;
 pub mod sim;
 pub mod visualization;
-pub mod app;
+
+// New modules from adfb9d3
+pub mod persistence;
+pub mod integration;
+pub mod export;
+pub mod waveguide;
 
 // Expose UI module (only when gui-bevy feature is enabled)
 #[cfg(feature = "gui-bevy")]
-pub mod ui;
+pub mod app;
+
+#[cfg(feature = "gui-bevy")]
+pub mod gui;
 
 // Re-export simulation types from accurate crate
 pub use cadsd_accurate::sim::{

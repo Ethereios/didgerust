@@ -1,50 +1,46 @@
-# didgerust - Implementation Plan Checklist
+# didgerust - Phase B Implementation Progress
 
-## Phase 0: Inventory + API coverage
-- [x] Create API coverage matrix for both crates (`didgerust` and `cadsd-accurate`)
-- [x] Identify public exports and map to implemented internals
-- [x] Identify gaps (missing modules, partial implementations, mismatched semantics)
+## Phase A: ✅ Core Implementation Fixes (COMPLETE)
 
-## Phase 1: Module-by-module code reading (cadsd-accurate)
-- [x] `src/geo/` (geometry invariants, mm units, parametric generators)
-- [x] `src/sim/` (acoustical simulation pipeline + backends)
-- [x] `src/conv/` (note↔freq conversion, cent calculations)
-- [x] `src/analysis/` (peak detection, note labeling, report helpers)
-- [x] `src/evo/` (genome encoding, mutation/crossover, selection loop)
-- [x] `src/loss/` (each loss component, intermediate requirements)
-- [x] `src/export/`, `src/persistence/`, `src/audio/` (IO/state serialization)
-- [x] `src/ui/` + app entrypoints (wiring to core logic)
+## Phase B: 🟡 UI Feature Completion (IN PROGRESS)
 
-Deliverable after Phase 1:
-- [ ] Create `DESIGN_NOTES.md` with per-module call graphs + invariants
+### B0 — Persistence Module (Foundation)
+- [x] Implement real JSON save/load for `AppSettings`
+- [x] Implement real JSON save/load for `ProjectState`
+- [x] Wire optimizer checkpoint save/load to actual files
 
-## Phase 2: Module-by-module code reading (top-level didgerust crate)
-- [x] `src/sim/`
-- [x] `src/geo/`
-- [x] `src/evo/`
-- [x] `src/loss/`
-- [x] `src/visualization/`
-- [x] `src/lib.rs`, `src/main.rs`, examples/bin
+### B1 — Simulation Panel
+- [ ] Wire "Export CSV" button to file dialog + `DataExporter`
+- [ ] Implement "Compare Strategies" overlay with multi-line plot (TLM/WG/CI)
+- [ ] Add real-time spectrum tooltips on hover
 
-Deliverable after Phase 2:
-- [x] Update API coverage matrix for differences vs `cadsd-accurate`
+### B2 — Optimizer Panel
+- [ ] Add loss function component toggles (checkboxes)
+- [ ] Wire "Resume from Checkpoint" button to file dialog
+- [ ] Wire "Export Best Genome" button to file dialog
+- [ ] Wire real generation progress tracking
 
-## Phase 3: Reconciliation / alignment plan
-- [x] Decide target architecture: single backend vs adapters
-- [x] Propose adapter layer between `didgerust` and `cadsd-accurate` APIs
-- [x] Identify duplicated logic and deprecation steps
+### B3 — Geometry Panel
+- [ ] Implement undo/redo stack (history buffer)
+- [ ] Wire "Import Geometry" / "Export Geometry" to file dialogs
+- [ ] Implement "Add Bubble" dialog
+- [ ] Implement "Stretch Geometry" dialog
+- [ ] Add 3D bore preview (bevy_gizmos wireframe)
 
-Deliverables:
-- [x] `RECONCILIATION_PLAN.md`
+### B4 — Settings Panel
+- [ ] Add theme selection (light/dark toggle)
+- [ ] Add logging verbosity control
+- [ ] Add default strategy persistence
+- [ ] Wire "Save/Load Configuration" to file dialogs
 
-## Phase 4: Testing + validation plan
-- [x] Create physics regression test plan (geometry + simulation + peak detection)
-- [x] Create conversion regression test plan
-- [x] Create optimizer smoke test plan
+## Phase C: 🟠 Persistence & State Management (later)
+## Phase D: 🔵 Advanced Integrations (later)
 
-Deliverables:
-- [x] `ACCURACY_PARITY.md` (already existed, validated)
-- [x] `TEST_PLAN.md`
+### D1 — Physics Model Improvements
+- [ ] Replace radiation impedance placeholder (`src/sim/mod.rs::za`) with Levine-Schwinger IIR or Geipel approximation from DidgeLab
+- [ ] Implement full viscothermal loss model (`Tw`, `Zcw`) in `cadsd_ze` to match DidgeLab's `tlm_python.py`
+- [ ] Add `AcousticConstants` struct with temperature/humidity/pressure-dependent moist-air properties
+- [ ] Implement bent-shape effective-length correction (`dL_eff = ds * (1 - α·κ²·a²)`) from DidgeLab
 
 ## Phase 5: Performance plan
 - [x] Identify hotspots (segments conversion, impedance recompute, peak scanning)
@@ -56,4 +52,23 @@ Deliverables:
 
 ## Tracking
 - [x] Mark tasks completed after each phase
+
+### D2 — Evolution Engine Enhancements
+- [ ] Add missing mutation operators: `SingleMutation`, `AverageCrossover`, `PartSwapCrossover`, `PartAverageCrossover` (from DidgeLab `operators.py`)
+- [ ] Implement loss result caching on genome objects to avoid redundant simulation
+- [ ] Add `prominence` parameter to `find_peaks` for robust peak detection
+- [ ] Implement phase-based resonance finder (Ernoult et al. 2020) as alternative to strict local maxima
+
+### D3 — Machine Learning Integration (behind `nn-integration` feature flag)
+- [ ] Prototype differentiable TLM using scalar `Value` engine (`autodiff-rs` pattern) for gradient-based optimisation
+- [ ] Add `dfdx` as dev-dependency for compile-time graph optimisation of complex transfer matrices
+- [ ] Add `tch-rs` behind `nn-integration` feature flag for production GPU training
+- [ ] Extract complex-valued NN primitives from `renplex` (Cf32 arithmetic, Wirtinger derivatives) into `src/nn/mod.rs`
+- [ ] Implement neural fitness predictor (MLP surrogate for top-5 resonance peaks) to speed up evolution
+- [ ] Port `fdtd-waveguide` Yee scheme to acoustics (`src/fdtd/mod.rs`) for 3-D bent-geometry validation
+
+### D4 — Code Quality
+- [ ] Fix undo/redo off-by-one in geometry panel redo logic
+- [ ] Remove duplicate `PrimeGenerator` in `src/waveguide/mod.rs` (already exists in `src/evo/mod.rs`)
+- [ ] Standardise frequency grid to cents-based log spacing for tuning accuracy
 

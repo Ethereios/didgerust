@@ -1,0 +1,1270 @@
+            Woodwind instrument design optimization based on
+           impedance characteristics with geometric constraints
+        Augustin Ernoult, Christophe Vergez, Samy Missoum, Philippe Guillemain,
+                                               Michael Jousserand
+
+
+
+      To cite this version:
+     Augustin Ernoult, Christophe Vergez, Samy Missoum, Philippe Guillemain, Michael Jousserand. Woodwind
+     instrument design optimization based on impedance characteristics with geometric constraints. 2020. ⟨hal-
+     02479433v1⟩
+
+
+
+
+                                        HAL Id: hal-02479433
+                              https://hal.science/hal-02479433v1
+                     Preprint submitted on 14 Feb 2020 (v1), last revised 30 Nov 2020 (v3)
+
+
+
+
+    HAL is a multi-disciplinary open access archive             L’archive ouverte pluridisciplinaire HAL, est des-
+for the deposit and dissemination of scientific re-        tinée au dépôt et à la diffusion de documents scien-
+search documents, whether they are published or not.       tifiques de niveau recherche, publiés ou non, émanant
+The documents may come from teaching and research          des établissements d’enseignement et de recherche
+institutions in France or abroad, or from public or pri-   français ou étrangers, des laboratoires publics ou
+vate research centers.                                     privés.
+
+
+                                              HAL Authorization
+   Woodwind instrument design optimization based on
+  impedance characteristics with geometric constraints
+
+     Augustin Ernoulta,b,∗, Christophe Vergeza , Samy Missoumc , Philippe
+                     Guillemaina , Michael Jousserandd
+  a Aix Marseille Univ., CNRS, Centrale Marseille, LMA UMR 7031, Marseille, France
+b Magique 3D team, Inria Bordeaux Sud Ouest, 200 avenue de la vieille tour, 33405 Talence
+
+                                     Cedex, France
+   c Aerospace and Mechanical Engineering Department, University of Arizona, Tucson,
+
+                                  Arizona, 85721, USA
+        d Buffet Crampon, 5 rue Maurice Berteaux, 78711 Mantes-La-Ville, France
+
+
+
+
+Abstract
+    Computational optimization algorithms coupled with acoustic models of
+wind instruments provide instrument makers an opportunity to explore new
+designs. Specifically, they give the possibility to automatically find geometries
+exhibiting desired resonance characteristics. In this paper, the design optimiza-
+tion of woodwind instruments with complex geometrical features (e.g., non-
+cylindrical bore profile and side holes with various radii and chimney heights) is
+investigated. Optimal geometric characteristics are searched to obtain specific
+target frequencies or amplitude characteristics. However, woodwind instruments
+exhibit complex input impedance whose features might change drastically for
+a small variation of the geometry, thus hampering gradient-based optimiza-
+tion. For this reason, this paper introduces new formulations of the impedance
+characteristics (resonance frequencies and amplitudes). The approach is ap-
+plied to an illustrative instrument subjected to geometric constraints similar
+to the ones encountered by manufacturers (a key-less pentatonic clarinet with
+two-registers). Three optimization problems are considered, demonstrating a
+strategy to simultaneously adjust several impedance characteristics on all the
+fingerings.
+Keywords: Musical acoustics, Woodwind instruments, Bore profile
+optimization, Impedance characteristics, Musical instrument design
+
+
+1. Introduction
+
+   Wind instrument makers typically rely on their empirical knowledge to im-
+prove an existing instrument or to design a new model. For instance, their
+
+  ∗ Corresponding author
+
+   Email address: augustin.ernoult@inria.fr (Augustin Ernoult)
+
+
+
+Preprint submitted to Journal of Sound and Vibration                   February 14, 2020
+experience of existing instruments help them select suitable inner geometries of
+the instrument. Once a new prototype has been manufactured, maybe with the
+help of new tools (e.g., reamers, mandrels), the instrument can then be evaluated
+by musicians. Modifications can then be carried out based on the manufacturers
+experience to mitigate any potential problem. This procedure is repeated until
+a satisfactory instrument, which is typically a compromise between different de-
+sired features (e.g., tuning of all notes), is reached. This is an iterative process,
+which often requires building many prototypes and is therefore costly and time
+consuming. In addition, the empirical design and manufacturing process leads
+to solutions and geometries that are close to existing ones. For this reason,
+it is important to provide manufacturers and the musical acoustics community
+strategies to facilitate and expand the design of new wind instruments.
+     From a physical point of view, a wind instrument can be described as a
+nonlinear sound source coupled with a resonator. The resonator is generally
+reduced to its linear response represented by its input impedance defined in the
+frequency domain as the ratio between the acoustic pressure and the volume
+flow at the entrance of the instrument. The knowledge of the input impedance
+and more particularly of its modal characteristics (frequencies, peak amplitudes
+and quality-factors) allows one to explain and predict a large range of behaviors
+exhibited by wind instruments [1]. Many well established solutions are available
+to compute the input impedance from the geometry of the resonator with a good
+accuracy for the majority of resonator geometries [1, 2, 3, 4, 5, 6, 7, 8]. The in-
+put impedance may therefore be useful to obtain resonance frequencies and peak
+amplitudes of an instrument design without the need to build the corresponding
+prototype. Such an approach was proposed by the platform PAFI [9, 10]. If
+the target (desired) characteristics of the input impedance are known, it is also
+possible to use optimization techniques to solve the inverse problem and itera-
+tively converge towards an optimal resonator geometry with desired impedance
+characteristics. The ability of optimization algorithms to find solution in a
+large design space can lead to unexpected configurations, sometimes markedly
+different from existing instruments.
+     However, the design optimization of wind instruments can be hampered by
+several challenges. Due to their nonlinear nature, wind instruments can exhibit
+drastic changes in behaviors for small variations of their design parameters (e.g.,
+leading to different regimes of oscillation). This high sensitivity of the acoustic
+behavior can be accounted through a complete modeling of the instrument and
+digital sound synthesis. Another difficulty stems from the dimensionality of the
+optimization problem. For instance, in Tournemenne et al. [11], an optimiza-
+tion was carried out based on a target playing frequency. The optimization
+algorithm, which was tailored to tackle the complex dynamic behavior of the
+self-oscillating system, was used with 10 variables at most. However, considering
+complex bore and holes geometries would require many more design variables,
+which is the main reason why most authors work on optimization methods based
+on the input impedance only. Kausel [12] ran an optimization with 100 variables
+on a brass instrument using a zero-order optimization approach. Gradient-based
+optimization methods with analytical gradients were also used (Noreland [13])
+
+
+                                         2
+for the optimization of conical pipes with a up to 400 variables defining the
+brass bore profile. Strategies to reduce the number of design variables can also
+be found in the literature. For instance, Braden [14] used a parameterization
+of the geometry of a brass bell through a few Bessel horns. The choice of the
+impedance characteristics to optimize is also crucial in the optimization pro-
+cess. For brass instrument, cost functions based on the tuning of the resonance
+frequencies are convenient [13, 14]. This appears not sufficient for woodwind
+instruments optimization which have a register hole [15]. In the latter case, the
+magnitude of the peaks of the input impedance must be considered as well, as
+proposed by Guilloteau [16]. It is therefore necessary to simultaneously adjust
+different types of input impedance characteristics.
+    This article deals with the optimization of some geometrical features of a
+woodwind instrument, including holes positions and dimensions. Different ob-
+jective functions are considered, relying exclusively on modal characteristics of
+the input impedance for all fingerings. The instrument is modeled as a lattice of
+branched tubes (holes). As a consequence, secondary resonances, cutoff frequen-
+cies due to the holes [17], and input impedances of increased complexity can
+occur. Specifically, an optimization based on a typical mode tracking procedure
+would be hindered. This type of difficulty had not been identified in previous
+papers on woodwind instruments design optimization [15, 18]. This may be due
+to the focus which was put on the so-called logical clarinets, which have regular
+geometries for which the shape of the input impedance is not challenging, at
+least until high frequencies. To address the issue originating from the proposed
+complex geometry, a new phase-based description of the resonances is used in
+the optimization process. This new formulation enable the construction of cost
+functions enforcing specific target resonance frequencies in addition to target
+amplitude properties.
+    The input impedance model is presented in Section 2. The proposed new for-
+mulations of the resonance characteristics are explained in Section 3. Section 4
+presents the general optimization problem formulation and the algorithm used.
+Finally, the proposed approach is demonstrated on the design optimization of
+an illustrative key-less pentatonic clarinet with two-registers in Section 5. Three
+optimization problems are considered involving target resonance frequencies or
+peak amplitude ratios as well as geometric constraints. A reference configuration
+is obtained through an optimization of the clarinet based on a low-frequency
+model. The influence of the initial design and the robustness of the algorithm
+are discussed in Section 6
+
+2. Input impedance model of a woodwind instrument
+   Consider a generic woodwind instrument as depicted in Figure 1. The instru-
+ment consists the assembly of Nelem elements which can be conical or cylindrical
+segments with or without side holes. All these elements are described with four
+geometric parameters (Fig. 1): the distance to the precedent element l(n), the
+main pipe radius rpipe (n) and, if their is a hole, the hole radius rhole (n) and the
+chimney height hhole (n). Note that in real-world instruments, the geometric
+
+
+                                         3
+properties of the elements (i.e., radii, chimney heights, and segments lengths)
+must satisfy specific geometric constraints, which is an primal aspect of this
+research.
+                                        rhole(n-1)          rhole(n)
+                          hhole(n-1)                                   hhole(n)
+                                rpipe(n-1)                        rpipe(n)
+
+                                 l(n-1)              l(n)               l(n+1)    x
+
+Figure 1: Sketch of the resonator of a generic woodwind instrument defined as a chain of basic
+elements (e.g., conical/cylindrical segments and holes)
+
+
+   In order to characterize the acoustical properties an optimize the design of
+the instrument, the input impedance Z is used:
+                                             Atot Zrad + Btot
+                                       Z=                                                 (1)
+                                             Ctot Zrad + Dtot
+where Zrad is the radiation impedance at the end of the pipe. Atot , Btot , Ctot , Dtot
+are the coefficients of the transfer matrix Mtot between the input and the output
+of the resonator. The total transfer matrix is computed by the transfer matrix
+method as the product of Nelem elementary transfer matrices Mi [1]:
+                                                     NY
+                                                      elem
+
+                                        Mtot =                  Mi .                      (2)
+                                                       i=1
+
+An element is defined as either a conical pipe or a side hole (T-joint). The
+hole transfer matrices are based on a model proposed by Lefebvre et al. [19].
+The model accounts for the presence of chimneys and implements various length
+corrections. Thermoviscous losses in the chimneys are also considered to cor-
+rectly estimate the magnitude of the resonances. This is especially true for a
+long and thin chimney, which is generally the case for the register hole. The
+model proposed in [19] also includes a frequency dependence for the internal
+length correction. However this dependence is neglected as it does not signifi-
+cantly affect the lower modes, which are the focus of this article, while markedly
+increasing the computational time.
+    The conical pipes (or cylinders) are modeled based on the formulation which
+accounts for thermoviscous losses proposed by Hélie [6]. The cone transfer
+matrix is                                           
+                                      Acone Bcone
+                          Mcone =                      ,                       (3)
+                                      Ccone Dcone
+where              
+                   
+                    Acone = rr12 cosh(ΓL) − (rr21−r 1)
+                                                   ΓL sinh(ΓL)
+                                 ρc
+                   
+                    B
+                       cone = πr1 r2 sinh(ΓL)                  ,                          (4)
+                   
+                    Ccone  = (A  cone Dcone − 1)/Bcone
+                   
+                    D        r2               (r2 −r1 )
+                       cone = r1 cosh(ΓL) + r2 ΓL sinh(ΓL)
+
+
+                                                     4
+where r1 and r2 (r2 ≥ r1 ) are the cone radii, L, the curvi-linear length (wall
+length), ρ and c are the air density and the sound velocity respectively. The
+complex wavenumber Γ which accounts visco-thermal losses, is defined as:
+
+                  Γ = (jk)2 + 2εk 3/2
+                  2
+                              q               log(1 + r2r−r 1
+                                                              )             (5)
+                  ε     = ε∗ 1 − ( r2 −r
+                                       L
+                                          1 2
+                                           )              1
+
+                                                  r2 − r1
+k is the wavenumber and ε∗ is a coefficient related to the temperature [6]. Note
+that the ratio in the form log(1 + x)/x has a finite limit at x = 0 (i.e., r2 = r1 )
+must be treated with special attention for elements transitioning from a cone to
+a cylinder or conversely.
+    In this work, the radiation impedance of both the main pipe and the side
+holes are modeled by the unflanged pipe radiation impedance approximated by
+a non-causal formulation (Silva et al. [20]):
+                                                               
+                                                1
+               Zrad = −j tan kLrad (k, r) − j ln |Rrad (k, r)| ,                (6)
+                                                2
+
+where k is the wave number and Lrad (k, r) and Rrad (k, r) are rational fractions
+depending on k and the radius r of the radiating opening.
+
+
+3. Resonance characteristics
+
+    This article aims to optimize a woodwind instrument based on the peak
+frequencies and amplitudes of its input impedance. Specifically, resonance fre-
+quencies should match specific target values. As for the peak amplitudes, the
+proposed optimization enforces amplitude ratios between peaks. These require-
+ments are obtained by the formulation of residuals related to resonances fre-
+quencies or peak amplitude. These residuals, and this is an essential aspect
+of this work, are constructed by taking into account the woodwind instrument
+specificities to assure their continuity and smoothness in the design domain.
+
+3.1. Resonance frequencies
+    Resonance frequencies are generally estimated with a global modal analysis
+[21] or a peak detection approach [15]. However, woodwind instrument tone-
+holes, which can be seen as multiple parallel tubes, impose local and global
+cutoff frequencies [17]. As a consequence, a small variation of the geometry can
+lead to the appearance or disappearance of impedance peaks. The frequency
+of the nth resonance can therefore jump from one value to another for a small
+variation of the geometric parameters. Figure 2 provides an example of such a
+problem for the second resonance.
+    In the context of optimization, objective functions based on the tracking
+of specific resonances can lead to non-smooth problems. Discontinuinuities ap-
+pear for peak detection approaches based on the search of zero crossing of the
+imaginary part of the impedance or of the derivative of the modulus.
+
+
+                                         5
+Figure 2: Example of peak detection issue (minimal prominence: 12 dB): a supplementary
+peak is detected for a small variation of the geometry (∆x12 = 10−10 and ∆xi = 0 for i 6= 12).
+
+
+a)                                                b)
+
+
+
+
+Figure 3: The reflection function Rec (a) corresponding to the impedance of Fig. 2 and its
+unwrapped phase (b).
+
+
+
+
+    In order to mitigate the consequences of the non-smoothness due to tradi-
+tional peak detection approach, a new approach is proposed in which the identi-
+fication of the nth resonance frequency is not based on the explicit enumeration
+of the peaks. Instead, resonances are identified based on the unwrapped phase
+angle of the reflection function:
+                                             Zin − Zc
+                                     Rec =            ,                                   (7)
+                                             Zin + Zc
+which can be seen as the transfer function between incident and reflected waves
+observed at the input of the resonator. If the resonator induces a time delay
+between incident and reflected waves constant for all frequencies (a cylinder with
+perfect radiation condition), the phase angle of this reflection function decreases
+linearly with the frequency. For a real resonator the time delay can depend
+slightly on the frequency but the phase angle of the reflection function stays
+globally decreasing. Furthermore, by assuming that the resonance frequencies
+are defined as the poles of the input impedance, they correspond frequencies at
+
+
+                                              6
+which the phase angle is a multiple of 2π (Fig.3.b). The frequency fn of the nth
+resonance is therefore identified through:
+
+                          angleuw (Rec (fn )) = −2π(n − 1),                            (8)
+
+with angleuw (Rec ) the unwrapped angle of the reflection function. This defi-
+nition allows the identification of the nth resonance without enumerating the
+lower ones.
+    Sometimes, due to the cutoff frequency, double resonance frequencies can
+appear. Figure 2 shows a case where the second resonance is double: two fre-
+quencies verify angleuw (Rec (fn )) = −2π. These double resonances correspond
+to a loop on the complex representation of the reflection function which crosses
+once more the real axis (Fig.3.a). It induces fluctuations on the decrease of the
+angle (Fig.3.b). This double definition can be problematic if the aim is to deter-
+mine an unique second resonance frequency. It is typically the case if the cost
+functions of the optimization problem uses the residual between the estimated
+resonance frequency fn and its target fn [15]: (fn − fn ) . However, in this
+study, this difficulty is avoided by using an opposite approach taking advantage
+on the resonance definition of Eq. 8. Here, only the phase at the target resonance
+frequencies are observed. The cost functions quantify the deviation between the
+unwrapped phase of the reflection function at these frequencies and their target
+value. It is done through the residual: angleuw (Rec (fn )) + 2π(n − 1)
+
+3.1.1. Computation of the unwrapped angle
+    The definition of the reflection function assure its differentiability if Zin is
+differentiable. But the traditional definition of the unwrapped angle induces
+some irregularities due to a definition modulo 2π. The avoid this problem
+another expression is used to compute the unwrapped angle. Starting from the
+definition of the phase angle ϕ = arctan (=(Rec )/<(Rec )), its variation is:
+                                                                   
+               dϕ      1                d=(Rec )           d<(Rec )
+                   =          <(R  ec )          − =(Rec )            .
+               df    |Rec |2              df                 df
+The unwrapped angle is obtained by integrating this expression from 0:
+
+                              Zf                           Zf
+                                   <(Rec ) d=(Rec )             =(Rec ) d<(Rec )
+     angleuw (Rec (f ))   =                         df −                         df,
+                                   |Rec |2   df                 |Rec |2   df
+                               0                           0
+                              Zf                           Zf
+                                          d(sin(ϕ))                      d(cos(ϕ))
+                          =        cos(ϕ)           df −        sin(ϕ)             df. (9)
+                                              df                            df
+                               0                           0
+
+It can be seen as the surface covered in the complex plane by a function having
+the same angle than Rec but a modulus equal to the unity for every frequencies.
+This expression avoids discontinuities due to the definition modulo 2π of ϕ and
+seems differentiable. However, a problem occurs when a loop corresponding to a
+secondary resonances crosses the origin of the complex plane. If a small change
+
+
+                                           7
+of the geometry implies a new crossing of the origin, it will abruptly add −2π
+to the higher frequencies. The value of this angle at one given frequency shows
+therefore a discontinuity when a loop at lowest frequency crosses the origin. If
+it occurs before a target frequency, it induces a discontinuity of the residual
+obtained from Eq.(8). It is necessary to regularize this definition.
+    The discontinuity comes from the angle definition Eq.(9). The reflection
+coefficient being differentiable, its integration along the frequency axis is too.
+For the reflection coefficient, when a loop crosses the origin, the irregularity of
+the angle is compensated by the modulus which equals zero. The discontinuity of
+the angle comes from the fact that the modulus is set to one for every frequency
+in Equation (9). A way to regularize the angle is to restore a modulus R̃ which
+equals zeros when the modulus of the reflection coefficient is zero and one when
+is big enough:
+                                                  
+                                        |Rec | − TR
+                 R̃ = 0.5 + 0.5 cos π                 if |Rec | ≤ TR
+              
+                                            TR                       ,         (10)
+                 R̃ = 1                                   otherwise
+              
+
+with TR an arbitrary threshold. The regularized unwrapped angle φ is therefore
+compute as
+
+                                Zf                               Zf
+                                              d(R̃sin(ϕ))                        d(R̃cos(ϕ))
+angleuw (Rec ) (f ) ≈ φ(f ) =        R̃cos(ϕ)             df −        R̃sin(ϕ)               df.
+                                                   df                                 df
+                                0                                0
+                                                                             (11)
+If the loops of the reflection function are perfectly symmetric in the complex
+plane, this definition does not affect the value of the unwrapped angle for other
+frequencies whatever is the threshold TR . However, due to thermoviscous losses,
+the loop are slightly asymmetric (Fig.3, a) and the regularization induces small
+bias to estimated angle of higher frequency. The threshold TR must be cho-
+sen small enough to limit this bias, but not too small to keep the researched
+regularization. It is fixed here, after several test, at TR = 0.25.
+
+3.2. Resonance amplitudes
+   To evaluate the amplitude of the nth resonance it is first necessary to localize
+the corresponding peak which can be done with the phase φ of the reflection
+function. Even in the case where the impedance peak does not exactly cor-
+respond to the impedance pole, the peak is assumed to be in the domain An
+bounded as follows:
+
+                       |φ(f ) − 2π(n − 1)| ≤ φ0 ,      ∀f ∈ An ,                           (12)
+with φ0 ≤ π. This frequency domain is possibly discontinuous due to the
+fluctuation of the unwrapped angle(Sec.3.1). The magnitude of the nth peak
+is the maximum of the impedance modulus over this domain. However, the
+
+
+
+
+                                             8
+maximum is not a differentiable function. It is therefore replaced by the p-
+norm:                                              1/p
+                             X                    p
+                     an =        (γn (f )|Z(f )|)                     (13)
+                                  f ∈A
+                                     fn
+
+with p a positive number large enough to approach the maximal function but
+not too large to keep the differentiability (hereafter p = 8), A
+                                                               fn an extension of
+the domain An and γn (f ) a ponderation function defined as:
+                      |φ(f ) − 2π(n − 1)| ≤ φ1 ,    ∀f ∈ A
+                                                         fn                  (14)
+                                           
+                                  φ(f )−φ
+            γn (f ) = 21 1 + cos( φ1 −φ00 π) , if φ0 ≤ φ(f ) ≤ φ1
+           
+             γn (f ) = 1                        if φ(f ) ≤ φ0                (15)
+           
+             γn (f ) = 0                        if φ(f ) ≥ φ1
+           
+
+to avoid discontinuities due to numerical issues at the boundary of An . Here,
+φ0 = π/4 and φ1 = 0.9π.
+
+4. Optimization problem
+4.1. General formulation
+    When playing a woodwind instrument several fingerings are used. Each
+fingering is associated with a specific input impedance computed by modifying
+the transfer matrices of the closed tone holes (Sec. 2). In this study, for each
+fingering, we consider adjusting the resonance frequencies as well as the ratio of
+the magnitude of the corresponding peaks as part of the optimization process.
+    Based on the discussion of Section 3.1, the nth resonance frequency of the
+ th
+i fingering is evaluated by the cost function
+                                                       !2
+                                     φ(fn,i )
+                        Φn,i (x) =            + (n − 1) ,                    (16)
+                                        2π
+
+where fn,i is the target frequency of the nth resonance of the ith fingering.
+   Similarly, to enforce the ratio between two peak amplitudes a2,i and a1,i ,
+the residual Ai reads:
+                                                     2
+                                      a2,i /a1,i − ri
+                           Ai (x) =                                           (17)
+                                             ri
+with ri the target ratio for the ith fingering. The general formulation of the
+optimization problem we wish to solve is:
+                            min P (x)                                        (18)
+                              x
+                             s.t.    hgeo (x) ≤ 0
+                                     g(x) ≤ 0
+                                     xmin ≤ x ≤ xmax
+
+
+                                          9
+where P and g are objective function and constraints involving a combination
+of Φi and Ai . hgeo are geometric constraints related to the spatial positioning
+and dimensions of the holes. The vector of design variables is scaled so that and
+xmin = 0 and xmax = 1.
+
+4.2. Numerical aspects
+    The phase computation φ(f ) in Equation (11) requires a differentiation and
+an integration. While the differentiation is computed through finite differences,
+the integration is carried out through the rectangle rule. Both operations are
+sensitive to the frequency step. A constant step of 1 Hz over the frequency
+range appears to be a good compromise between accuracy and computational
+time. For the cost function Φ it is necessary to evaluate the corresponding
+phase at the prescribed target frequencies (Eq.16). To avoid an interpolation,
+the target frequencies are added to the set of frequencies used for the impedance
+computation.
+    In this study, the optimizations are carried out using sequential quadratic
+programming (SQP). This is a well-known gradient-based algorithm for non-
+linear optimization problems ([22], Chap.18). It is implemented in MatLab
+through the fmincon function. SQP solves a nonlinear optimization problem
+through a succession of convex subproblem based on a quadratic approximation
+of the objective function and a linearization of the constraints. The Hessian
+is not exactly computed but it is approximated and iteratively updated using
+the gradient and the function values of the objective function. As any gradient-
+based method, SQP is a local optimization method and might converge to a lo-
+cal minimum in the neighborhood of the initialization, which must therefore be
+chosen carefully. At convergence, the Karush-Kuhn-Tucker (KKT) optimality
+conditions must be satisfied ([22], Chap.12). The KKT conditions are first-order
+and are therefore only necessary conditions. In this study, the tolerance for the
+first order optimality indicator is set to 10−6 while the tolerances on a relative
+change of iterate and objective function are set to 10−10 and 10−6 respectively.
+The gradients are estimated by centered finite differences with a step of 10−7 .
+This value was found after a systematic numerical investigation and showed
+to provide a good compromise between accuracy of the finite differences and
+numerical noise.
+
+
+5. Results for an illustrative instrument
+
+    The instrument treated in this study is a fictive instrument including con-
+straints which could correspond to ergonomic constraints for a real instruments.
+The aim is to have a two-register clarinet-like instrument (a second register one
+octave and a fifth higher than the first register) which can be played without
+keypads and without forked-fingerings (logical instrument [15]) on a range sim-
+ilar to a traditional clarinet (from D3 to G4 ] for the sounding pitch of a B[
+clarinet). Following this short design specification, the first register range of
+one octave and a half must be covered by, at most, nine tone holes (plus one
+
+
+                                       10
+register hole), which implies at most five notes per octave. The pentatonic is
+therefore chosen: a C-major pentatonic scale from D for the first register, giving
+a G-major pentatonic scale for the second register (Table 3). The range of this
+instrument is similar to the one of a traditional B[ clarinet (D3 to A4 for the
+first register).
+    After having defined the design variables (Sec. 5.1) , the geometric con-
+straints (Sec. 5.2) and the targeted impedance characteristics (Sec. 5.3), the
+method used to obtain the initial geometry is described (Sec. 5.4). Three illus-
+trative optimization problems are then presented on this pentatonic clarinet.
+  1. the tuning of the first register only (Sec. 5.5)
+  2. the tuning of the two registers (Sec. 5.6)
+  3. the ratio of magnitudes of the first two resonance pics are optimized under
+     the tuning constraints of the two registers (Sec. 5.7)
+
+5.1. The design variables
+    The geometry of this instrument must be composed of at least eleven ele-
+ments: the entrance of the pipe (n = 1), one register hole (n = 2), eight tone
+holes (n ∈ [3, 10]) and the final termination (n = 11). The main pipe radius at
+the entrance is fixed to rpipe (1) = 7.45 mm which is the typical output radius
+of a B[ clarinet mouthpiece.
+
+               Elements           Type        Design variables
+               n=1              entrance      0: all fixed
+               n=2           register hole    4: rpipe , l, rhole , hhole
+               n ∈ J3, 10K    tone holes      4: rpipe , l, rhole , hhole
+               n = 11         final term.     2 : rpipe and l
+
+                             Table 1: Geometry elements
+
+   The design variables are (Fig. 1):
+   • for each hole: the hole radius rpipe (n), the chimney height hhole (n), the
+     distance to the precedent hole l(n), and the main pipe radius at the posi-
+     tion of the hole rpipe (n)
+
+   • the main pipe radius at the final termination rpipe (11) and its distance to
+     the last hole l(11)
+giving Nx = 38 variables of design summarized in Table 1.
+
+5.2. Variable ranges and geometric constraints
+   From a manufacturing point of view, there are three types of geometric
+constraints. Some are physical: a side hole can’t be wider than the main pipe;
+some are linked to the manufacturing process: if the main pipe is drilled with
+a reamer, only monotonic conicity can be built; and some are ergonomic: if
+the holes are blocked directly by the fingers, the hole radius and the distance
+
+
+                                        11
+between them are limited by the dimensions of the human hand. Mathematically
+they are organized in this study according to three types: restricted authorized
+range, linear equality between parameters and linear inequalities.
+
+               Param.         Elements               Min.        Max.
+                rpipe             ∀n                5 mm       15 mm
+                hhole             ∀n                3 mm       20 mm
+                rhole           n=2                 1 mm      7.5 mm
+                rhole    n ∈ {3, 4, 5, 7, 8, 9}     2 mm        6 mm
+                rhole        n ∈ {6, 10}            2 mm        5 mm
+                  l         n ∈ {2, 3, 11}          1 mm      150 mm
+                  l      n ∈ {4, 5, 6, 8, 9, 10}   10 mm       30 mm
+                  l             n=7                10 mm      150 mm
+
+                    Table 2: Boundaries of the variables of design
+
+    The authorized range of the different variables are summarized in Table 2.
+The range of the main pipe radius rpipe is chosen to prevent excessively steep
+flares or strangles. The range of the hole radii are fixed to be smaller than the
+dimension of the fingers (larger for the thumb (n = 2) and thinner for the little
+fingers (n ∈ {6, 10}) ), but wide enough to avoid non-linear effects which could
+be important in small holes. Excepting the thumb, the distance l(n) between
+successive holes is imposed to be longer than 10mm and shorter than 30 mm for
+fingerings of the same hand. The other distances can vary freely, which is why
+a large upper bound (150 mm) was chosen. This bound is never reached across
+all the optimizations presented in this work. The Nx = 38 design variables are
+grouped in the normalized vector x, defined such that each component xi equals
+0 when the variable reaches its lower boundary and 1 at its upper boundary.
+    Linear relations between parameters are added to these boundaries. For each
+hole, the hole radius must be smaller than the main pipe radius with a margin
+of 1mm:
+                 rhole (n) − rpipe (n) ≤ −1mm     for n ∈ J2, 10K.           (19)
+The relation
+
+          rhole (n − 1) + rhole (n) − l(n) ≤ −4mm           for n ∈ J4, 10K.   (20)
+
+avoids the overlapping of tone-holes and assures that the tone holes are cov-
+ered correctly, by guaranteeing a minimal distance of 4mm between tone holes
+boundaries, excluding the register hole. In actual clarinets, the register hole
+chimney sticks out into the main pipe. Therefore, the height of the register hole
+is limited by the bore diameter:
+
+                         hhole (2) − 2rpipe (2) ≤ −1mm,                        (21)
+
+here again a margin of 1mm is imposed. Finally, due the conical sections, a
+condition on the chimney height must be added to ensure that the top of the
+
+
+                                         12
+chimneys emerge from the main pipe. The following relations are imposed for
+all the holes (n ∈ J2, 10K) (see Fig.1)
+                     
+                         hhole (n) ≥ rpipe (n − 1) − rpipe (n)
+                                                               ,       (22)
+                         hhole (n) ≥ rpipe (n + 1) − rpipe (n)
+
+which imposes that the top of a chimney is more distant to the main axis
+than the main pipe at the surrounding holes. Here, there is no manufacturing
+constraints on the conicity. This can be justified by the use of an additive
+manufacturing. In this study, to simplify the equations, all the linear relations
+between the variables are grouped under the nomenclature hgeo (x) ≤ 0.
+
+5.3. Target values
+    The aim of this study is to present the process. For reasons of confidentiality,
+the target value for the different acoustic characteristics are chosen arbitrarily.
+The aim is not to build a real instrument which plays in tune, but to have a
+resonator with the desired acoustic characteristics under geometric constraints.
+
+   Fingering index i         1       2      3      4     5         6        7       8     9
+        Notes               D3      E3     G3     A3     C4       D4       E4      G4    A4
+   Tone holes open           0       1      2      3     4         5        6       7     8
+     Register hole           •       •      •      •     •         •        •       •     •
+       f1,i (Hz)            147     165 196 220 262               294      330     392   440
+       f2,i (Hz)             /       /      /      /     /         /        /       /     /
+           ri               0.5     0.5 0.5 0.5 0.5               0.5      0.5     0.5   0.5
+                                       a) First register
+
+ Fingering index i         10      11      12    13      14          15      16      17        18
+      Notes               A4       B4     D5     E5      G5          A5      B5      D6        E6
+ Tone holes open            0       1      2      3      4            5       6       7         8
+   Register hole            ◦       ◦      ◦      ◦      ◦            ◦       ◦       ◦         ◦
+     f1,i (Hz)              /       /      /      /      /            /       /       /         /
+     f2,i (Hz)            440     494 587 659 784                   880     988     1175      1319
+         ri                 2     1.89 1.74 1.63 1.47               1.37    1.26    1.11        1
+                                      b) Second register
+Table 3: Target scale of the pentatonic clarinet: first (Tab. 3 a) and second (Tab. 3 b) register,
+with the number of tone holes open (register hole excluded), the opening of the register hole
+(• : closed, ◦ : open), the target values for the two first resonance frequencies f1,i and f2,i
+(/ : no target value) and for the ratio of their magnitude ri .
+
+
+    For the fingerings of the first register (register hole closed), the target first
+resonance frequencies f1,i are the frequencies of the equal temperament in ref-
+erence to A4 = 440 Hz. For the fingerings of the second register (register hole
+open), it is the value of the second resonance frequencies f2,i which are targeted
+to the frequencies of the equal temperament and the first resonance frequencies
+
+
+                                               13
+are ignored. The aim of a register hole being to decrease the amplitude of the
+first resonance peak, a third parameter is observed: the ratio of the magnitude
+of the two first resonances a2 /a1 , as suggested by Guilloteau [18, 16]. The target
+value of this ratio is fixed to ri = 0.5 on the first register (i ∈ [1, 9]), which is a
+typical value for a cylinder. For the second register, the playing on the second
+resonance, is facilitated if this ratio is above 1. Following the studies of Guil-
+loteau [18, 16] a linear decrease of ri with the pitch is observed experimentally
+for one register hole. The arbitrary choice of a ratio from 2 at the bottom of the
+second register to 1 at its top is made. All these target values are summarized
+in Table 3.
+
+5.4. Low frequency approximation as a 1st-order design
+    As proposed by Noreland [15], it is possible to estimate analytically a geome-
+try by using the low frequency approximations to place the holes. This geometry
+can be used to initialize the algorithms. In low frequency approximation, all the
+elements can be approximated by inertance which can be interpreted as length
+correction from the entrance cross-section (πrpipe (1)2 ) leading to an effective
+position Pef f (n) of each hole including:
+
+   • the effective length of the tone hole, including: the chimney height (hhole ),
+     the matching volume, the “inner length” correction and the radiation
+     length corrections [19],
+   • the length correction due to the downstream part of the instrument [1,
+     Chap.7.7.5.3, p.375]
+
+   • the length correction induced by the volume added by the upstream closed
+     chimneys [23].
+For a given fingering, the effective position of the first open hole is fixed to the
+quarter of the target wavelength. This procedure leads to an unexplained offset
+of −20 cents for the final impedance. This offset is included into the target
+position leading to: Pef f (n) = c/(4f1 × 2−20/1200 ), with c the sound velocity.
+If possible, the register hole is positioned to the third of the mean of the tone
+holes effective positions, with the longest chimney height and the thinner radius
+with respect to their authorized values, which tends to maximize its acoustic
+mass. To estimate analytically the geometry, only the distance l, the chimney
+height hhole then the holes radii rhole are modified. The main pipe radii are let
+to an arbitrary initial value, the entry radius: rpipe (n) = rpipe (1) = 7.45 mm
+for all n. The boundaries constraints are taken into account: the position is
+modified until it reaches a boundary, then the chimney height is modified and
+finally the hole radius. If the three boundaries are reached without having the
+desired effective position, the geometry is let with this defect. The modification
+of both downstream and upstream hole modifying the effective position of the
+hole, a loop is carried until the stagnation of the geometry.
+    The geometry obtained for targets of Table 3.a under the constraints of
+Sec. 5.2 is plotted in Figure 4.a. The corresponding tuning is represented on
+
+
+                                          14
+Figure 4: Comparison of geometries: (a) initial geometry (Sec. 5.4), the geometries obtained
+after the optimization of: (b) the first resonance frequency F (Sec. 5.5); (c) the two registers
+tuning F + H (Sec. 5.6); (d) the ratio of magnitude of the two first resonances A under the
+constraint on the resonance frequencies (Sec. 5.7).
+
+
+
+
+Figure 5.a. The deviation between the first resonance frequencies and the tar-
+get frequencies is within ±10 cents except for the second fingering F ]3 . This
+is because all the modifiable parameters of the last hole (n = 10) reach their
+boundaries (the distance l(10), the chimney height hhole (10), and the hole radius
+rhole (10)). Due to the constraints, it should not be surprising that the process
+presented does not allow a satisfying tuning of the analytically designed geom-
+etry. To improve this tuning it is necessary to use an optimization algorithm.
+
+5.5. Problem formulation 1: first register tuning
+    For this first optimization problem only the tuning of the first register (9
+fingerings) is considered (Table 3.a). Following the discussion on the sections 3.1,
+4.1 and on the definition 16, the cost function is defined as:
+                                  i=9          i=9
+                                                                     !2
+                                1X           1X           φ(f1,i )
+                        F (x) =       Φ1,i =                              .                (23)
+                                9 i=1        9 i=1          2π
+
+   In this problem only the geometric constraints (authorized ranges and lin-
+ear relation between the variables, Sec. 5.2) are considered. The optimization
+problem can be summarized as:
+
+                                         min F (x)                                         (24)
+                                          x
+                                 subject to hgeo (x) ≤ 0
+                                                0≤x≤1
+
+    The cost function F depends only of the phase φ computed at the target
+frequencies f1,i of the first register. Only the impedance of the 9 first fingerings
+must be computed (Tab. 3.a). It is furthermore not necessary to compute the
+
+
+                                              15
+frequency response of the resonator at higher frequencies than the maximal
+target f1,i . The highest interesting frequency being 440 Hz (Tab. 3.a), the
+frequency range is fixed to [0.1, 480] Hz.
+
+
+
+
+Figure 5: Deviation in cents of the first resonance frequencies from the target value for the
+first register (9 first fingerings). The problem with F + H is presented in Sec.5.6, the threshold
+ε1,i and the problem “A s.t. Gi ” are presented in Sec.5.7.
+
+
+
+    The optimization algorithm is initialized with the geometry obtained by the
+process presented in Sec. 5.4. The algorithm converges to a local minimum in
+35 iterations computed in less than 1 minute on a standard personal computer
+(4 cores, 16 Go of Ram). The cost function reaches F ≈ 10−9 corresponding
+to deviations within 0.1 cents between the first resonance frequencies f1,i and
+their target f1,i (Fig. 5)1 . The geometry obtained, represented in Figure 4.b, is
+very closed to the initial geometry (Fig. 4.a). The design variables are modified
+of less than 1.5% except for the last tone hole radius (rhole (10)) which varies of
+about 6%.
+
+5.6. Problem formulation 2: two registers tuning
+    In this second optimization problem, the tuning of the second register is
+included through the cost function
+                              i=18          i=18
+                                                                        !2
+                            1 X           1 X             φ(f2,i )
+                     H(x) =        Φ2,i =                          +1        ,              (25)
+                            9 i=10        9 i=10            2π
+
+which allows to adjust the second resonance frequency of the fingerings of the
+second register (register hole open, Table 3.b) by following the discussion of
+Section 3.1 and 4.1. The simplest way to adjust simultaneously the two registers
+
+    1 The resonance frequencies f
+                                  1,i are associated to the zero of the phase φ estimated trough
+a linear interpolation around the zero-crossing.
+
+
+
+
+                                               16
+under the geometrical constraints is to treat the following optimization problem:
+
+                                  min     (F (x) + H(x))                                 (26)
+                                    x
+                                  s. t. hgeo (x) ≤ 0
+                                         0≤x≤1
+
+This time, the highest interesting frequency being 1319 Hz (Tab. 3.b), the fre-
+quency range is fixed to [0.1, 1450] Hz.
+
+ a)                                            b)
+
+
+
+
+Figure 6: Deviation in cents of the second resonance frequencies from the target value for the
+9 highest fingerings. a) for the four geometries of Fig 4; b) a zoom within ±5 cents with the
+geometries for which the second resonance frequency has been optimized. The threshold ε2,i
+and the problem “A s.t. Gi ” are presented in Sec.5.7.
+
+
+
+    The optimization algorithm initialized with the geometry from Section 5.4
+converges in 451 iterations (about 1 hour on a personal computer). The compu-
+tation time per iteration is longer that for the first problem (Sec. 5.5) because
+frequency range used is wider and it is necessary to compute two times more
+impedances per iteration (18 fingerings against 9 for the first problem). The
+final cost values are F ≈ 10−11 and H ≈ 10−12 , which correspond to deviations
+within 0.025 cents for the first register and 0.002 cents for the second one (Fig. 5,
+Fig. 6).
+    The geometry obtained is represented on Figure 4.c. Due to the addition
+of the cost function H, the algorithm converges here to a geometry much more
+different from the initialization than for the first problem (Fig. 4). However,
+it is noticeable that this local minimum is better both for H and F than the
+local optimum obtained in the first problem where only this cost function was
+taken into account (Sec. 5.5): here F ≈ 10−11 against F ≈ 10−9 for the first
+problem. This improvement is a consequence of the use of a local optimization
+algorithm. The initialization used (Sec.5.4) is very close to a local minimum of
+F , as illustrated by the similarity of the geometries (Fig.4.a and b). The addition
+of H in the cost function leads the algorithm to another local minimum, more
+different from the initialization, but better for F .
+
+
+
+
+                                             17
+5.7. Problem formulation 3: integration of the magnitude ratio
+    As evoked by Guilloteau [16], to have a playable second register it is necessary
+to adjust the relative magnitude of the two first peaks. Following the discussion
+of the sections 3.2 and 4.1, the cost function
+                          i=18         i=18             2
+                        1 X          1 X a2,i /a1,i − ri
+                A(x) =         Ai =                         ,                  (27)
+                       18 i=1       18 i=1      ri
+
+is adapted to treat this aspect. As in Section 5.6, a simple way to minimize
+together F, H and A is to treat the following optimization problem:
+
+                             min   (F (x) + H(x) + A(x))                       (28)
+                              x
+                             s. t. hgeo (x) ≤ 0
+                                   0≤x≤1
+
+However, the local minimum reached by starting from the initial geometry ob-
+tained with the process described in Sec. 5.4 is not satisfying. At the final state,
+the cost functions A and F are around 10−3 and H ≈ 10−4 , which corresponds
+to a deviation higher than 100 cents for some fingerings of the first register and
+40 cents for the second register. These deviations are too wide for a musical
+instrument. In another hand, the ratios of magnitude are within ±10% of their
+targets which is a good result whereas this aspect is not critical for musical
+instrument. Tests from different initial results makes appears that it is impos-
+sible to reach the target of the three cost function together. One possibility is
+to impose a satisfying deviation between the resonance frequencies and their
+target by converting the cost function F and H into non linear constraints.
+    In this study it seems reasonable to fix, for each fingering i, a value of the
+maximal deviation εn,i between the nth frequency resonance fn,i and the target
+fn,i for which the tuning is acceptable. This threshold is defined as:
+                                                         !
+                                                  fn,i
+                               εn,i ≥ 1200 log2              ,                 (29)
+                                                  fn,i
+
+by following the cents definition. A maximal deviation ε1,i = 2.5 cents is chosen
+for the first register (i ∈ [1, 9]). For the second register, a wider deviation is
+authorized: ε2,i = 5 cents for i ∈ [10, 18]. To convert the cost function F
+and H into inequality constraints, it is necessary to compute the corresponding
+authorized deviation ζn,i on the angle of the reflection coefficient φ at the target
+frequency fn,i . By assuming that fn,i is closed to fn,i , it is possible to do a
+Taylor development:
+                                                          dφ
+                  φ(fn,i )    = φ(fn,i ) + (fn,i − fn,i )    (f )              (30)
+                                                          df n,i
+                                                  fn,i      dφ
+                  φ(fn,i )    = φ(fn,i ) − fn,i (      − 1) (fn,i )
+                                                  fn,i      df
+
+                                          18
+The phase at the resonances being, by definition, φ(fn,i ) = −2π(n − 1). The
+threshold ζn,i on the phase at the target frequency φ(fn,i ) is therefore defined
+from Eq.29 by:
+                                         1                         dφ
+                  ζn,i = (1 − n) −         fn,i (2(εn,i /1200) − 1) (fn,i ).             (31)
+                                        2π                         df
+This threshold depends only on the target frequency considered and the deriva-
+tive of the phase at this frequency. Numerically, this derivative is estimated
+from a spline interpolation around φ(fn,i ). It is now possible to construct non-
+linear functions which are negative only when the frequency deviation between
+fn,i and fn,i is lower than the threshold:
+
+                                    Φ1,i − (ζ1,i )2
+                              
+                                                       for i ∈ [1, 9]
+                       Gi =                                                              (32)
+                                    Φ2,i − (ζ2,i )2    for i ∈ [10, 18]
+
+The third optimization problem is finally:
+
+                             min A(x)                                                    (33)
+                              x
+                            s. t.     hgeo (x) ≤ 0
+                                      0≤x≤1
+                                      Gi ≤ 0          for i ∈ [1, 18]
+
+To be sure to correctly estimate the magnitude of the second peaks, the fre-
+quency range is extended to [0.1, 4000] Hz.
+
+
+
+
+Figure 7: Ratio of magnitude of the two first frequencies resonance a2 /a1 for each fingering,
+compared to the target values a .
+
+
+
+    The optimization algorithm initialized with the geometry from Section 5.4
+converges in 88 iterations (about 30 min on a personal computer). The non-
+linear constraints Gi are well respected. The deviation between the first reso-
+nance frequencies and their targets are within ±2.5 cents for the first register
+(Fig. 5) and within ±5 cents for the second register (Fig. 6.b). The final cost
+
+
+                                               19
+value is A ≈ 2.6 · 10−2 . The corresponding deviations to the targets are within
+20% for the most of the fingerings (Fig. 7) except for the lower part of the second
+register where the deviation is around 30% (from B4 to G5). By comparison
+with other geometries, the improvement is especially localized on the lower part
+of the first register and the higher part of the second one (Fig. 7).
+    The geometry obtained is represented on Figure 4.d. The geometry is really
+different from the ones obtained before: its total length is shorter, it ends with a
+convergent cone and the chimneys are globally shorter. A striking difference with
+the geometry obtained by optimizing F + H (Fig. 4.c) is maybe the register hole
+which is here nearby the entrance with a short chimney, whereas it was as close as
+possible of the first tone hole with a long chimney in the previous geometry. The
+importance of this register hole and especially its chimney height, on the ratio
+of peak amplitudes was already identified by Noreland [15] and Guilloteau [16].
+    The high residual deviation observed between the optimum obtained and the
+targets illustrates well the necessary compromise, for this instrument, between
+the frequencies of the second register (H) and the relative magnitudes of the
+second peaks (A). This compromise is specific to the design problem discussed
+here. It is not necessary present for every woodwind instruments design. It
+could maybe be solved by relaxing some geometric constraints or by being less
+ambitious on the targets ri for the ratio of magnitude (a ratio of 1.5 instead
+of 2 for the lowest note of the second register is certainly sufficient). However
+the aim of this last instance is also to illustrate the possibility to deal with an
+acoustic compromise in an optimization problem.
+
+6. Discussion: Influence of the initial geometry
+    The gradient based algorithm performing local optimization, the starting
+point can have a significant influence on the geometry obtained and on the
+convergence of the algorithm. This dependency is assessed and discussed in this
+section by repeating the three optimization problems 24, 26 and 33 from 19
+other initial geometries. The design parameters values are taken randomly in
+their authorized ranges (Table 2), leading to 20 realizations of each optimization
+problem by including the ones already presented.
+    For the first problem, where only F is minimized (Sec. 5.5), the optimization
+process converges, in averages, in 75 iterations (around 2 min of computation).
+The final cost function is always below 10−9 with an average value around
+10−12 . All the optima are therefore satisfying from a musical tuning point
+of view with a deviation between the resonance frequencies and their target
+within 0.1 cents, far below the human perception threshold. The optimum
+obtained from the initialization with low frequency approximation (Sec. 5.4)
+has the highest final value (F ≈ 10−9 ). As discussed in Section 5.6, it suggests
+that the local minimum the most similar to this logical initialization is not the
+best solution.
+    The obtained geometries cover a wide variety (Fig.8). It illustrates the fact
+that, when only F is minimized it is an ill-posed optimization problem (several
+solutions are possible). This property is necessary to let the possibility to make
+
+
+                                        20
+Figure 8: Boxplot representing the variability of the normalized geometric parameters of the
+20 geometries obtained for the problem 1 (Equ. 24, Sec. 5.5). All the final cost values are
+between 10−14 and 10−9 . For each parameter, the crosses are the median and 90% of the
+data are within vertical bar. The gray squares correspond to the initial geometry obtained by
+low frequency approximation (Sec. 5.4).
+
+
+
+
+the cost function more complex or add other constraints such as in problems
+2 and 3 (Sec.5.6 and 5.7). However, it is interesting to observe that among
+this variability a global tendency appears. In particular the localization l of the
+holes and their chimney heights hhole are similar to the ones of the low frequency
+approximation (Fig.8), whereas the main difference is concentrated on the hole
+radii rhole (Fig.8).
+    For the problem 2 (F + H), the average number of iterations needed to reach
+the minimum is 486, but this number shows a wide variety among the 20 repe-
+titions (between 142 and 2900). The final cost function values show also a wide
+diversity. Even if most of the optimization processes (15/20) have a good result
+(F + H < 10−9 , corresponding to a deviation within 0.5 cents), 4 realizations
+converge to a state at which F + H > 10−6 (deviation around 10 cents) and one
+to F + H ≈ 10−3 for which the deviation between the resonance frequencies and
+their targets reaches 500 cents on some fingerings. The geometric parameters
+obtained for the two groups of optimums (F +H < 10−9 and F +H > 10−6 ) are
+represented in Figure 9. Most geometric parameters are similar for all the ge-
+ometries having a good optimum (F +H < 10−9 ), except for the final main pipe
+radius rpipe (11) and the position of the three last elements trough the distance
+l(9) which can compensate each other. The two groups of geometries differ es-
+sentially by the hole radii rhole (3, 5, 6) and the chimney height hhole (8). These
+two groups seem to correspond to two areas of the design space. Depending on
+the initial state, the algorithm converges to one of these two types of geometries.
+    For the problem 3 (A s.t. Gi , Sec.5.7), only four realizations of the opti-
+mization process among the 20 converge correctly. The other ones reach the
+maximum iteration (for 4 realizations) or stop because the step length in the
+design space is smaller than the authorized threshold 10−16 (12 realizations).
+The four converged processes reach the minimum after, in average, 180 iter-
+
+
+
+                                             21
+Figure 9: Boxplot representing the variability of the normalized geometric parameters of the
+geometries obtained for the problem 2 (Equ. 26, Sec. 5.6). For each parameter, the crosses
+are the median and 90% of the data are within vertical bar. The black data correspond to
+the 15 geometries for which F + H < 10−9 and the gray data, the 5 geometries for which
+F + H > 10−6 .
+
+
+
+
+ations (around 45min of computation). Two geometries obtained are exactly
+identical (including the one obtained from the geometry of Section 5.4) with
+a final cost value A ≈ 2.6 · 10−2 and the other have final cost function values
+around A ≈ 5 · 10−3 .
+    The non-convergence of the 16 other realizations of the optimization process
+can have several origins. First of all it can come from a local non-smoothness
+of the cost function or an error in the estimation of its gradient. Even if, in
+Section 3.2, the resonance amplitudes are defined by taking care of the differ-
+entiability, their numerical transcription can induce some irregularities. The
+numerical integration used to compute Equation (11) is sensitive to the fre-
+quency step and can induce numerical error. Further investigation is needed to
+improve this computation by using more accurate numerical integration tech-
+niques. This aspect can have a direct incidence on the gradient estimation which
+is here computed by finite difference. The knowledge of an explicit expression
+of the gradients could avoid this difficulty, but also allow a better estimation of
+the gradient, accelerate the computation and demonstrate the differentiability
+of the cost functions. The formulation of such an expression is a complex task
+which needs to be investigated in a further work.
+    By observing the evolution of the cost function along the design space, an-
+other difficulty appears. The representation of the cost function along the 38
+dimensions of the design space being impossible, it is represented, in Figure 10,
+on the plane where the 9 chimney heights hhole on one side, and the 10 main
+pipe radii rpipe on the other side (Tab.1) are fixed equals and modified together.
+The series of oblique valleys which appear are real difficulties for optimization
+algorithm. The algorithm progresses slowly along one valley by jumping from
+one side to another. The step can become smaller and smaller and even reach
+the authorized threshold before a local minimum is reached. Preliminary obser-
+vations suggest that the presence of these valleys is inherent in the use of peak
+
+
+                                            22
+                                                                 -0.2
+
+                                                                 -0.4
+
+                                                                 -0.6
+
+                                                                 -0.8
+
+                                                                 -1
+
+                                                                 -1.2
+
+                                                                 -1.4
+
+                                                                 -1.6
+
+
+
+
+Figure 10: Evolution of the cost function A in the plane of the design space where all the pipe
+radii rpipe and all the chimney heights hhole are equal and move together, the other variables
+being fixed to their initial values. Several parallel valleys are visible.
+
+
+
+
+amplitudes. There is no specific study on the relation between the geometric
+parameters and the resonance amplitude. Specific investigations are needed to
+clarify this relation and eventually find a better way to include the resonance
+amplitude in the optimization process. With the current definition used in this
+study, the initial geometry must be chosen carefully to start the optimization
+in the neighborhood of a local minimum.
+
+
+7. Conclusion
+
+    This article describes the design optimization of a woodwind instrument
+with geometric constraints. In order to obtain specific impedance character-
+istics (peak frequencies and peak amplitude ratios), new quantities are intro-
+duced. Specifically, a new definition of the notion of resonance, based on an
+ad-hoc unwrapping of the phase of the reflection coefficient is proposed. The
+purpose is to facilitate gradient-based optimization, which would otherwise be
+hampered by the non-smoothness of the functions. This is especially true for
+woodwind instruments for which the presence of side hole makes more complex
+the frequency response. The optimization is implemented, for high dimensional
+problem, on an instrument with 38 variables thus demonstrating the potential
+of optimization to deliver new designs.
+    The design of a wind instrument rarely corresponds to the minimization of a
+single type of quantity. For example, attempts to match resonance frequencies
+of the optimal solution with target frequencies cannot lead, in general, to a sat-
+isfactory musical instrument. Other characteristics might need to be taken into
+account. Beyond the examples chosen in this article, the inharmonicity between
+the first resonance frequencies for each fingering, or the radiation properties of
+the instrument could be considered. To treat this aspect, we have shown that
+it is convenient to formulate an optimization problem with a single objective
+function to minimize (in our case the ratio between the amplitudes of the first
+
+
+                                              23
+two peaks of the input impedance), while including new constraints on the ex-
+pected result (in our case the resonance frequencies of the first two peaks are
+constrained around the target frequencies).
+    For confidentiality reasons, the examples demonstrated in this paper, in
+particular the choice of targets, are purely demonstrative. However, during our
+collaboration with our industrial partner Buffet-Crampon, other optimization
+results have led to the building of prototypes. The protocol for evaluating
+these prototypes as well as their playability as judged by the musicians are
+irrelevant in this article. What is worth noting, however, is that the approach
+proposed allows, say in one day, to launch a design by optimization, to build
+a prototype by 3D printing, and then to get feedback from musicians. Indeed,
+since the definition of a good musical instrument is not explicit, and no one yet
+knows how to translate it into an objective function to minimize, discussions
+with musicians are essential to converge towards a final solution. Therefore the
+design process remains iterative, as in the traditional trial-and-error approach of
+the instrument makers. It is therefore essential to control the time required for
+an iteration of “design optimization - manufacture of the prototype - evaluation
+by musicians”. This is a strength of the proposed approach.
+
+
+8. Acknowledgements
+
+   This work has been partly supported by the french Agence Nationale de la
+Recherche (ANR16-LCV2-0007-01 Liamfi project), in cooperation with Buffet-
+Crampon.
+
+ [1] A. Chaigne, J. Kergomard, Acoustics of Musical Instruments, Modern
+     Acoustics and Signal Processing, Springer New York, New York, NY, 2016.
+
+ [2] R. Caussé, J. Kergomard, X. Lurton, Input impedance of brass musical
+     instruments—Comparison between experiment and numerical models, The
+     Journal of the Acoustical Society of America 75 (1) (1984) 241–254. doi:
+     10.1121/1.390402.
+ [3] D. H. Keefe, Acoustical wave propagation in cylindrical ducts: Trans-
+     mission line parameter approximations for isothermal and nonisothermal
+     boundary conditions, The Journal of the Acoustical Society of America
+     75 (1) (1984) 58–62. doi:10.1121/1.390300.
+ [4] A. Lefebvre, Computational acoustic methods for the design of woodwind
+     instruments, Ph.D. thesis, McGill University (2010).
+
+ [5] P. Eveno, J.-P. Dalmont, R. Caussé, J. Gilbert, Wave Propagation and
+     Radiation in a Horn: Comparisons Between Models and Measurements,
+     Acta Acustica united with Acustica 98 (1) (2012) 158–165. doi:10.3813/
+     AAA.918501.
+
+
+
+
+                                        24
+ [6] T. Hélie, T. Hézard, R. Mignot, D. Matignon, One-Dimensional Acous-
+     tic Models of Horns and Comparison with Measurements, Acta Acustica
+     united with Acustica 99 (6) (2013) 960–974. doi:10.3813/AAA.918675.
+ [7] J.-B. Doc, B. Lihoreau, S. Félix, V. Pagneux, Bremmer series for the mul-
+     timodal sound propagation in inhomogeneous waveguides, Wave Motion 67
+     (2016) 55–67. doi:10.1016/j.wavemoti.2016.07.004.
+ [8] R. Tournemenne, J. Chabassier, A comparison of a one-dimensional finite
+     element method and the transfer matrix method for the computation of
+     wind music instrument impedance, Acta Acustica united with Acustica 5
+     (2019) 838.
+
+ [9] ITEMM, Plateforme d’aide à la facture instrumentale, http://plateforme-
+     lutherie.com/index.html.
+     URL http://plateforme-lutherie.com/index.html
+[10] P. Eveno, L’impédance d’entrée pour l’aide à la facture des instruments
+     de musique à vent : mesures, modèles et lien avec les fréquences de jeu,
+     phdthesis, Université Pierre et Marie Curie - Paris VI (Dec. 2012).
+[11] R. Tournemenne, J.-F. Petiot, B. Talgorn, J. Gilbert, M. Kokkolaras,
+     Sound simulation-based design optimization of brass wind instruments,
+     The Journal of the Acoustical Society of America 145 (6) (2019) 3795–
+     3804. doi:10.1121/1.5111346.
+
+[12] W. Kausel, Optimization of Brasswind Instruments and its Application in
+     Bore Reconstruction, Journal of New Music Research 30 (1) (2001) 69–82.
+     doi:10.1076/jnmr.30.1.69.7117.
+[13] D. Noreland, Gradient based optimisation of brass instruments, in: Stock-
+     holm Music Acoustics Conference, Stockholm \cite, 2003.
+[14] A. C. P. Braden, M. J. Newton, D. M. Campbell, Trombone bore opti-
+     mization based on input impedance targets, The Journal of the Acoustical
+     Society of America 125 (4) (2009) 2404–2412. doi:10.1121/1.3087423.
+[15] D. Noreland, J. Kergomard, F. Laloë, C. Vergez, P. Guillemain, A. Guil-
+     loteau, The Logical Clarinet: Numerical Optimization of the Geometry of
+     Woodwind Instruments, Acta Acustica united with Acustica 99 (4) (2013)
+     615–628. doi:10.3813/AAA.918641.
+[16] A. Guilloteau, P. Guillemain, J. Kergomard, M. Jousserand, On the Second
+     Register’s Playability of the Clarinet: Towards a Multicriteria Approach,
+     in: International Symposium on Musical Acoustics, Montreal, 2017, p. 1.
+[17] E. Moers, J. Kergomard, On the Cutoff Frequency of Clarinet-Like In-
+     struments. Geometrical versus Acoustical Regularity, Acta Acustica united
+     with Acustica 97 (6) (2011) 984–996. doi:10.3813/AAA.918480.
+
+
+                                      25
+[18] A. Guilloteau, Conception d’une clarinette logique, Ph.D. thesis, Aix-
+     Marseille Université, Marseille, France (Sep. 2015).
+[19] A. Lefebvre, G. P. Scavone, Characterization of woodwind instrument tone-
+     holes with the finite element method, The Journal of the Acoustical Society
+     of America 131 (4) (2012) 3153–3163.
+
+[20] F. Silva, P. Guillemain, J. Kergomard, B. Mallaroni, A. N. Norris, Ap-
+     proximation formulae for the acoustic radiation impedance of a cylin-
+     drical pipe, Journal of Sound and Vibration 322 (1–2) (2009) 255–263.
+     doi:10.1016/j.jsv.2008.11.008.
+
+[21] P. A. Taillard, F. Silva, P. Guillemain, J. Kergomard, Modal analysis
+     of the input impedance of wind instruments. Application to the sound
+     synthesis of a clarinet, Applied Acoustics 141 (2018) 271–280. doi:
+     10.1016/j.apacoust.2018.07.018.
+[22] J. Nocedal, S. J. Wright, Numerical optimization, 2nd Edition, Springer se-
+     ries in operations research, Springer, New York, 2006, oCLC: ocm68629100.
+[23] V. Debut, J. Kergomard, F. Laloë, Analysis and optimisation of the tuning
+     of the twelfths for a clarinet resonator, Applied Acoustics 66 (4) (2005)
+     365–409. doi:10.1016/j.apacoust.2004.08.003.
+
+
+
+
+                                      26
+

@@ -12,5 +12,10 @@
 .DS_Store
 Thumbs.db
 
+# External reference repositories (do not commit)
+/autodiff-rs/
+/renplex/
+/fdtd-waveguide/
+
 # Cargo lock (optional – you may keep it if you want reproducible builds)
 # Cargo.lock

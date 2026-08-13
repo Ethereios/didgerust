@@ -10,6 +10,19 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::f64::consts::PI;
 use rand_distr::Distribution;
 
+/// Crossover strategy for evolutionary optimization
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CrossoverStrategy {
+    /// Single-point crossover
+    SinglePoint,
+    /// Average of both parents
+    Average,
+    /// Swap a contiguous segment between parents
+    PartSwap,
+    /// Average a contiguous segment between parents
+    PartAverage,
+}
+
 /// Mutation strategy for evolutionary optimization
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MutationStrategy {
@@ -17,6 +30,8 @@ pub enum MutationStrategy {
     Gaussian,
     /// Prime-number indexed mutation for better space-filling exploration
     PrimeSequence,
+    /// Mutate exactly one gene per individual
+    SingleMutation,
 }
 
 /// Trait for evolvable genomes
@@ -35,8 +50,11 @@ pub trait Genome: Send + Sync {
     where
         Self: Sized;
     
-    /// Clone the genome with a new ID
+    /// Clone the genome with a new ID (invalidates cached loss)
     fn clone_with_new_id(&self) -> Box<dyn Genome>;
+    
+    /// Clone the genome preserving its loss (for elite selection)
+    fn clone_with_loss(&self) -> Box<dyn Genome>;
     
     /// Convert genome to geometry
     fn genome2geo(&self) -> Geo;
@@ -150,6 +168,14 @@ impl Genome for BaseGenome {
             genome: self.genome.clone(),
             id: Self::generate_id(),
             loss: None,
+        })
+    }
+    
+    fn clone_with_loss(&self) -> Box<dyn Genome> {
+        Box::new(Self {
+            genome: self.genome.clone(),
+            id: Self::generate_id(),
+            loss: self.loss,
         })
     }
     
@@ -362,6 +388,17 @@ impl Genome for KigaliGenome {
         })
     }
     
+    fn clone_with_loss(&self) -> Box<dyn Genome> {
+        Box::new(Self {
+            base: BaseGenome {
+                genome: self.base.genome.clone(),
+                id: BaseGenome::generate_id(),
+                loss: self.base.loss,
+            },
+            ..*self
+        })
+    }
+    
     fn genome2geo(&self) -> Geo {
         let (length, bell_size, power, x_genome, y_genome, bubbles) = self.decode_parameters();
         
@@ -464,6 +501,7 @@ pub struct EvolutionParameters {
     pub crossover_rate: f64,
     pub elite_size: usize,
     pub mutation_strategy: MutationStrategy,
+    pub crossover_strategy: CrossoverStrategy,
 }
 
 impl Default for EvolutionParameters {
@@ -476,6 +514,7 @@ impl Default for EvolutionParameters {
             crossover_rate: 0.7,
             elite_size: 5,
             mutation_strategy: MutationStrategy::Gaussian,
+            crossover_strategy: CrossoverStrategy::SinglePoint,
         }
     }
 }
@@ -544,11 +583,13 @@ impl EvolutionaryOptimizer {
         Ok(())
     }
     
-    /// Evaluate genomes in parallel
+    /// Evaluate genomes in parallel, skipping those with cached loss.
     fn evaluate_genomes(loss_function: &dyn LossFunction, genomes: &mut [Box<dyn Genome>]) -> Result<(), Box<dyn std::error::Error>> {
         genomes.par_iter_mut().for_each(|genome| {
-            let loss = loss_function.calculate(genome.as_ref());
-            genome.set_loss(Some(loss));
+            if genome.loss().is_none() {
+                let loss = loss_function.calculate(genome.as_ref());
+                genome.set_loss(Some(loss));
+            }
         });
         
         Ok(())
@@ -569,7 +610,7 @@ impl EvolutionaryOptimizer {
         });
         
         for i in 0..self.parameters.elite_size.min(sorted_population.len()) {
-            offspring.push(sorted_population[i].clone_with_new_id());
+            offspring.push(sorted_population[i].clone_with_loss());
         }
         
         // Create remaining offspring
@@ -612,66 +653,98 @@ impl EvolutionaryOptimizer {
         best.ok_or_else(|| "Tournament selection failed".into())
     }
     
-    /// Simple crossover operation
+    /// Crossover operation supporting multiple strategies.
     fn crossover(&self, parent1: &dyn Genome, parent2: &dyn Genome) -> Result<Box<dyn Genome>, Box<dyn std::error::Error>> {
         let genome1 = parent1.genome();
         let genome2 = parent2.genome();
-        
+
         if genome1.len() != genome2.len() {
             return Err("Genomes must have same length for crossover".into());
         }
-        
+
         let mut child_genome = Vec::with_capacity(genome1.len());
-        let crossover_point = rand::random::<usize>() % genome1.len();
-        
-        for i in 0..genome1.len() {
-            let gene = if i < crossover_point {
-                genome1[i]
-            } else {
-                genome2[i]
-            };
-            child_genome.push(gene.clamp(0.0, 1.0));
+
+        match self.parameters.crossover_strategy {
+            CrossoverStrategy::SinglePoint => {
+                let crossover_point = rand::random::<usize>() % genome1.len();
+                for i in 0..genome1.len() {
+                    let gene = if i < crossover_point {
+                        genome1[i]
+                    } else {
+                        genome2[i]
+                    };
+                    child_genome.push(gene.clamp(0.0, 1.0));
+                }
+            }
+            CrossoverStrategy::Average => {
+                for i in 0..genome1.len() {
+                    child_genome.push(((genome1[i] + genome2[i]) / 2.0).clamp(0.0, 1.0));
+                }
+            }
+            CrossoverStrategy::PartSwap => {
+                child_genome = genome1.to_vec();
+                let start = rand::random::<usize>() % genome1.len();
+                let end = (start + rand::random::<usize>() % (genome1.len() - start)).min(genome1.len());
+                for i in start..end {
+                    child_genome[i] = genome2[i].clamp(0.0, 1.0);
+                }
+            }
+            CrossoverStrategy::PartAverage => {
+                child_genome = genome1.to_vec();
+                let start = rand::random::<usize>() % genome1.len();
+                let end = (start + rand::random::<usize>() % (genome1.len() - start)).min(genome1.len());
+                for i in start..end {
+                    child_genome[i] = ((genome1[i] + genome2[i]) / 2.0).clamp(0.0, 1.0);
+                }
+            }
         }
-        
+
         let mut child = parent1.clone_with_new_id();
         child.set_genome(child_genome);
         Ok(child)
     }
-    
-/// Simple mutation operation
-fn mutate(&self, genome: &dyn Genome) -> Result<Box<dyn Genome>, Box<dyn std::error::Error>> {
-    let mut mutated = genome.clone_with_new_id();
-    let mutated_genome = mutated.genome_mut();
-    
-    match self.parameters.mutation_strategy {
-        MutationStrategy::Gaussian => {
-            for gene in mutated_genome {
-                if rand::random::<f64>() < self.parameters.mutation_rate {
-                    // Gaussian mutation
+
+    /// Mutation operation supporting multiple strategies.
+    fn mutate(&self, genome: &dyn Genome) -> Result<Box<dyn Genome>, Box<dyn std::error::Error>> {
+        let mut mutated = genome.clone_with_new_id();
+        let mutated_genome = mutated.genome_mut();
+
+        match self.parameters.mutation_strategy {
+            MutationStrategy::Gaussian => {
+                for gene in mutated_genome {
+                    if rand::random::<f64>() < self.parameters.mutation_rate {
+                        let noise = rand_distr::Normal::new(0.0, 0.1)
+                            .map_err(|e| format!("Mutation failed: {}", e))?
+                            .sample(&mut rand::thread_rng());
+                        *gene = (*gene + noise).clamp(0.0, 1.0);
+                    }
+                }
+            }
+            MutationStrategy::PrimeSequence => {
+                let generator = PrimeGenerator::new(1000);
+                let mut index = 0;
+                for gene in mutated_genome {
+                    if rand::random::<f64>() < self.parameters.mutation_rate {
+                        let prime = generator.nth(index);
+                        let noise = (prime as f64 / 100.0) * rand::random::<f64>();
+                        *gene = (*gene + noise).clamp(0.0, 1.0);
+                        index += 1;
+                    }
+                }
+            }
+            MutationStrategy::SingleMutation => {
+                if !mutated_genome.is_empty() {
+                    let idx = rand::random::<usize>() % mutated_genome.len();
                     let noise = rand_distr::Normal::new(0.0, 0.1)
                         .map_err(|e| format!("Mutation failed: {}", e))?
                         .sample(&mut rand::thread_rng());
-                    *gene = (*gene + noise).clamp(0.0, 1.0);
-                }
-            }
-        },
-MutationStrategy::PrimeSequence => {
-            let generator = PrimeGenerator::new(1000);
-            let mut index = 0;
-            for gene in mutated_genome {
-                if rand::random::<f64>() < self.parameters.mutation_rate {
-                    // Prime-based mutation using prime numbers as scaling factors
-                    let prime = generator.nth(index);
-                    let noise = (prime as f64 / 100.0) * rand::random::<f64>();
-                    *gene = (*gene + noise).clamp(0.0, 1.0);
-                    index += 1;
+                    mutated_genome[idx] = (mutated_genome[idx] + noise).clamp(0.0, 1.0);
                 }
             }
         }
+
+        Ok(mutated)
     }
-    
-    Ok(mutated)
-}
     
     /// Select new population from combined parent and offspring
     fn select_population(&mut self, offspring: Vec<Box<dyn Genome>>) -> Result<(), Box<dyn std::error::Error>> {
@@ -754,11 +827,56 @@ mod tests {
                 crossover_rate: 0.7,
                 elite_size: 2,
                 mutation_strategy: MutationStrategy::Gaussian,
+                crossover_strategy: CrossoverStrategy::SinglePoint,
             },
         );
         
         // This is a basic test - in practice, you'd want to test with actual loss functions
         let result = optimizer.evolve();
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_new_mutation_strategies() {
+        let genome = BaseGenome::random(10);
+        let original = genome.genome().to_vec();
+
+        let mut params = EvolutionParameters::default();
+        params.mutation_strategy = MutationStrategy::SingleMutation;
+        let optimizer = EvolutionaryOptimizer::new(
+            Box::new(TestLossFunction::new()),
+            vec![genome.clone_with_new_id()],
+            params,
+        );
+
+        let mutant = optimizer.mutate(&genome).unwrap();
+        let mutated = mutant.genome();
+        let diff_count = original.iter().zip(mutated.iter()).filter(|(a, b)| (**a - **b).abs() > 1e-12).count();
+        assert_eq!(diff_count, 1);
+    }
+
+    #[test]
+    fn test_crossover_strategies() {
+        let parent1 = BaseGenome::random(8);
+        let parent2 = BaseGenome::random(8);
+
+        for strategy in [
+            CrossoverStrategy::SinglePoint,
+            CrossoverStrategy::Average,
+            CrossoverStrategy::PartSwap,
+            CrossoverStrategy::PartAverage,
+        ] {
+            let params = EvolutionParameters {
+                crossover_strategy: strategy,
+                ..Default::default()
+            };
+            let optimizer = EvolutionaryOptimizer::new(
+                Box::new(TestLossFunction::new()),
+                vec![parent1.clone_with_new_id()],
+                params,
+            );
+            let child = optimizer.crossover(&parent1, &parent2).unwrap();
+            assert_eq!(child.genome().len(), 8);
+        }
     }
 }

@@ -1,5 +1,6 @@
 //! Simulation module for CADSD – transmission line model, impedance calculation, and utilities.
 
+use crate::geo::Geo;
 use nalgebra::Matrix2;
 use num_complex::Complex;
 use serde::{Deserialize, Serialize};
@@ -8,6 +9,51 @@ use std::f64::consts::PI;
 /// Physical constants (air at 20 °C, 101 kPa)
 const RHO: f64 = 1.225; // kg/m³ (air density)
 const C: f64 = 343.0; // m/s (speed of sound)
+const NU: f64 = 1.51e-5; // m²/s (kinematic viscosity of air at 20°C)
+
+/// Bent-shape effective-length correction for curved tube segments.
+///
+/// For a circular arc bend, the effective acoustic length is shorter than the
+/// geometric arc length due to the curved path. This follows the DidgeLab
+/// analytical correction:
+///
+/// `dL_eff = ds * (1 - α * κ² * a²)`
+///
+/// where:
+/// - `ds` = arc length of the bend (m)
+/// - `κ` = curvature (1/m)
+/// - `a` = tube radius (m)
+/// - `α` = coefficient (1/3 for circular arc)
+///
+/// Reference: DidgeLab bent-shapes analysis (closes ~66% of TLM error vs FEM).
+pub fn bent_effective_length(ds: f64, kappa: f64, radius: f64, alpha: f64) -> f64 {
+    let correction = 1.0 - alpha * kappa.powi(2) * radius.powi(2);
+    ds * correction.max(0.0)
+}
+
+/// Temperature-dependent acoustic constants
+pub struct AcousticConstants {
+    pub rho: f64,
+    pub c: f64,
+    pub nu: f64,
+    pub temperature_c: f64,
+}
+
+impl Default for AcousticConstants {
+    fn default() -> Self {
+        Self::for_temperature(20.0)
+    }
+}
+
+impl AcousticConstants {
+    pub fn for_temperature(temp_c: f64) -> Self {
+        let t_kelvin = temp_c + 273.15;
+        let c = 20.05 * t_kelvin.sqrt();
+        let rho = 101325.0 / (287.05 * t_kelvin);
+        let nu = 1.716e-5 * (t_kelvin / 273.15).powf(1.5) * (273.15 + 110.4) / (t_kelvin + 110.4);
+        Self { rho, c, nu, temperature_c: temp_c }
+    }
+}
 
 /// Simulation strategy selection
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -85,11 +131,12 @@ pub fn ap(m: &Matrix2<Complex<f64>>, n: &Matrix2<Complex<f64>>) -> Matrix2<Compl
     m * n
 }
 
-/// Radiation impedance at the open end of a tube.
-/// This implementation follows the classical Levine‑Schwinger approximation.
-pub fn za(z: Complex<f64>, r: f64) -> Complex<f64> {
-    let z_rad = Complex::new(RHO * C / (2.0 * PI * r), 0.0);
-    z + z_rad
+/// Radiation impedance at the open end of a tube using the Geipel approximation
+/// for an unflanged pipe. This is frequency-dependent and complex-valued.
+pub fn za(freq_hz: f64, r: f64, rho: f64, c: f64, nu: f64) -> Complex<f64> {
+    let s = (PI * nu * freq_hz / (2.0 * r * r * c)).sqrt();
+    let z_rad = rho * c / (PI * r * r) * Complex::new(1.0 - 0.366 * s, 0.613 * s);
+    z_rad
 }
 
 /// The core CADSD impedance calculation for a single frequency.
@@ -112,7 +159,7 @@ pub fn cadsd_ze(segments: &[Segment], freq_hz: f64) -> Complex<f64> {
     }
     let last = segments.last().expect("at least one segment");
     let r_last = (last.d1 / 2.0).max(1e-6);
-    let z_open = za(Complex::new(0.0, 0.0), r_last);
+    let z_open = za(freq_hz, r_last, RHO, C, NU);
     let a = m_total[(0, 0)];
     let b = m_total[(0, 1)];
     let c = m_total[(1, 0)];
@@ -125,6 +172,12 @@ pub fn compute_impedance_spectrum(segments: &[Segment], freqs: &[f64]) -> Vec<Co
     freqs.iter().map(|&f| cadsd_ze(segments, f)).collect()
 }
 
+/// Find resonance peaks for a geometry using the default TLM strategy.
+pub fn find_resonance_peaks(geo: &Geo, strategy: SimulationStrategy) -> Vec<Resonance> {
+    let simulator = DidgeridooSimulator::with_strategy(&geo.geo, strategy);
+    simulator.find_resonance_peaks()
+}
+
 /// Simple peak detection on the magnitude of a complex spectrum.
 pub fn find_peaks(freqs: &[f64], spectrum: &[Complex<f64>]) -> Vec<(usize, f64, f64)> {
     let mag: Vec<f64> = spectrum.iter().map(|c| c.norm()).collect();
@@ -134,6 +187,91 @@ pub fn find_peaks(freqs: &[f64], spectrum: &[Complex<f64>]) -> Vec<(usize, f64, 
             peaks.push((i, freqs[i], mag[i]));
         }
     }
+    peaks
+}
+
+/// Peak detection with minimum prominence.
+///
+/// A peak is kept only if its magnitude exceeds all points within `prominence`
+/// samples on either side by at least `min_prominence`. This suppresses noise
+/// and mode-switching artefacts during optimisation.
+pub fn find_peaks_with_prominence(
+    freqs: &[f64],
+    spectrum: &[Complex<f64>],
+    prominence: usize,
+    min_prominence: f64,
+) -> Vec<(usize, f64, f64)> {
+    let mag: Vec<f64> = spectrum.iter().map(|c| c.norm()).collect();
+    let mut peaks = Vec::new();
+
+    for i in 1..mag.len() - 1 {
+        // Strict local maximum first
+        if mag[i] <= mag[i - 1] || mag[i] <= mag[i + 1] {
+            continue;
+        }
+
+        let left_start = i.saturating_sub(prominence);
+        let right_end = (i + prominence).min(mag.len());
+
+        let left_max = mag[left_start..i].iter().cloned().fold(0.0, f64::max);
+        let right_max = mag[(i + 1)..right_end].iter().cloned().fold(0.0, f64::max);
+
+        if mag[i] - left_max >= min_prominence && mag[i] - right_max >= min_prominence {
+            peaks.push((i, freqs[i], mag[i]));
+        }
+    }
+
+    peaks
+}
+
+/// Phase-based peak detection using the derivative of the unwrapped phase.
+///
+/// Resonances correspond to rapid phase transitions. This is more robust than
+/// magnitude-only local maxima, especially when modes are close or weak.
+///
+/// Reference: Ernoult et al. (2020) – phase-based resonance detection.
+pub fn find_peaks_phase_based(
+    freqs: &[f64],
+    spectrum: &[Complex<f64>],
+    threshold: f64,
+) -> Vec<(usize, f64, f64)> {
+    if spectrum.len() < 3 {
+        return Vec::new();
+    }
+
+    // Unwrap phase
+    let mut phase: Vec<f64> = spectrum.iter().map(|c| c.arg()).collect();
+    for i in 1..phase.len() {
+        let mut delta = phase[i] - phase[i - 1];
+        while delta > PI {
+            delta -= 2.0 * PI;
+        }
+        while delta < -PI {
+            delta += 2.0 * PI;
+        }
+        phase[i] = phase[i - 1] + delta;
+    }
+
+    // Phase derivative (centred difference)
+    let mut phase_deriv = Vec::with_capacity(phase.len());
+    phase_deriv.push(phase[1] - phase[0]);
+    for i in 1..phase.len() - 1 {
+        phase_deriv.push((phase[i + 1] - phase[i - 1]) / 2.0);
+    }
+    phase_deriv.push(phase[phase.len() - 1] - phase[phase.len() - 2]);
+
+    // Find local maxima of phase derivative magnitude
+    let mut peaks = Vec::new();
+    for i in 1..phase_deriv.len() - 1 {
+        let deriv = phase_deriv[i].abs();
+        if deriv > phase_deriv[i - 1].abs()
+            && deriv > phase_deriv[i + 1].abs()
+            && deriv >= threshold
+        {
+            peaks.push((i, freqs[i], spectrum[i].norm()));
+        }
+    }
+
     peaks
 }
 
@@ -192,7 +330,26 @@ impl DidgeridooSimulator {
         let spectrum = self.impedance(freqs);
         find_peaks(freqs, &spectrum)
     }
-    
+
+    pub fn peaks_with_prominence(
+        &self,
+        freqs: &[f64],
+        prominence: usize,
+        min_prominence: f64,
+    ) -> Vec<(usize, f64, f64)> {
+        let spectrum = self.impedance(freqs);
+        find_peaks_with_prominence(freqs, &spectrum, prominence, min_prominence)
+    }
+
+    pub fn peaks_phase_based(
+        &self,
+        freqs: &[f64],
+        threshold: f64,
+    ) -> Vec<(usize, f64, f64)> {
+        let spectrum = self.impedance(freqs);
+        find_peaks_phase_based(freqs, &spectrum, threshold)
+    }
+
     pub fn find_resonance_peaks(&self) -> Vec<Resonance> {
         let freqs = grid::log_grid(20.0, 2000.0, 1.0);
         let peak_tuples = self.peaks(&freqs);

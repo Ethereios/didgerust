@@ -2,7 +2,9 @@
 pub use cadsd_accurate::geo::Geo;
 
 // Expose wrapper's modules (no re-exports that conflict with accurate crate)
+pub mod evo;
 pub mod geo;
+pub mod loss;
 pub mod sim;
 pub mod visualization;
 
@@ -25,6 +27,18 @@ pub use cadsd_accurate::sim::{
     get_log_simulation_frequencies, 
     compute_ground_spektrum, 
     get_fundamental,
+};
+
+// Re-export local simulation functions
+pub use crate::sim::{
+    create_segments_from_geo,
+    find_peaks,
+    find_peaks_with_prominence,
+    find_peaks_phase_based,
+    DidgeridooSimulator,
+    SimulationStrategy,
+    Segment,
+    Resonance,
 };
 
 // Re-export conversion utilities from accurate crate

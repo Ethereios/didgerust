@@ -110,7 +110,7 @@ impl PrimeGenerator {
     }
 
     /// Get the next prime number in the sequence
-    pub fn next(&mut self) -> u32 {
+    pub fn next_prime(&mut self) -> u32 {
         let prime = self.primes[self.current_index % self.primes.len()];
         self.current_index += 1;
         prime

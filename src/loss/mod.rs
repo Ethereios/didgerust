@@ -267,7 +267,7 @@ pub enum PeakDetectionMode {
     /// Prominence-based filtering (more robust to noise)
     Prominence { prominence: usize, min_prominence: f64 },
     /// Phase-based detection (most robust, slower)
-    PhaseBased { threshold: f64 },
+    PhaseBased { threshold: f64, prominence: usize },
 }
 
 /// Composite loss function that combines multiple components
@@ -377,8 +377,8 @@ impl crate::evo::LossFunction for CompositeTairuaLoss {
             PeakDetectionMode::Prominence { prominence, min_prominence } => {
                 simulator.peaks_with_prominence(&freqs, prominence, min_prominence)
             }
-            PeakDetectionMode::PhaseBased { threshold } => {
-                simulator.peaks_phase_based(&freqs, threshold)
+            PeakDetectionMode::PhaseBased { threshold, prominence } => {
+                simulator.peaks_phase_based(&freqs, prominence, threshold)
             }
         };
         if peaks.is_empty() {

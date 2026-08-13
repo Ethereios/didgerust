@@ -1,2 +1,9 @@
 [build]
-jobs = 2
+jobs = 1
+incremental = true
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+incremental = true

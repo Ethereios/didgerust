@@ -31,17 +31,12 @@ pub fn bent_effective_length(ds: f64, kappa: f64, radius: f64, alpha: f64) -> f6
 }
 
 /// Temperature-dependent acoustic constants
+#[derive(Debug, Clone, Copy, Default)]
 pub struct AcousticConstants {
     pub rho: f64,
     pub c: f64,
     pub nu: f64,
     pub temperature_c: f64,
-}
-
-impl Default for AcousticConstants {
-    fn default() -> Self {
-        Self::for_temperature(20.0)
-    }
 }
 
 impl AcousticConstants {
@@ -267,11 +262,14 @@ pub fn find_peaks_with_prominence(
 pub fn find_peaks_phase_based(
     freqs: &[f64],
     spectrum: &[Complex<f64>],
+    prominence: usize,
     threshold: f64,
 ) -> Vec<(usize, f64, f64)> {
     if spectrum.len() < 3 {
         return Vec::new();
     }
+
+    let p = prominence.max(1);
 
     // Unwrap phase
     let mut phase: Vec<f64> = spectrum.iter().map(|c| c.arg()).collect();
@@ -294,14 +292,26 @@ pub fn find_peaks_phase_based(
     }
     phase_deriv.push(phase[phase.len() - 1] - phase[phase.len() - 2]);
 
-    // Find local maxima of phase derivative magnitude
+    // Find local maxima of phase derivative magnitude with prominence check
     let mut peaks = Vec::new();
     for i in 1..phase_deriv.len() - 1 {
         let deriv = phase_deriv[i].abs();
-        if deriv > phase_deriv[i - 1].abs()
-            && deriv > phase_deriv[i + 1].abs()
-            && deriv >= threshold
-        {
+        if deriv <= phase_deriv[i - 1].abs() || deriv <= phase_deriv[i + 1].abs() {
+            continue;
+        }
+
+        let left_start = i.saturating_sub(p);
+        let right_end = (i + p).min(phase_deriv.len());
+        let left_max = phase_deriv[left_start..i]
+            .iter()
+            .map(|v| v.abs())
+            .fold(0.0, f64::max);
+        let right_max = phase_deriv[(i + 1)..right_end]
+            .iter()
+            .map(|v| v.abs())
+            .fold(0.0, f64::max);
+
+        if (deriv - left_max) >= threshold && (deriv - right_max) >= threshold {
             peaks.push((i, freqs[i], spectrum[i].norm()));
         }
     }
@@ -383,10 +393,11 @@ impl DidgeridooSimulator {
     pub fn peaks_phase_based(
         &self,
         freqs: &[f64],
+        prominence: usize,
         threshold: f64,
     ) -> Vec<(usize, f64, f64)> {
         let spectrum = self.impedance(freqs);
-        find_peaks_phase_based(freqs, &spectrum, threshold)
+        find_peaks_phase_based(freqs, &spectrum, prominence, threshold)
     }
 
     pub fn find_resonance_peaks(&self) -> Vec<Resonance> {
@@ -527,7 +538,7 @@ mod tests {
         let segments = create_segments_from_geo(&geo.geo);
         let freqs = grid::log_grid(20.0, 2000.0, 1.0);
         let spectrum = compute_impedance_spectrum(&segments, &freqs);
-        let peaks = find_peaks_phase_based(&freqs, &spectrum, 0.01);
+        let peaks = find_peaks_phase_based(&freqs, &spectrum, 1, 0.01);
         let _ = peaks; // Function should not panic regardless of result
     }
 }

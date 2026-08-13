@@ -479,3 +479,56 @@ impl Default for SimulationParams {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::geo::Geo;
+
+    #[test]
+    fn test_bent_effective_length() {
+        let ds = 1.0;
+        let kappa = 0.01;
+        let radius = 0.02;
+        let alpha = 1.0 / 3.0;
+        let d_l = bent_effective_length(ds, kappa, radius, alpha);
+        assert!(d_l < ds);
+        assert!(d_l > 0.0);
+    }
+
+    #[test]
+    fn test_za_geipel() {
+        let z = za(440.0, 0.02, 1.225, 343.0, 1.51e-5);
+        assert!(z.re > 0.0);
+    }
+
+    #[test]
+    fn test_cadsd_ze_with_losses() {
+        let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+        let segments = create_segments_from_geo(&geo.geo);
+        let z_lossy = cadsd_ze_with_losses(&segments, 440.0, &AcousticConstants::default(), true);
+        let z_clean = cadsd_ze_with_losses(&segments, 440.0, &AcousticConstants::default(), false);
+        assert!(z_lossy.re > 0.0);
+        assert!(z_clean.re > 0.0);
+    }
+
+    #[test]
+    fn test_find_peaks_with_prominence() {
+        let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+        let segments = create_segments_from_geo(&geo.geo);
+        let freqs = grid::log_grid(20.0, 2000.0, 1.0);
+        let spectrum = compute_impedance_spectrum(&segments, &freqs);
+        let peaks = find_peaks_with_prominence(&freqs, &spectrum, 1, 0.001);
+        let _ = peaks; // Function should not panic regardless of result
+    }
+
+    #[test]
+    fn test_find_peaks_phase_based() {
+        let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+        let segments = create_segments_from_geo(&geo.geo);
+        let freqs = grid::log_grid(20.0, 2000.0, 1.0);
+        let spectrum = compute_impedance_spectrum(&segments, &freqs);
+        let peaks = find_peaks_phase_based(&freqs, &spectrum, 0.01);
+        let _ = peaks; // Function should not panic regardless of result
+    }
+}

@@ -97,3 +97,42 @@ impl ToneholeSet {
         self.holes.len()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sim::AcousticConstants;
+
+    #[test]
+    fn test_tonehole_creation() {
+        let hole = Tonehole::new(500.0, 12.0, 5.0, true);
+        assert_eq!(hole.x, 500.0);
+        assert_eq!(hole.diameter, 12.0);
+        assert_eq!(hole.depth, 5.0);
+        assert!(hole.is_open);
+    }
+
+    #[test]
+    fn test_open_impedance() {
+        let hole = Tonehole::new(500.0, 12.0, 5.0, true);
+        let constants = AcousticConstants::default();
+        let z = hole.open_impedance(440.0, &constants);
+        assert!(z.re > 0.0 || z.im > 0.0);
+    }
+
+    #[test]
+    fn test_closed_impedance() {
+        let hole = Tonehole::new(500.0, 12.0, 5.0, false);
+        let constants = AcousticConstants::default();
+        let z = hole.closed_impedance(440.0, &constants);
+        assert!(z.im < 0.0);
+    }
+
+    #[test]
+    fn test_tonehole_set() {
+        let mut set = ToneholeSet::new();
+        assert!(set.is_empty());
+        set.add(Tonehole::new(200.0, 10.0, 4.0, true));
+        assert_eq!(set.len(), 1);
+    }
+}

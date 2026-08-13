@@ -549,6 +549,14 @@ impl EvolutionaryOptimizer {
     
     /// Evolve the population for specified number of generations
     pub fn evolve(&mut self) -> Result<Box<dyn Genome>, Box<dyn std::error::Error>> {
+        self.evolve_with_progress(|_, _| {})
+    }
+    
+    /// Evolve with progress callback (generation, best_loss)
+    pub fn evolve_with_progress<F>(&mut self, mut progress_cb: F) -> Result<Box<dyn Genome>, Box<dyn std::error::Error>>
+    where
+        F: FnMut(usize, f64),
+    {
         // Evaluate initial population
         self.evaluate_population()?;
         
@@ -565,10 +573,10 @@ impl EvolutionaryOptimizer {
             // Select new population
             self.select_population(offspring)?;
             
-            // Log best individual
+            // Report progress
             if let Some(best) = self.get_best_individual() {
-                log::info!("Best loss: {:.6}, ID: {}", 
-                          best.loss().unwrap_or(f64::INFINITY), best.id());
+                let best_loss = best.loss().unwrap_or(f64::INFINITY);
+                progress_cb(generation, best_loss);
             }
         }
         

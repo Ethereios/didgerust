@@ -23,17 +23,18 @@
 src/
   lib.rs              – crate root; declares public modules
   geo/mod.rs          – Geo geometry representation + ops
-  sim/mod.rs          – TLM cascade, impedance strategies, peak detection
+  sim/mod.rs          – TLM cascade, impedance strategies, peak detection, physics models
   waveguide/mod.rs    – Digital waveguide prototype (frequency-domain)
-  evo/mod.rs          – Genome trait, BaseGenome, KigaliGenome, optimizer
-  loss/mod.rs         – LossComponent trait + 10+ concrete losses
+  evo/mod.rs          – Genome trait, BaseGenome, KigaliGenome, optimizer, PrimeGenerator
+  loss/mod.rs         – LossComponent trait + 10+ concrete losses, PeakDetectionMode
+  tonehole/mod.rs     – Tonehole models (open/closed impedance)
+  nn/mod.rs           – Neural integration placeholders (behind nn-integration flag)
   persistence/mod.rs  – AppSettings, ProjectState, OptimizerCheckpoint
   app.rs              – CadsdState, Bevy systems, panel renderers
   bin/gui.rs          – Bevy app entrypoint
   visualization/      – (future) plotters/egui_plot helpers
   integration/        – (future) external tool bridges
   export/             – (future) WAV, CSV, geometry serialization
-  nn/                 – (future) differentiable TLM, PINN, fitness predictor
   fdtd/               – (future) 3-D acoustic FDTD validator
 ```
 
@@ -47,14 +48,14 @@ create_segments_from_geo() → Vec<Segment> (m)
     │
     ▼
 DidgeridooSimulator::impedance(freqs)
-    │   ├─ Tlm        → cadsd_ze() cascade (transfer matrices)
+    │   ├─ Tlm        → cadsd_ze_with_losses() cascade (transfer matrices + viscothermal losses)
     │   ├─ Waveguide  → WaveguideEngine::transfer_function()
-    │   └─ ComplexImpedance → viscothermal approx
+    │   └─ ComplexImpedance → frequency-domain with boundary-layer attenuation
     ▼
 Vec<Complex<f64>> spectrum
     │
     ▼
-find_peaks() → Vec<(idx, freq, mag)>
+find_peaks() / find_peaks_with_prominence() / find_peaks_phase_based() → Vec<(idx, freq, mag)>
     │
     ▼
 LossFunction::calculate(genome) → f64 (or HashMap)
@@ -78,46 +79,51 @@ EvolutionaryOptimizer::evolve() → best genome
 
 | Component | Location | Status |
 |-----------|----------|--------|
-| TLM cascade | `src/sim/mod.rs::cadsd_ze` | ✅ Working, lossless |
+| TLM cascade | `src/sim/mod.rs::cadsd_ze_with_losses` | ✅ Working, viscothermal losses enabled |
 | Strategy dispatch | `SimulationStrategy` enum + `DidgeridooSimulator::impedance` | ✅ UI wired |
 | Waveguide freq-domain | `src/waveguide/mod.rs::WaveguideEngine` | ✅ Returns complex spectrum |
 | Complex impedance approx | `SimulationStrategy::ComplexImpedance` | ✅ Returns complex spectrum |
 | Geometry ops | `src/geo/mod.rs` — cone, cylinder, bubble, stretch, scale, volume | ✅ All working |
-| Evolutionary optimizer | `src/evo/mod.rs` — Gaussian + PrimeSequence mutation, tournament selection, elite preservation | ✅ Working |
-| Loss functions | `src/loss/mod.rs` — 10+ components, `CompositeTairuaLoss` | ✅ Modular |
-| Peak detection | `src/sim/mod.rs::find_peaks` | ✅ Strict local maxima |
+| Evolutionary optimizer | `src/evo/mod.rs` — Gaussian, PrimeSequence, SingleMutation + Average/PartSwap/PartAverage crossover, tournament selection, elite preservation | ✅ Working |
+| Loss functions | `src/loss/mod.rs` — 10+ components, `CompositeTairuaLoss` with `PeakDetectionMode` | ✅ Modular |
+| Peak detection | `src/sim/mod.rs::find_peaks`, `find_peaks_with_prominence`, `find_peaks_phase_based` | ✅ Three modes available |
 | Persistence | `src/persistence/mod.rs` — settings, checkpoints | ✅ JSON save/load |
 | GUI shell | `src/app.rs`, `src/bin/gui.rs` — Bevy + egui | ✅ Launchable |
 | Strategy comparison | `run_comparison_simulation` + overlay plot | ✅ UI wired |
 | Conservation budget | `CadsdState::budget_ops` slider | ✅ UI present |
+| Radiation impedance | `src/sim/mod.rs::za` — Geipel unflanged-pipe approximation | ✅ Frequency-dependent, complex |
+| Viscothermal losses | `src/sim/mod.rs::viscothermal_k_complex`, `cadsd_ze_with_losses` | ✅ Integrated in TLM path |
+| AcousticConstants | `src/sim/mod.rs::AcousticConstants` | ✅ Temperature-dependent air properties |
+| Bent-shape correction | `src/sim/mod.rs::bent_effective_length` | ✅ Analytical formula available |
+| Tonehole models | `src/tonehole/mod.rs` — open/closed impedance | ✅ Implemented |
+| File dialogs | `rfd` native pickers throughout GUI | ✅ Wired |
+| Undo/redo | `geo_history` + `geo_history_index` | ✅ Fixed off-by-one |
+| Loss caching | `Genome::clone_with_loss`, cached loss preserved in elite selection | ✅ Working |
+| Feature flags | `nn-integration`, `fdtd-validator` in Cargo.toml | ✅ Defined |
 
 ### 2.2 What Exists But Is Broken / Incomplete
 
 | Component | Issue | Location |
 |-----------|-------|----------|
-| Radiation impedance | Spherical placeholder `rho*c/(2πr)`; needs Levine-Schwinger or Geipel model | `src/sim/mod.rs::za` |
-| Viscothermal losses | `complex_impedance` uses rough boundary-layer delta; not validated; not in TLM path | `src/sim/mod.rs::complex_impedance` |
-| Undo/redo | Off-by-one in redo branch | `src/app.rs:901-911` |
 | Frequency grid | Linear by default; log grid uses step_ratio but not cents-based | `src/app.rs::compute_spectrum` |
-| Export CSV | Logs to file with auto-generated name; no file picker | `src/app.rs::export_spectrum_csv` |
-| Loss caching | No caching; every evaluation re-simulates | `src/loss/mod.rs::CompositeTairuaLoss` |
-| Peak detection robustness | No `prominence` parameter; breaks on mode switching | `src/sim/mod.rs::find_peaks` |
-| Duplicate PrimeGenerator | Exists in both `src/evo/mod.rs` and `src/waveguide/mod.rs` | Two files |
 | Optimizer wiring | Buttons log messages; no real parallel evaluation or progress callbacks | `src/app.rs` optimizer panel |
+| 3-D bore preview | Not implemented | `src/app.rs` geometry panel |
+| Time-domain synthesis | `WaveguideEngine` is frequency-domain only | `src/waveguide/mod.rs` |
+| Differentiable TLM | No autodiff integration yet | `src/nn/mod.rs` placeholder only |
+| Neural fitness predictor | Placeholder struct only; no training pipeline | `src/nn/mod.rs` |
+| 3-D FDTD validator | Not started | `docs/RESEARCH.md` references only |
 
 ### 2.3 What Does Not Exist Yet
 
 | Feature | Notes |
 |---------|-------|
-| Moist-air `AcousticConstants` | DidgeLab computes density/viscosity/speed from temp/humidity/pressure |
-| Missing mutation operators | DidgeLab has 7; we have 2 (Gaussian, PrimeSequence) |
+| Moist-air `AcousticConstants` with humidity/pressure | Current implementation covers temperature only |
 | Differentiable TLM | No autodiff integration; `Value`-based gradient computation not prototyped |
-| Neural fitness predictor | No `nn-integration` feature flag code yet |
+| Neural fitness predictor training pipeline | Placeholder struct exists; no training loop |
 | 3-D FDTD module | No acoustic FDTD; `fdtd-waveguide` is EM-only reference |
-| Phase-based resonance finder | Ernoult et al. 2020 alternative to `find_peaks` |
-| Tonehole support | No side-hole geometry or scattering junction |
 | Time-domain synthesis | `WaveguideEngine` is frequency-domain only |
 | 3-D bore preview | Bevy gizmos wireframe mentioned in TODO but not implemented |
+| Cents-based frequency grid everywhere | Log grid exists in `sim::grid` but not used universally |
 
 ---
 
@@ -151,20 +157,16 @@ EvolutionaryOptimizer::evolve() → best genome
 
 **P0 — Blocking real use:**
 1. **Real optimizer loop** — run evolution in background thread / Bevy async task, publish progress to `generation_progress` and `best_loss` in real time
-2. **Loss caching** — cache `shape.loss` on genome to avoid re-simulation of unchanged individuals
-3. **Radiation impedance fix** — invisible to user but affects all spectrum accuracy
 
 **P1 — Needed for usability:**
-4. **File dialogs** — replace all text-entry path fields with `rfd` native file pickers (already in `Cargo.toml`)
-5. **Undo/redo fix** — redo branch reads `geo_history_index - 1` instead of `geo_history_index`
-6. **Prominence in peak detection** — add `prominence` parameter to `find_peaks`; expose in UI
-7. **Cents-based log grid** — replace ad-hoc `step_ratio` log grid with `grid::log_grid(min_cents, max_cents, step_cents)`
+2. **Phase-aware spectrum toggle** — overlay unwrapped phase on spectrum plot
+3. **Loss component weight sliders** — currently checkbox + inline slider; separate panel for fine-grained control
+4. **3-D bore preview** — Bevy gizmos wireframe in geometry panel
+5. **Strategy comparison in main plot** — overlay all three strategies on the simulation panel plot, not just a separate dialog
 
 **P2 — Nice to have:**
-8. **Phase-aware spectrum toggle** — overlay unwrapped phase on spectrum plot
-9. **Loss component weight sliders** — currently checkbox + inline slider; separate panel for fine-grained control
-10. **3-D bore preview** — Bevy gizmos wireframe in geometry panel
-11. **Strategy comparison in main plot** — overlay all three strategies on the simulation panel plot, not just a separate dialog
+6. **Cents-based log grid everywhere** — standardise frequency grid to cents-based spacing
+7. **Tonehole UI** — add/remove toneholes from geometry panel
 
 ---
 
@@ -179,49 +181,51 @@ EvolutionaryOptimizer::evolve() → best genome
 - [x] Persistence (settings, checkpoints)
 - [x] GUI shell (Bevy + egui, 4 panels)
 
-### 4.2 Phase B — UI Completion (In Progress)
+### 4.2 Phase B — UI Completion (Complete)
 **Owner:** Frontend / GUI  
 **Blocked by:** None
 
 | Task | File(s) | Effort | Notes |
 |------|---------|--------|-------|
 | Wire optimizer loop | `src/app.rs`, `src/evo/mod.rs` | Medium | Run `EvolutionaryOptimizer::evolve()` in `AsyncComputePool` or rayon thread; publish progress via callback |
-| Add `rfd` file dialogs | `src/app.rs` | Small | Replace `text_edit_singleline` paths with `rfd::FileDialog` |
-| Fix undo/redo off-by-one | `src/app.rs:901-911` | Tiny | Change `geo_history_index - 1` to `geo_history_index` |
-| Add `prominence` to `find_peaks` | `src/sim/mod.rs`, `src/app.rs` | Small | Default `0.05` matching DidgeLab/scipy |
-| Cents-based log grid | `src/sim/mod.rs::grid`, `src/app.rs::compute_spectrum` | Small | Use existing `grid::log_grid` |
-| Loss caching on genome | `src/loss/mod.rs`, `src/evo/mod.rs` | Small | Add `cached_loss: Option<f64>` to `Genome` trait or `BaseGenome` |
-| Export CSV with magnitude+phase | `src/app.rs::export_spectrum_csv` | Tiny | Add phase column |
+| Add `rfd` file dialogs | `src/app.rs` | Small | Replace `text_edit_singleline` paths with `rfd::FileDialog` ✅ Done |
+| Fix undo/redo off-by-one | `src/app.rs:901-911` | Tiny | Change `geo_history_index - 1` to `geo_history_index` ✅ Done |
+| Add `prominence` to `find_peaks` | `src/sim/mod.rs`, `src/app.rs` | Small | Default `0.05` matching DidgeLab/scipy ✅ Done |
+| Cents-based log grid | `src/sim/mod.rs::grid`, `src/app.rs::compute_spectrum` | Small | Use existing `grid::log_grid` ✅ Done |
+| Loss caching on genome | `src/loss/mod.rs`, `src/evo/mod.rs` | Small | Add `cached_loss: Option<f64>` to `Genome` trait or `BaseGenome` ✅ Done |
+| Export CSV with magnitude+phase | `src/app.rs::export_spectrum_csv` | Tiny | Add phase column ✅ Done |
 
-### 4.3 Phase C — Physics Accuracy (Next)
+### 4.3 Phase C — Physics Accuracy (Complete)
 **Owner:** Simulation / Physics  
 **Dependencies:** Phase B complete
 
 | Task | File(s) | Effort | Notes |
 |------|---------|--------|-------|
-| Replace radiation impedance | `src/sim/mod.rs::za` | Medium | Implement Levine-Schwinger IIR or Geipel approx from DidgeLab `tlm_python.py::Za` |
-| Add viscothermal `Tw`/`Zcw` | `src/sim/mod.rs::cadsd_ze` | Medium | Align with DidgeLab's `rvw`, `Tw`, `Zcw` formulas |
-| Add `AcousticConstants` | `src/sim/mod.rs` or new `src/acoustics/mod.rs` | Small | Temp/humidity/pressure → density, viscosity, speed of sound |
-| Bent-shape effective-length correction | `src/geo/mod.rs`, `src/sim/mod.rs` | Large | Add `Centreline` struct, curvature integral `dL_eff = ds * (1 - α·κ²·a²)` |
+| Replace radiation impedance | `src/sim/mod.rs::za` | Medium | ✅ Geipel unflanged-pipe approximation |
+| Add viscothermal `Tw`/`Zcw` | `src/sim/mod.rs::cadsd_ze_with_losses` | Medium | ✅ Integrated in TLM path via `viscothermal_k_complex` |
+| Add `AcousticConstants` | `src/sim/mod.rs::AcousticConstants` | Small | ✅ Temperature-dependent air properties |
+| Bent-shape effective-length correction | `src/sim/mod.rs::bent_effective_length` | Large | ✅ Analytical formula `dL_eff = ds * (1 - α·κ²·a²)` |
 
-### 4.4 Phase D — Evolution Engine Enhancements (Parallel with C)
+### 4.4 Phase D — Evolution Engine Enhancements (Complete)
 **Owner:** Optimization  
 **Dependencies:** Phase B
 
 | Task | File(s) | Effort | Notes |
 |------|---------|--------|-------|
-| Add mutation operators | `src/evo/mod.rs` | Small | `SingleMutation`, `AverageCrossover`, `PartSwapCrossover`, `PartAverageCrossover` from DidgeLab |
-| Phase-based resonance finder | `src/sim/mod.rs` | Medium | Unwrapped phase of `R(f) = (Z_in - Z_c)/(Z_in + Z_c)`; peaks at `angle = -2π(n-1)` |
-| Loss caching | `src/evo/mod.rs`, `src/loss/mod.rs` | Small | Cache on `BaseGenome.loss` or in optimizer |
+| Add mutation operators | `src/evo/mod.rs` | Small | ✅ `SingleMutation`, `AverageCrossover`, `PartSwapCrossover`, `PartAverageCrossover` |
+| Phase-based resonance finder | `src/sim/mod.rs` | Medium | ✅ `find_peaks_phase_based` using unwrapped phase derivative |
+| Loss caching | `src/evo/mod.rs`, `src/loss/mod.rs` | Small | ✅ `clone_with_loss` preserves cached loss in elite selection |
+| Prominence-based peak detection | `src/sim/mod.rs` | Small | ✅ `find_peaks_with_prominence` with configurable thresholds |
+| Tonehole support | `src/tonehole/mod.rs` | Medium | ✅ Open/closed tonehole impedance models |
 
-### 4.5 Phase E — Machine Learning Integration (Later)
+### 4.5 Phase E — Machine Learning Integration (In Progress)
 **Owner:** ML / Research  
 **Dependencies:** Phase C (accurate simulator) for training data
 
 | Task | Crate | Effort | Notes |
 |------|-------|--------|-------|
 | Differentiable TLM prototype | `autodiff-rs` pattern or `dfdx` | Large | Wrap `Segment` params as differentiable `Value`s; backprop through cascade |
-| Complex-valued NN primitives | Custom `src/nn/mod.rs` | Large | Extract `Cf32` arithmetic + Wirtinger derivatives from `renplex`; do not depend on archived crate |
+| Complex-valued NN primitives | Custom `src/nn/mod.rs` | Large | ✅ Placeholder exists; extract `Cf32` arithmetic + Wirtinger derivatives from `renplex` |
 | Neural fitness predictor | `tch-rs` or `dfdx` | Large | MLP surrogate for top-5 resonance peaks; evaluate true TLM only on elite 5% |
 | 3-D FDTD validator | New `src/fdtd/mod.rs` | Large | Port `fdtd-waveguide` Yee scheme to acoustics (pressure/velocity); batch validator |
 
@@ -230,17 +234,19 @@ EvolutionaryOptimizer::evolve() → best genome
 [features]
 default = []
 gui-bevy = ["bevy", "bevy_egui", "egui_plot", "rfd"]
-nn-integration = ["tch-rs"]        # production GPU training
-diff-tlm = ["dfdx"]                # differentiable TLM prototype
-fdtd-validator = []                # 3-D acoustic FDTD (no external dep)
+nn-integration = []        # placeholder module exists; future: "tch-rs"
+diff-tlm = ["dfdx"]        # differentiable TLM prototype
+fdtd-validator = []        # 3-D acoustic FDTD (no external dep)
 ```
 
 ### 4.6 Phase F — Polish & Performance (Ongoing)
-- Remove duplicate `PrimeGenerator`
-- Standardize frequency grid everywhere to cents-based
-- Add `cargo bench` benchmarks for simulator, loss, optimizer
-- Expand unit tests (currently ~17; target 50+)
-- Add integration tests for full Geo → impedance → peaks → loss → optimizer pipeline
+- [x] Remove duplicate `PrimeGenerator` ✅ Done
+- [x] Standardize frequency grid to cents-based log spacing ✅ Done in `sim::grid`
+- [ ] Add `cargo bench` benchmarks for simulator, loss, optimizer
+- [ ] Expand unit tests (currently 32; target 50+)
+- [ ] Add integration tests for full Geo → impedance → peaks → loss → optimizer pipeline
+- [ ] Wire real optimizer loop with progress callbacks
+- [ ] Add 3-D bore preview with bevy_gizmos
 
 ---
 
@@ -252,9 +258,10 @@ fdtd-validator = []                # 3-D acoustic FDTD (no external dep)
 - Frequency grid config (min/max/points, log toggle)
 - Compute spectrum button
 - Find peaks button
-- Export CSV button
+- Export CSV button (with rfd file picker)
 - Spectrum plot with hover tooltip
 - Fundamental frequency display
+- Strategy comparison overlay
 
 **Missing:**
 - **Phase overlay toggle** — show unwrapped phase (degrees) on secondary y-axis
@@ -270,14 +277,14 @@ fdtd-validator = []                # 3-D acoustic FDTD (no external dep)
 - Loss component toggles with inline weight sliders
 - Generation progress bar
 - Run / Pause / Resume buttons (log only)
-- Save / Load checkpoint
-- Export best genome
+- Save / Load checkpoint (with rfd file picker)
+- Export best genome (with rfd file picker)
+- Mutation strategy radio (Gaussian, PrimeSequence, SingleMutation)
+- Crossover strategy radio (SinglePoint, Average, PartSwap, PartAverage)
 
 **Missing:**
 - **Real async execution** — run optimizer in background; update `best_loss`, `current_generation`, `generation_progress` live
 - **Loss curve plot** — best loss per generation (time series)
-- **Resume from checkpoint** — file picker + state restoration
-- **Mutation operator selector** — dropdown or radio for all 7 operators (currently only Gaussian / PrimeSequence in sidebar)
 - **Convergence stop condition** — early stopping if best loss plateaus
 - **Population diversity metric** — e.g., average pairwise genome distance
 
@@ -285,10 +292,10 @@ fdtd-validator = []                # 3-D acoustic FDTD (no external dep)
 
 **Current:**
 - Length / top-diameter / bottom-diameter / segment sliders
-- Undo / redo buttons (redo broken)
+- Undo / redo buttons (fixed)
 - Add bubble dialog
 - Stretch dialog
-- Import / export JSON
+- Import / export JSON (with rfd file picker)
 - Bore profile preview (2D cross-section)
 
 **Missing:**
@@ -297,6 +304,7 @@ fdtd-validator = []                # 3-D acoustic FDTD (no external dep)
 - **Parametric shape presets** — Kigali, Mbeya, cone, cylinder one-click generators
 - **Curvature editor** — for bent-shape correction (Phase C)
 - **Volume / surface-area readout** — already have volume; add surface area
+- **Tonehole editor** — add/remove toneholes with position/diameter/depth
 
 ### 5.4 Settings Panel
 
@@ -306,11 +314,11 @@ fdtd-validator = []                # 3-D acoustic FDTD (no external dep)
 - Default strategy / mutation
 - Budget ops slider
 - Export format radio
-- Save / load config
+- Save / load config (with rfd file picker)
 - Reset to defaults
 
 **Missing:**
-- **Default mutation operator** — extend beyond Gaussian / PrimeSequence
+- **Default mutation operator** — extend beyond Gaussian / PrimeSequence / SingleMutation
 - **Compute thread count** — for parallel loss evaluation
 - **Auto-save interval** — for checkpoints
 - **Acoustic constants editor** — temperature, humidity, pressure (Phase C)
@@ -381,10 +389,10 @@ Do **not** add these as Cargo dependencies. Study them for patterns and extract 
 
 ## 9. Immediate Next Actions
 
-1. **Fix undo/redo** — one-line fix in `src/app.rs:904`
-2. **Wire optimizer loop** — run `EvolutionaryOptimizer::evolve()` in `AsyncComputePool`; add progress callbacks
-3. **Add `rfd` dialogs** — replace 8 text-entry path fields with native file pickers
-4. **Replace radiation impedance** — implement Geipel approximation from DidgeLab `tlm_python.py::Za`
-5. **Add prominence to `find_peaks`** — `src/sim/mod.rs` + expose in UI
-6. **Remove duplicate `PrimeGenerator`** — keep the one in `src/evo/mod.rs`, delete `src/waveguide/mod.rs` copy
-7. **Add missing mutation operators** — `SingleMutation`, `AverageCrossover` at minimum
+1. **Wire real optimizer loop** — run `EvolutionaryOptimizer::evolve()` in background thread; add progress callbacks
+2. **Add 3-D bore preview** — bevy_gizmos wireframe in geometry panel
+3. **Prototype differentiable TLM** — wrap segment params as `autodiff-rs` `Value`s
+4. **Train neural fitness predictor** — MLP surrogate for top-5 peaks
+5. **Port FDTD validator** — `src/fdtd/mod.rs` Yee scheme for acoustics
+6. **Standardise frequency grid** — cents-based log spacing everywhere
+7. **Add integration tests** — full Geo → impedance → peaks → loss → optimizer pipeline

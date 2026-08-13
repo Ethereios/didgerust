@@ -109,7 +109,7 @@ impl Segment {
 
 /// Convert a bore geometry (x, diameter) expressed in millimetres
 /// into a vector of `Segment`s in metres.
-pub fn create_segments_from_geo(geo: &Vec<[f64; 2]>) -> Vec<Segment> {
+pub fn create_segments_from_geo(geo: &[[f64; 2]]) -> Vec<Segment> {
     let mut segs = Vec::new();
     for window in geo.windows(2) {
         let x0_mm = window[0][0];
@@ -134,8 +134,7 @@ pub fn ap(m: &Matrix2<Complex<f64>>, n: &Matrix2<Complex<f64>>) -> Matrix2<Compl
 /// for an unflanged pipe. This is frequency-dependent and complex-valued.
 pub fn za(freq_hz: f64, r: f64, rho: f64, c: f64, nu: f64) -> Complex<f64> {
     let s = (PI * nu * freq_hz / (2.0 * r * r * c)).sqrt();
-    let z_rad = rho * c / (PI * r * r) * Complex::new(1.0 - 0.366 * s, 0.613 * s);
-    z_rad
+    rho * c / (PI * r * r) * Complex::new(1.0 - 0.366 * s, 0.613 * s)
 }
 
 /// The core CADSD impedance calculation for a single frequency.

@@ -92,8 +92,8 @@ impl PrimeGenerator {
         sieve[1] = false;
 
         for i in 2..=((limit as f64).sqrt() as usize) {
-            if sieve[i as usize] {
-                for j in (i * i..=limit as usize).step_by(i as usize) {
+            if sieve[i] {
+                for j in (i * i..=limit as usize).step_by(i) {
                     sieve[j] = false;
                 }
             }

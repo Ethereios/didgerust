@@ -31,3 +31,5 @@ criterion = "0.5"
 [features]
 default = []
 gui-bevy = ["bevy", "bevy_egui", "egui_plot", "rfd"]
+nn-integration = []
+fdtd-validator = []

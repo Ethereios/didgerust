@@ -22,6 +22,10 @@ pub mod app;
 #[cfg(feature = "gui-bevy")]
 pub mod gui;
 
+// Neural integration module (behind nn-integration feature flag)
+#[cfg(feature = "nn-integration")]
+pub mod nn;
+
 // Re-export simulation types from accurate crate
 pub use cadsd_accurate::sim::{
     acoustical_simulation, 

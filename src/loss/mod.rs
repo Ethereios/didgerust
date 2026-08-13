@@ -259,11 +259,23 @@ impl LossComponent for HighInharmonicLoss {
     }
 }
 
+/// Peak detection mode for loss evaluation
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PeakDetectionMode {
+    /// Strict local maxima (default, fast)
+    LocalMaxima,
+    /// Prominence-based filtering (more robust to noise)
+    Prominence { prominence: usize, min_prominence: f64 },
+    /// Phase-based detection (most robust, slower)
+    PhaseBased { threshold: f64 },
+}
+
 /// Composite loss function that combines multiple components
 pub struct CompositeTairuaLoss {
     components: Vec<(String, Box<dyn LossComponent>)>,
     max_error: f64,
     target_freqs: Option<Vec<f64>>,
+    peak_mode: PeakDetectionMode,
 }
 
 impl std::fmt::Debug for CompositeTairuaLoss {
@@ -283,7 +295,14 @@ impl CompositeTairuaLoss {
             components: Vec::new(),
             max_error,
             target_freqs: None,
+            peak_mode: PeakDetectionMode::LocalMaxima,
         }
+    }
+
+    /// Set peak detection mode
+    pub fn with_peak_mode(mut self, mode: PeakDetectionMode) -> Self {
+        self.peak_mode = mode;
+        self
     }
 
     /// Add a named loss component to the composite loss.
@@ -352,8 +371,16 @@ impl crate::evo::LossFunction for CompositeTairuaLoss {
         let all_freqs = freqs.clone();
         let all_impedances = spectrum.iter().map(|c| c.norm()).collect::<Vec<f64>>();
 
-        // Find peaks using the same frequency grid
-        let peaks = simulator.peaks(&freqs);
+        // Find peaks using the selected detection mode
+        let peaks = match self.peak_mode {
+            PeakDetectionMode::LocalMaxima => simulator.peaks(&freqs),
+            PeakDetectionMode::Prominence { prominence, min_prominence } => {
+                simulator.peaks_with_prominence(&freqs, prominence, min_prominence)
+            }
+            PeakDetectionMode::PhaseBased { threshold } => {
+                simulator.peaks_phase_based(&freqs, threshold)
+            }
+        };
         if peaks.is_empty() {
             return 1e6; // Large penalty for no peaks
         }
@@ -367,13 +394,13 @@ impl crate::evo::LossFunction for CompositeTairuaLoss {
         // Calculate total loss from all components
         let mut total_loss = 0.0;
         for (_name, component) in &self.components {
-let component_loss = component.calculate(
-             &peak_freqs_log,
-             &peak_impedances,
-             &all_freqs,
-             &all_impedances,
-             &peak_indices,
-         );
+            let component_loss = component.calculate(
+                 &peak_freqs_log,
+                 &peak_impedances,
+                 &all_freqs,
+                 &all_impedances,
+                 &peak_indices,
+             );
             total_loss += component_loss;
         }
         total_loss

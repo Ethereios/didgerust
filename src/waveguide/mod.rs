@@ -195,63 +195,10 @@ impl WaveguideSimulator {
     }
 }
 
-/// Prime number generator for prime-indexed mutation strategies
-pub struct PrimeGenerator {
-    primes: Vec<usize>,
-    current_index: usize,
-}
-
-impl PrimeGenerator {
-    /// Create a new prime generator
-    pub fn new() -> Self {
-        Self {
-            primes: Self::generate_primes(1000),
-            current_index: 0,
-        }
-    }
-
-    /// Generate primes using sieve of Eratosthenes
-    fn generate_primes(limit: usize) -> Vec<usize> {
-        let mut is_prime = vec![true; limit + 1];
-        is_prime[0] = false;
-        is_prime[1] = false;
-
-        for i in 2..=((limit as f64).sqrt() as usize) {
-            if is_prime[i] {
-                for j in (i * i..=limit).step_by(i) {
-                    is_prime[j] = false;
-                }
-            }
-        }
-
-        is_prime.iter().enumerate()
-            .filter(|(_, &is_p)| is_p)
-            .map(|(p, _)| p)
-            .collect()
-    }
-
-    /// Get the next prime number
-    pub fn next(&mut self) -> usize {
-        let prime = self.primes[self.current_index % self.primes.len()];
-        self.current_index += 1;
-        prime
-    }
-
-    /// Get a prime number at a specific offset
-    pub fn nth(&self, n: usize) -> usize {
-        self.primes[n % self.primes.len()]
-    }
-}
-
-impl Default for PrimeGenerator {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::evo::PrimeGenerator;
     use crate::geo::Geo;
 
     #[test]
@@ -280,7 +227,7 @@ mod tests {
 
     #[test]
     fn test_prime_generator() {
-        let mut gen = PrimeGenerator::new();
+        let mut gen = PrimeGenerator::new(1000);
         assert_eq!(gen.next(), 2);
         assert_eq!(gen.next(), 3);
         assert_eq!(gen.next(), 5);

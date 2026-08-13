@@ -6,6 +6,7 @@ pub mod evo;
 pub mod geo;
 pub mod loss;
 pub mod sim;
+pub mod tonehole;
 pub mod visualization;
 
 // New modules from adfb9d3

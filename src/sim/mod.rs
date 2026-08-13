@@ -9,7 +9,6 @@ use std::f64::consts::PI;
 /// Physical constants (air at 20 °C, 101 kPa)
 const RHO: f64 = 1.225; // kg/m³ (air density)
 const C: f64 = 343.0; // m/s (speed of sound)
-const NU: f64 = 1.51e-5; // m²/s (kinematic viscosity of air at 20°C)
 
 /// Bent-shape effective-length correction for curved tube segments.
 ///
@@ -142,24 +141,60 @@ pub fn za(freq_hz: f64, r: f64, rho: f64, c: f64, nu: f64) -> Complex<f64> {
 /// The core CADSD impedance calculation for a single frequency.
 /// Returns the complex input impedance at the mouthpiece.
 pub fn cadsd_ze(segments: &[Segment], freq_hz: f64) -> Complex<f64> {
+    cadsd_ze_with_losses(segments, freq_hz, &AcousticConstants::default(), false)
+}
+
+/// Viscothermal loss model for tube segments.
+///
+/// Computes the complex wavenumber including viscous and thermal boundary layer
+/// losses. This follows the simplified model used in DidgeLab's `tlm_python.py`.
+///
+/// Reference: DidgeLab / Finn & McCoy 1991
+pub fn viscothermal_k_complex(
+    seg: &Segment,
+    freq_hz: f64,
+    constants: &AcousticConstants,
+) -> Complex<f64> {
+    let omega = 2.0 * PI * freq_hz;
+    let k = omega / constants.c;
+
+    // Simplified viscothermal attenuation (DidgeLab-style)
+    let eta = 1.81e-5; // Pa·s (dynamic viscosity of air at 20°C)
+    let delta = (2.0 * eta / (constants.rho * omega)).sqrt();
+    let alpha = delta * (seg.d0 + seg.d1) / (2.0 * seg.d0 * seg.d1);
+
+    Complex::new(k, alpha)
+}
+
+/// CADSD impedance calculation with optional viscothermal losses.
+pub fn cadsd_ze_with_losses(
+    segments: &[Segment],
+    freq_hz: f64,
+    constants: &AcousticConstants,
+    include_losses: bool,
+) -> Complex<f64> {
     let omega = 2.0 * PI * freq_hz;
     let mut m_total = Matrix2::identity();
     for seg in segments {
-        let k = omega / C;
-        let cos_kl = (k * seg.l).cos();
-        let j_sin_kl = Complex::new(0.0, (k * seg.l).sin());
+        let k_complex = if include_losses {
+            viscothermal_k_complex(seg, freq_hz, constants)
+        } else {
+            Complex::new(omega / constants.c, 0.0)
+        };
+        let cos_kl = k_complex.cos();
+        let sin_kl = k_complex.sin();
         let zc = seg.r0;
         let t = Matrix2::new(
-            Complex::new(cos_kl, 0.0),
-            Complex::new(0.0, zc) * j_sin_kl,
-            Complex::new(0.0, 1.0 / zc) * j_sin_kl,
-            Complex::new(cos_kl, 0.0),
+            cos_kl,
+            Complex::new(0.0, zc) * sin_kl,
+            Complex::new(0.0, 1.0 / zc) * sin_kl,
+            cos_kl,
         );
         m_total = ap(&m_total, &t);
     }
     let last = segments.last().expect("at least one segment");
     let r_last = (last.d1 / 2.0).max(1e-6);
-    let z_open = za(freq_hz, r_last, RHO, C, NU);
+    let z_open = za(freq_hz, r_last, constants.rho, constants.c, constants.nu);
     let a = m_total[(0, 0)];
     let b = m_total[(0, 1)];
     let c = m_total[(1, 0)];
@@ -320,7 +355,12 @@ impl DidgeridooSimulator {
 
     pub fn impedance(&self, freqs: &[f64]) -> Vec<Complex<f64>> {
         match self.strategy {
-            SimulationStrategy::Tlm => compute_impedance_spectrum(&self.segments, freqs),
+            SimulationStrategy::Tlm => {
+                let constants = AcousticConstants::default();
+                freqs.iter()
+                    .map(|&f| cadsd_ze_with_losses(&self.segments, f, &constants, true))
+                    .collect()
+            }
             SimulationStrategy::Waveguide => self.waveguide_impedance(freqs),
             SimulationStrategy::ComplexImpedance => self.complex_impedance(freqs),
         }

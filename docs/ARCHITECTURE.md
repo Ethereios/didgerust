@@ -389,6 +389,16 @@ Do **not** add these as Cargo dependencies. Study them for patterns and extract 
 
 ## 9. Immediate Next Actions
 
+## 3.1 Implemented UI Features
+- Real-time audio integration (CLI commands TBD)
+- CLI tools documentation section added
+- Updated simulation panel with spectrum plot
+- Added controls for amplitude and frequency
+- Added optimizer progress tracking
+- Real-time state updates in Bevy systems
+- History tracking with undo/redo
+- Export workflows via rfd file dialogs
+
 1. **Wire real optimizer loop** — run `EvolutionaryOptimizer::evolve()` in background thread; add progress callbacks
 2. **Add 3-D bore preview** — bevy_gizmos wireframe in geometry panel
 3. **Prototype differentiable TLM** — wrap segment params as `autodiff-rs` `Value`s

@@ -76,6 +76,7 @@ impl WaveguideCell {
 }
 
 /// Waveguide engine - cascade of waveguide cells representing bore geometry
+#[derive(Debug, Clone)]
 pub struct WaveguideEngine {
     /// Vector of waveguide cells
     pub cells: Vec<WaveguideCell>,
@@ -164,6 +165,38 @@ impl WaveguideEngine {
     pub fn impedance_spectrum(&self, freqs: &[f64]) -> Vec<Complex64> {
         freqs.iter().map(|&f| self.transfer_function(f)).collect()
     }
+    
+    /// Compute impedance with simplified model for real-time performance
+    /// Uses precomputed values and reduced complexity calculations
+    pub fn impedance_spectrum_fast(&self, freqs: &[f64]) -> Vec<Complex64> {
+        // Precompute frequency-independent geometric factors
+        let total_length = self.total_length.max(1e-6);
+        let r_last = (self.cells.last().map(|c| c.d1).unwrap_or(0.01) / 2.0).max(1e-6);
+        
+        freqs.iter().map(|&f| {
+            let omega = 2.0 * PI * f;
+            let k = omega / C;
+            
+            // Simplified: assume uniform tube for fast calculation (reduces matrix chain)
+            let zc_avg = self.cells.iter()
+                .map(|c| (c.zc0 + c.zc1) / 2.0)
+                .sum::<f64>() / self.n_segments as f64;
+            
+            let kl = k * total_length;
+            let cos_kl = kl.cos();
+            let sin_kl = kl.sin();
+            
+            // Simplify to single segment approximation
+            let z_rad = Complex64::new(RHO * C / (2.0 * PI * r_last), 0.0);
+            
+            let a = cos_kl;
+            let b = Complex64::new(0.0, sin_kl * zc_avg);
+            let c = Complex64::new(0.0, sin_kl / zc_avg);
+            let d = cos_kl;
+            
+            (a * z_rad + b) / (c * z_rad + d)
+        }).collect()
+    }
 }
 
 /// High-level waveguide simulator interface
@@ -228,9 +261,9 @@ mod tests {
     #[test]
     fn test_prime_generator() {
         let mut gen = PrimeGenerator::new(1000);
-        assert_eq!(gen.next(), 2);
-        assert_eq!(gen.next(), 3);
-        assert_eq!(gen.next(), 5);
-        assert_eq!(gen.next(), 7);
+assert_eq!(gen.next_prime(), 2);
+    assert_eq!(gen.next_prime(), 3);
+    assert_eq!(gen.next_prime(), 5);
+    assert_eq!(gen.next_prime(), 7);
     }
 }

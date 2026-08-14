@@ -8,6 +8,9 @@ pub mod loss;
 pub mod sim;
 pub mod tonehole;
 pub mod visualization;
+pub mod audio;
+
+// New modules from adfb9d3
 
 // New modules from adfb9d3
 pub mod persistence;

@@ -3,7 +3,6 @@ pub use cadsd_accurate::geo::Geo;
 
 // Expose wrapper's modules (no re-exports that conflict with accurate crate)
 pub mod evo;
-pub mod geo;
 pub mod loss;
 pub mod sim;
 pub mod tonehole;

@@ -2,7 +2,7 @@
 //! These tests exercise the end-to-end workflow:
 //! geometry creation → simulation → analysis → report generation.
 
-use cadsd::geo::Geo;
+use cadsd::Geo;
 use cadsd::visualization::{create_analysis_report, generate_text_report};
 use cadsd::sim::{find_resonance_peaks, SimulationStrategy};
 use std::fs;

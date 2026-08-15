@@ -1,4 +1,4 @@
-use crate::geo::Geo;
+use crate::Geo;
 
 #[derive(Debug)]
 pub struct DefaultSimulator;

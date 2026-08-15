@@ -10,7 +10,7 @@
 //! - `WaveguideEngine`: A cascade of cells representing the bore geometry
 //! - `WaveguideSimulator`: High-level interface for impedance calculation
 
-use crate::geo::Geo;
+use crate::Geo;
 use num_complex::Complex64;
 use std::f64::consts::PI;
 
@@ -232,7 +232,7 @@ impl WaveguideSimulator {
 mod tests {
     use super::*;
     use crate::evo::PrimeGenerator;
-    use crate::geo::Geo;
+use crate::Geo;
 
     #[test]
     fn test_waveguide_cell_creation() {

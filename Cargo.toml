@@ -24,6 +24,9 @@ plotters = "0.3"
 lazy_static = "1.4"
 # Audio processing
 cpal = { version = "0.18", optional = true }
+# Research tools
+autodiff-rs = { git = "https://github.com/ArunBabu98/autodiff-rs", optional = true }
+dfdx = { version = "0.13", optional = true }
 
 [dev-dependencies]
 approx = "0.5"
@@ -35,6 +38,7 @@ default = []
 gui-bevy = ["bevy", "bevy_egui", "egui_plot", "rfd"]
 nn-integration = []
 cpal-integration = ["cpal"]
+research = []
 
 [[bench]]
 name = "waveguide_vs_tlm"

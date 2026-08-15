@@ -14,20 +14,17 @@ use crate::waveguide::WaveguideEngine;
 use cpal::{traits::{DeviceTrait, HostTrait, StreamTrait}};
 
 /// Wrapper for atomic f64 using transmute
-#[derive(Debug)]
 pub struct AtomicF64(AtomicU64);
 
 impl AtomicF64 {
-    pub fn new(f: f64) -> Self {
-        Self(AtomicU64::new(f.to_bits()))
+    pub fn new(val: f64) -> Self {
+        Self(AtomicU64::new(val.to_bits()))
     }
-
+    pub fn store(&self, val: f64, order: Ordering) {
+        self.0.store(val.to_bits(), order);
+    }
     pub fn load(&self, order: Ordering) -> f64 {
         f64::from_bits(self.0.load(order))
-    }
-
-    pub fn store(&self, f: f64, order: Ordering) {
-        self.0.store(f.to_bits(), order)
     }
 }
 
@@ -86,10 +83,6 @@ impl Default for AmplitudeParams {
 pub struct AudioProcessor {
     /// Waveguide engine for sound generation (shared across threads)
     engine: Arc<Mutex<WaveguideEngine>>,
-    /// Cached block size for audio buffering
-    block_size: usize,
-    /// Number of audio channels
-    channels: usize,
     /// Current amplitude parameters
     amplitude: Arc<Mutex<AmplitudeParams>>,
     /// Running flag for audio thread
@@ -97,23 +90,20 @@ pub struct AudioProcessor {
     /// Last computed frequency for tracking
     last_frequency: AtomicF64,
     /// Cached sample rate for calculations
-    sample_rate: f64,
+    sample_rate: u32,
 }
 
 impl AudioProcessor {
     /// Create a new audio processor with specified geometry
-pub fn new(geo: &crate::geo::Geo, config: AudioConfig) -> Result<Self, String> {
+    pub fn new(geo: &crate::Geo, config: AudioConfig) -> Result<Self, String> {
         let engine = WaveguideEngine::from_geo(geo);
-        let sample_rate = config.sample_rate as f64;
         
         Ok(Self {
             engine: Arc::new(Mutex::new(engine)),
-            block_size: config.block_size,
-            channels: config.channels,
             amplitude: Arc::new(Mutex::new(AmplitudeParams::default())),
             running: Arc::new(AtomicBool::new(false)),
             last_frequency: AtomicF64::new(440.0),
-            sample_rate,
+            sample_rate: config.sample_rate,
         })
     }
 
@@ -139,7 +129,7 @@ pub fn new(geo: &crate::geo::Geo, config: AudioConfig) -> Result<Self, String> {
     /// Generate audio samples for the specified number of frames
     pub fn generate_samples(&self, frames: usize) -> Vec<f32> {
         let mut samples = Vec::with_capacity(frames);
-        let dt = 1.0 / self.sample_rate;
+        let dt = 1.0 / self.sample_rate as f64;
         let mut phase = 0.0;
         
         // Precompute static parameters
@@ -186,7 +176,7 @@ pub fn new(geo: &crate::geo::Geo, config: AudioConfig) -> Result<Self, String> {
             let config = device.default_output_config()
                 .map_err(|e| format!("Output config error: {}", e))?;
             
-            let sample_rate = config.sample_rate().0 as f64;
+            let sample_rate = config.sample_rate().0 as u64;
             let channels = config.channels() as usize;
             
             let engine = Arc::clone(&self.engine);
@@ -261,7 +251,7 @@ pub fn new(geo: &crate::geo::Geo, config: AudioConfig) -> Result<Self, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::geo::Geo;
+    use crate::Geo;
 
     #[test]
     fn test_audio_config_default() {

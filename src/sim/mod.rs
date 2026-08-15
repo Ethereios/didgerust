@@ -1,6 +1,6 @@
 //! Simulation module for CADSD – transmission line model, impedance calculation, and utilities.
 
-use crate::geo::Geo;
+use crate::Geo;
 use nalgebra::Matrix2;
 use num_complex::Complex;
 use serde::{Deserialize, Serialize};
@@ -423,7 +423,7 @@ impl DidgeridooSimulator {
             Some([x_mm, d0_mm])
         }).collect();
         
-        let geo = crate::geo::Geo::new(geo_points);
+        let geo = crate::Geo::new(geo_points);
         let engine = crate::waveguide::WaveguideEngine::from_geo(&geo);
         engine.impedance_spectrum(freqs)
     }
@@ -499,7 +499,7 @@ impl Default for SimulationParams {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::geo::Geo;
+    use crate::Geo;
 
     #[test]
     fn test_bent_effective_length() {

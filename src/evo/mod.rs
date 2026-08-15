@@ -3,7 +3,8 @@
 //! This module implements genetic algorithms for optimizing didgeridoo geometries
 //! to achieve target acoustic properties using the CADSD framework.
 
-use crate::geo::Geo;
+use crate::Geo;
+use crate::sim::SimulationStrategy;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};

@@ -1,4 +1,4 @@
-use crate::geo::Geo;
+use crate::Geo;
 
 pub struct GeometryExporter;
 

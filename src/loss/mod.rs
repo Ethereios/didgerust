@@ -3,7 +3,7 @@
 //! This module implements various loss functions for evaluating didgeridoo geometries
 //! based on their acoustic properties, similar to the Python implementation.
 
-use crate::geo::Geo;
+use crate::Geo;
 use crate::evo::Genome;
 use crate::sim::DidgeridooSimulator;
 use serde::{Deserialize, Serialize};

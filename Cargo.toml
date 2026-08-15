@@ -36,9 +36,9 @@ criterion = "0.5"
 [features]
 default = []
 gui-bevy = ["bevy", "bevy_egui", "egui_plot", "rfd"]
-nn-integration = []
-cpal-integration = ["cpal"]
-research = []
+nn-integration = ["dfdx"]
+diff-tlm = ["autodiff-rs"]
+fdtd-validator = []
 
 [[bench]]
 name = "waveguide_vs_tlm"

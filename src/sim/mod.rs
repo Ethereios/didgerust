@@ -31,7 +31,7 @@ pub fn bent_effective_length(ds: f64, kappa: f64, radius: f64, alpha: f64) -> f6
 }
 
 /// Temperature-dependent acoustic constants
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct AcousticConstants {
     pub rho: f64,
     pub c: f64,

@@ -28,6 +28,14 @@ pub mod gui;
 #[cfg(feature = "nn-integration")]
 pub mod nn;
 
+// Differentiable TLM module (behind diff-tlm feature flag)
+#[cfg(feature = "diff-tlm")]
+pub mod diff_tlm;
+
+// FDTD validator module (behind fdtd-validator feature flag)
+#[cfg(feature = "fdtd-validator")]
+pub mod fdtd;
+
 // Re-export simulation types from accurate crate
 pub use cadsd_accurate::sim::{
     acoustical_simulation, 

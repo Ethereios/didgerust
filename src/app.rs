@@ -1582,6 +1582,27 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
                     };
                     ui.label(format!("Resonance: {:.0} Hz ({})", resonance_freq, resonance_type));
                 }
+                if ui.button("Export Tonehole Impedance CSV").clicked() {
+                    let mut csv = String::from("frequency_hz,impedance_magnitude\n");
+                    for (f, z) in state.tonehole_impedance_freqs.iter().zip(state.tonehole_impedances.iter()) {
+                        csv.push_str(&format!("{},{}\n", f, z));
+                    }
+                    let default_name = format!("tonehole_impedance_{}.csv", 
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map(|d| d.as_secs())
+                            .unwrap_or(0));
+                    if let Some(path) = FileDialog::new()
+                        .add_filter("CSV", &["csv"])
+                        .set_file_name(&default_name)
+                        .save_file() {
+                        if let Err(e) = std::fs::write(&path, &csv) {
+                            log::error!("Failed to export tonehole CSV: {}", e);
+                        } else {
+                            log::info!("Tonehole impedance CSV exported to {}", path.display());
+                        }
+                    }
+                }
             }
         }
     }

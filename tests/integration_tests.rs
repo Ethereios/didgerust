@@ -159,3 +159,30 @@ fn test_tonehole_simulation_integration() {
         assert!(z_with.norm() > 0.0, "Tonehole impedance should be finite");
     }
 }
+
+#[test]
+fn test_tonehole_comparison_workflow() {
+    let geo = Geo::new(vec![[0.0, 32.0], [1000.0, 32.0]]);
+    let constants = AcousticConstants::for_temperature(20.0);
+    let freqs: Vec<f64> = (50..=500).step_by(50).map(|x| x as f64).collect();
+    
+    let segments = cadsd::create_segments_from_geo(&geo.geo);
+    let spec_no_th = cadsd::sim::compute_impedance_spectrum(&segments, &freqs);
+    
+    let mut sim_with_th = DidgeridooSimulator::from_geo(&geo.geo);
+    sim_with_th.toneholes = vec![Tonehole::new(300.0, 10.0, 5.0, true)];
+    let spec_with_th = sim_with_th.impedance(&freqs);
+    
+    assert_eq!(spec_no_th.len(), spec_with_th.len());
+    let mut differences = 0;
+    for (z_no, z_with) in spec_no_th.iter().zip(spec_with_th.iter()) {
+        if (z_no.norm() - z_with.norm()).abs() > 1e-6 {
+            differences += 1;
+        }
+    }
+    assert!(differences > 0, "Toneholes should change impedance spectrum");
+    
+    let report = cadsd::validation::generate_validation_report(&geo, &freqs, &constants);
+    assert!(report.contains("Validation Report"));
+    assert!(report.contains("PASS") || report.contains("MARGINAL") || report.contains("FAIL"));
+}

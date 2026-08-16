@@ -119,8 +119,9 @@ impl Tonehole {
         let sin_kl = (k_complex * l).sin();
 
         let a = cos_kl;
-        let b = Complex::new(0.0, zc_lossy.re) * sin_kl;
-        let c = Complex::new(0.0, 1.0 / zc_lossy.re.max(1e-15)) * sin_kl;
+        let zc_safe = if zc_lossy.norm() < 1e-15 { Complex::new(1e-15, 0.0) } else { zc_lossy };
+        let b = Complex::new(0.0, 1.0) * zc_safe * sin_kl;
+        let c = Complex::new(0.0, 1.0) * sin_kl / zc_safe;
         let d = cos_kl;
 
         let numerator = a * z_rad + b;

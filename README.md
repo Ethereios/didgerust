@@ -177,10 +177,8 @@ The implementation is based on established acoustical principles:
 
 ## Performance Considerations
 
-- **SIMD optimization** - Vectorized calculations for acoustic simulations
 - **Parallel evaluation** - Rayon-based parallel processing for evolution
 - **Memory efficiency** - Optimized data structures for large populations
-- **Caching** - Results caching for unchanged geometries
 - **Digital Waveguides** - Lightweight time-domain modeling suitable for real-time applications
 - **Prime-Indexed Mutation** - Enhanced exploration with minimal overhead (uses cached prime sieve)
 

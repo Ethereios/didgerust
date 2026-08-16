@@ -10,6 +10,8 @@
 //! - `WaveguideEngine`: A cascade of cells representing the bore geometry
 //! - `WaveguideSimulator`: High-level interface for impedance calculation
 
+use crate::sim::AcousticConstants;
+use crate::tonehole::Tonehole;
 use crate::Geo;
 use num_complex::Complex64;
 use std::f64::consts::PI;
@@ -84,11 +86,28 @@ pub struct WaveguideEngine {
     pub total_length: f64,
     /// Number of segments
     pub n_segments: usize,
+    /// Acoustic constants for tonehole calculations
+    pub acoustic_constants: AcousticConstants,
+    /// Toneholes positioned along the bore (x in mm)
+    pub toneholes: Vec<Tonehole>,
 }
+
+    /// Internal element type for waveguide cascade
+    #[derive(Debug, Clone)]
+    #[allow(dead_code)]
+    enum Element {
+        Cell(WaveguideCell),
+        ToneholePosition(f64),
+    }
 
 impl WaveguideEngine {
     /// Create a waveguide engine from a bore geometry
     pub fn from_geo(geo: &Geo) -> Self {
+        Self::from_geo_with_toneholes(geo, &[], AcousticConstants::default())
+    }
+
+    /// Create a waveguide engine from a bore geometry with toneholes
+    pub fn from_geo_with_toneholes(geo: &Geo, toneholes: &[Tonehole], acoustic_constants: AcousticConstants) -> Self {
         let mut cells = Vec::new();
         let mut total_length = 0.0;
 
@@ -107,6 +126,8 @@ impl WaveguideEngine {
             cells,
             total_length,
             n_segments,
+            acoustic_constants,
+            toneholes: toneholes.to_vec(),
         }
     }
 
@@ -115,34 +136,69 @@ impl WaveguideEngine {
         let omega = 2.0 * PI * freq_hz;
         let k = omega / C; // Wave number
 
-        // Start with identity matrix
+        // Sort toneholes by position
+        let mut sorted_toneholes: Vec<&Tonehole> = self.toneholes.iter().collect();
+        sorted_toneholes.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+
+        // Build element list: interleave cells and tonehole shunts
+        let mut elements: Vec<Element> = Vec::new();
+        let mut cum_x_mm = 0.0;
+
+        for cell in &self.cells {
+            let cell_end_mm = cum_x_mm + cell.length * 1000.0;
+
+            // Check if any tonehole falls within this cell
+            while let Some(th) = sorted_toneholes.first() {
+                if th.x >= cum_x_mm && th.x <= cell_end_mm {
+                    elements.push(Element::ToneholePosition(cum_x_mm));
+                    sorted_toneholes.remove(0);
+                } else {
+                    break;
+                }
+            }
+
+            elements.push(Element::Cell(cell.clone()));
+            cum_x_mm = cell_end_mm;
+        }
+
+        // Add any remaining toneholes at the end
+        for _ in sorted_toneholes.iter() {
+            elements.push(Element::ToneholePosition(cum_x_mm));
+        }
+
+        // Cascade all elements
         let mut total_matrix = [[Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0)],
                                  [Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0)]];
 
-        for cell in &self.cells {
-            // Propagation matrix for the segment
-            let kl = k * cell.length;
-            let cos_kl = Complex64::new(kl.cos(), 0.0);
-            let sin_kl = Complex64::new(0.0, kl.sin());
+        for elem in &elements {
+            let elem_matrix = match elem {
+                Element::Cell(cell) => {
+                    let kl = k * cell.length;
+                    let cos_kl = Complex64::new(kl.cos(), 0.0);
+                    let sin_kl = Complex64::new(0.0, kl.sin());
+                    let zc = (cell.zc0 * cell.zc1).sqrt();
+                    [
+                        [cos_kl, sin_kl * zc],
+                        [sin_kl / zc, cos_kl],
+                    ]
+                }
+                Element::ToneholePosition(_) => {
+                    let y = self.tonehole_admittance(freq_hz);
+                    [
+                        [Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0)],
+                        [y, Complex64::new(1.0, 0.0)],
+                    ]
+                }
+            };
 
-            // Characteristic impedance (use geometric mean for segment)
-            let zc = (cell.zc0 * cell.zc1).sqrt();
-
-            // Transfer matrix for uniform tube section
-            let segment_matrix = [
-                [cos_kl, sin_kl * zc],
-                [sin_kl / zc, cos_kl],
-            ];
-
-            // Matrix multiplication: total = segment * total
             let new_matrix = [
                 [
-                    total_matrix[0][0] * segment_matrix[0][0] + total_matrix[0][1] * segment_matrix[1][0],
-                    total_matrix[0][0] * segment_matrix[0][1] + total_matrix[0][1] * segment_matrix[1][1],
+                    total_matrix[0][0] * elem_matrix[0][0] + total_matrix[0][1] * elem_matrix[1][0],
+                    total_matrix[0][0] * elem_matrix[0][1] + total_matrix[0][1] * elem_matrix[1][1],
                 ],
                 [
-                    total_matrix[1][0] * segment_matrix[0][0] + total_matrix[1][1] * segment_matrix[1][0],
-                    total_matrix[1][0] * segment_matrix[0][1] + total_matrix[1][1] * segment_matrix[1][1],
+                    total_matrix[1][0] * elem_matrix[0][0] + total_matrix[1][1] * elem_matrix[1][0],
+                    total_matrix[1][0] * elem_matrix[0][1] + total_matrix[1][1] * elem_matrix[1][1],
                 ],
             ];
             total_matrix = new_matrix;
@@ -159,6 +215,28 @@ impl WaveguideEngine {
         let d = total_matrix[1][1];
 
         (a * z_rad + b) / (c * z_rad + d)
+    }
+
+    /// Compute the total tonehole admittance at a given frequency
+    fn tonehole_admittance(&self, freq_hz: f64) -> Complex64 {
+        let mut y_total = Complex64::new(0.0, 0.0);
+        for th in &self.toneholes {
+            let z = if th.is_open {
+                th.open_impedance(freq_hz, &self.acoustic_constants)
+            } else {
+                th.closed_impedance(freq_hz, &self.acoustic_constants)
+            };
+            if z.norm() > 1e-15 {
+                y_total += Complex64::new(1.0, 0.0) / z;
+            } else {
+                y_total += Complex64::new(1e15, 0.0);
+            }
+        }
+        if self.toneholes.is_empty() {
+            Complex64::new(0.0, 0.0)
+        } else {
+            y_total
+        }
     }
 
     /// Compute impedance spectrum at multiple frequencies

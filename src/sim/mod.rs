@@ -343,10 +343,11 @@ pub fn cadsd_ze_with_losses(
                 };
                 let cos_kl = (k_complex * seg.effective_length).cos();
                 let sin_kl = (k_complex * seg.effective_length).sin();
+                let zc_safe = if zc.norm() < 1e-15 { Complex::new(1e-15, 0.0) } else { zc };
                 let t = Matrix2::new(
                     cos_kl,
-                    Complex::new(0.0, zc.re) * sin_kl,
-                    Complex::new(0.0, 1.0 / zc.re) * sin_kl,
+                    Complex::new(0.0, 1.0) * zc_safe * sin_kl,
+                    Complex::new(0.0, 1.0) * sin_kl / zc_safe,
                     cos_kl,
                 );
                 m_total = ap(&m_total, &t);
@@ -608,7 +609,11 @@ impl DidgeridooSimulator {
         }).collect();
         
         let geo = crate::Geo::new(geo_points);
-        let engine = crate::waveguide::WaveguideEngine::from_geo(&geo);
+        let engine = crate::waveguide::WaveguideEngine::from_geo_with_toneholes(
+            &geo,
+            &self.toneholes,
+            self.acoustic_constants,
+        );
         engine.impedance_spectrum(freqs)
     }
     

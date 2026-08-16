@@ -37,14 +37,6 @@ pub mod diff_tlm;
 #[cfg(feature = "md-lif")]
 pub mod md_lif;
 
-// Re-export simulation types from accurate crate
-pub use cadsd_accurate::sim::{
-    acoustical_simulation, 
-    get_log_simulation_frequencies, 
-    compute_ground_spektrum, 
-    get_fundamental,
-};
-
 // Re-export local simulation functions
 pub use crate::sim::{
     create_segments_from_geo,

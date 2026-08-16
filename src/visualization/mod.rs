@@ -3,11 +3,7 @@
 use plotters::prelude::*;
 use std::error::Error;
 use crate::Geo;
-use crate::sim::Resonance;
-use crate::{
-    get_log_simulation_frequencies,
-    acoustical_simulation,
-};
+use crate::sim::{Resonance, DidgeridooSimulator, grid};
 
 /// Get resonance notes from frequency and impedance data (migrated from accurate crate)
 pub fn get_notes(frequencies: &[f64], impedances: &[f64]) -> Vec<(f64, f64)> {
@@ -48,10 +44,11 @@ pub fn plot_impedance_spectrum(
     geo: &Geo,
     output_path: &str,
 ) -> Result<(), Box<dyn Error>> {
-    let freqs = get_log_simulation_frequencies();
+    let freqs = grid::log_grid(20.0, 2000.0, 1.0);
     
-    // Compute impedance using the accurate crate's function
-    let impedances = acoustical_simulation(geo, &freqs, "tlm_cython")?;
+    let sim = DidgeridooSimulator::from_geo(&geo.geo);
+    let complex_impedances = sim.impedance(&freqs);
+    let impedances: Vec<f64> = complex_impedances.iter().map(|z| z.norm()).collect();
     
     let data: Vec<(f64, f64)> = freqs.iter()
         .zip(impedances.iter())
@@ -122,8 +119,10 @@ pub fn create_analysis_report(
     plot_bore_geometry(geo, &format!("{}/geometry.png", output_dir))?;
     plot_impedance_spectrum(geo, &format!("{}/spectrum.png", output_dir))?;
     
-    let freqs = get_log_simulation_frequencies();
-    let impedances = acoustical_simulation(geo, &freqs, "tlm_cython")?;
+    let freqs = grid::log_grid(20.0, 2000.0, 1.0);
+    let sim = DidgeridooSimulator::from_geo(&geo.geo);
+    let complex_impedances = sim.impedance(&freqs);
+    let impedances: Vec<f64> = complex_impedances.iter().map(|z| z.norm()).collect();
     
     // Find peaks locally
     let mut peaks = Vec::new();
@@ -201,7 +200,7 @@ mod tests {
         let _ = fs::remove_dir_all(output_dir); // Clean up if exists
         let _ = fs::create_dir_all(output_dir); // Re-create directory
         
-        // Test plotting functions directly (avoid slow acoustical_simulation)
+        // Test plotting functions directly (avoid slow simulation)
         let result = plot_bore_geometry(&geo, &format!("{}/geometry.png", output_dir));
         assert!(result.is_ok());
         

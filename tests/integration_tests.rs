@@ -77,29 +77,37 @@ fn test_text_report_generation() {
 
 #[test]
 fn test_geometry_to_simulation_workflow() {
+    use cadsd::sim::DidgeridooSimulator;
     let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
-    // Use a small frequency grid for fast test execution
     let freqs: Vec<f64> = (20..=200).step_by(10).map(|x| x as f64).collect();
-    let impedances = cadsd::acoustical_simulation(&geo, &freqs, "tlm_cython").unwrap();
+    let sim = DidgeridooSimulator::from_geo(&geo.geo);
+    let spectrum = sim.impedance(&freqs);
+    let impedances: Vec<f64> = spectrum.iter().map(|z| z.norm()).collect();
     assert!(!impedances.is_empty(), "Impedance spectrum should not be empty");
     assert_eq!(impedances.len(), freqs.len());
 }
 
 #[test]
 fn test_tlm_python_simulation() {
+    use cadsd::sim::DidgeridooSimulator;
     let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
     let freqs: Vec<f64> = (20..=200).step_by(10).map(|x| x as f64).collect();
-    let impedances = cadsd::acoustical_simulation(&geo, &freqs, "tlm_python").unwrap();
-    assert!(!impedances.is_empty(), "TLM Python impedance spectrum should not be empty");
+    let sim = DidgeridooSimulator::from_geo(&geo.geo);
+    let spectrum = sim.impedance(&freqs);
+    let impedances: Vec<f64> = spectrum.iter().map(|z| z.norm()).collect();
+    assert!(!impedances.is_empty(), "TLM impedance spectrum should not be empty");
     assert_eq!(impedances.len(), freqs.len());
 }
 
 #[test]
 fn test_tlm_cython_simulation() {
+    use cadsd::sim::DidgeridooSimulator;
     let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
     let freqs: Vec<f64> = (20..=200).step_by(10).map(|x| x as f64).collect();
-    let impedances = cadsd::acoustical_simulation(&geo, &freqs, "tlm_cython").unwrap();
-    assert!(!impedances.is_empty(), "TLM Cython impedance spectrum should not be empty");
+    let sim = DidgeridooSimulator::from_geo(&geo.geo);
+    let spectrum = sim.impedance(&freqs);
+    let impedances: Vec<f64> = spectrum.iter().map(|z| z.norm()).collect();
+    assert!(!impedances.is_empty(), "TLM impedance spectrum should not be empty");
     assert_eq!(impedances.len(), freqs.len());
 }
 

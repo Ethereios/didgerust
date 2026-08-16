@@ -6,6 +6,7 @@
 //! NOTE: Atomic types temporarily disabled due to compilation issues.
 
 use std::f64::consts::PI;
+use std::io::Write;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -246,6 +247,45 @@ impl AudioProcessor {
     /// Check if audio is running
     pub fn is_running(&self) -> bool {
         self.running.load(Ordering::Relaxed)
+    }
+
+    /// Export generated audio to a WAV file
+    pub fn export_wav(&self, samples: &[f32], path: &str) -> Result<(), String> {
+        let mut file = std::fs::File::create(path).map_err(|e| e.to_string())?;
+        
+        let sample_rate = self.sample_rate;
+        let num_channels = 1u16;
+        let bits_per_sample = 16u16;
+        let byte_rate = sample_rate * num_channels as u32 * bits_per_sample as u32 / 8;
+        let block_align = num_channels * bits_per_sample / 8;
+        let data_size = (samples.len() * block_align as usize) as u32;
+        
+        // RIFF header
+        file.write_all(b"RIFF").map_err(|e| e.to_string())?;
+        file.write_all(&(36 + data_size).to_le_bytes()).map_err(|e| e.to_string())?;
+        file.write_all(b"WAVE").map_err(|e| e.to_string())?;
+        
+        // fmt chunk
+        file.write_all(b"fmt ").map_err(|e| e.to_string())?;
+        file.write_all(&16u32.to_le_bytes()).map_err(|e| e.to_string())?;
+        file.write_all(&1u16.to_le_bytes()).map_err(|e| e.to_string())?; // PCM format
+        file.write_all(&num_channels.to_le_bytes()).map_err(|e| e.to_string())?;
+        file.write_all(&sample_rate.to_le_bytes()).map_err(|e| e.to_string())?;
+        file.write_all(&byte_rate.to_le_bytes()).map_err(|e| e.to_string())?;
+        file.write_all(&block_align.to_le_bytes()).map_err(|e| e.to_string())?;
+        file.write_all(&bits_per_sample.to_le_bytes()).map_err(|e| e.to_string())?;
+        
+        // data chunk
+        file.write_all(b"data").map_err(|e| e.to_string())?;
+        file.write_all(&data_size.to_le_bytes()).map_err(|e| e.to_string())?;
+        
+        for &sample in samples {
+            let clamped = sample.clamp(-1.0, 1.0);
+            let int_sample = (clamped * i16::MAX as f32) as i16;
+            file.write_all(&int_sample.to_le_bytes()).map_err(|e| e.to_string())?;
+        }
+        
+        Ok(())
     }
 }
 

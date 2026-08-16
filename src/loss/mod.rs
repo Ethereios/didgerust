@@ -6,6 +6,7 @@
 use crate::Geo;
 use crate::evo::Genome;
 use crate::sim::DidgeridooSimulator;
+use crate::tonehole::Tonehole;
 use serde::{Deserialize, Serialize};
 
 /// Base trait for loss components
@@ -19,6 +20,20 @@ pub trait LossComponent: Send + Sync {
         all_impedances: &[f64],
         peak_indices: &[usize],
     ) -> f64;
+    
+    /// Calculate loss with tonehole data.
+    /// Default implementation falls back to `calculate` ignoring toneholes.
+    fn calculate_with_toneholes(
+        &self,
+        peak_freqs_log: &[f64],
+        peak_impedances: &[f64],
+        all_freqs: &[f64],
+        all_impedances: &[f64],
+        peak_indices: &[usize],
+        _toneholes: &[Tonehole],
+    ) -> f64 {
+        self.calculate(peak_freqs_log, peak_impedances, all_freqs, all_impedances, peak_indices)
+    }
 }
 
 /// Test loss function for basic testing
@@ -357,7 +372,7 @@ impl crate::evo::LossFunction for CompositeTairuaLoss {
         let (geo, toneholes) = genome.geo_and_toneholes();
 
         let mut simulator = DidgeridooSimulator::from_geo(&geo.geo);
-        simulator.toneholes = toneholes;
+        simulator.toneholes = toneholes.clone();
         
         let freqs = self._get_frequency_grid();
         let spectrum = simulator.impedance(&freqs);
@@ -390,12 +405,13 @@ impl crate::evo::LossFunction for CompositeTairuaLoss {
         // Calculate total loss from all components
         let mut total_loss = 0.0;
         for (_name, component) in &self.components {
-            let component_loss = component.calculate(
+            let component_loss = component.calculate_with_toneholes(
                  &peak_freqs_log,
                  &peak_impedances,
                  &all_freqs,
                  &all_impedances,
                  &peak_indices,
+                 &toneholes,
              );
             total_loss += component_loss;
         }
@@ -664,6 +680,75 @@ impl LossComponent for ScaleTuningLoss {
     }
 }
 
+/// Tonehole tuning loss - encourage tonehole parameters to match target values.
+///
+/// Targets are specified as (x_norm, diameter_norm, depth_norm, coverage_norm)
+/// where each value is in [0, 1]. The loss computes mean squared error between
+/// evolved tonehole genes and target values.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToneholeTuningLoss {
+    targets: Vec<(f64, f64, f64, f64)>,
+    weight: f64,
+}
+
+impl ToneholeTuningLoss {
+    pub fn new(targets: Vec<(f64, f64, f64, f64)>, weight: f64) -> Self {
+        Self { targets, weight }
+    }
+}
+
+impl LossComponent for ToneholeTuningLoss {
+    fn calculate(
+        &self,
+        _peak_freqs_log: &[f64],
+        _peak_impedances: &[f64],
+        _all_freqs: &[f64],
+        _all_impedances: &[f64],
+        _peak_indices: &[usize],
+    ) -> f64 {
+        if self.targets.is_empty() {
+            return 0.0;
+        }
+        self.weight
+    }
+    
+    fn calculate_with_toneholes(
+        &self,
+        _peak_freqs_log: &[f64],
+        _peak_impedances: &[f64],
+        _all_freqs: &[f64],
+        _all_impedances: &[f64],
+        _peak_indices: &[usize],
+        toneholes: &[Tonehole],
+    ) -> f64 {
+        if self.targets.is_empty() || toneholes.is_empty() {
+            return 0.0;
+        }
+        
+        let mut total_error = 0.0;
+        let n = toneholes.len().min(self.targets.len());
+        
+        for i in 0..n {
+            let th = &toneholes[i];
+            let target = self.targets[i];
+            
+            let x_norm = th.x / 2000.0;
+            let d_norm = (th.diameter - 2.0) / 28.0;
+            let depth_norm = (th.depth - 1.0) / 19.0;
+            let coverage_norm = th.coverage;
+            
+            let dx = (x_norm - target.0).powi(2);
+            let dd = (d_norm - target.1).powi(2);
+            let dp = (depth_norm - target.2).powi(2);
+            let dc = (coverage_norm - target.3).powi(2);
+            
+            total_error += dx + dd + dp + dc;
+        }
+        
+        total_error * self.weight
+    }
+}
+
 /// Tairua loss function for targeting specific fundamental frequencies
 #[derive(Debug, Clone)]
 pub struct TairuaLoss {
@@ -860,5 +945,37 @@ mod tests {
         let loss_scale = ScaleTuningLoss::new(10.0);
         let val_scale = loss_scale.calculate(&f_log, &amps, &all_f, &all_z, &idx);
         assert!(val_scale >= 0.0);
+    }
+    
+    #[test]
+    fn test_tonehole_tuning_loss() {
+        use crate::tonehole::Tonehole;
+        
+        let targets = vec![
+            (0.3, 0.5, 0.3, 0.0),
+            (0.7, 0.4, 0.2, 0.0),
+        ];
+        let loss_fn = ToneholeTuningLoss::new(targets.clone(), 1.0);
+        
+        let f_log = vec![];
+        let amps = vec![];
+        let all_f = vec![];
+        let all_z = vec![];
+        let idx = vec![];
+        
+        let toneholes = vec![
+            Tonehole::new(600.0, 15.0, 5.0, true),
+            Tonehole::new(1400.0, 12.0, 4.0, true),
+        ];
+        
+        let loss = loss_fn.calculate_with_toneholes(&f_log, &amps, &all_f, &all_z, &idx, &toneholes);
+        assert!(loss > 0.0);
+        
+        let perfect_toneholes = vec![
+            Tonehole::with_coverage(600.0, 16.0, 6.7, 0.0),
+            Tonehole::with_coverage(1400.0, 13.2, 4.8, 0.0),
+        ];
+        let perfect_loss = loss_fn.calculate_with_toneholes(&f_log, &amps, &all_f, &all_z, &idx, &perfect_toneholes);
+        assert!(perfect_loss < loss, "perfect_loss={} should be < loss={}", perfect_loss, loss);
     }
 }

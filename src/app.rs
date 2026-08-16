@@ -18,7 +18,6 @@ use num_complex::Complex;
 use crate::sim::{SimulationStrategy, DidgeridooSimulator};
 use crate::evo::{MutationStrategy, EvolutionaryOptimizer, EvolutionParameters};
 use crate::Geo;
-use crate::audio::AudioProcessor;
 use crate::persistence::{AppSettings, OptimizerCheckpoint, OptimizerGeoState};
 use std::sync::{Arc, atomic::{AtomicBool, Ordering as SyncOrdering}, mpsc};
 use std::thread;
@@ -236,6 +235,64 @@ pub fn init_ui(state: &mut CadsdState) {
 pub fn setup(mut commands: Commands) {
     commands.spawn(Camera3d::default());
     commands.insert_resource(OptimizerChannels { rx: None, pause_flag: None });
+}
+
+/// Draw 3D bore preview using bevy_gizmos
+pub fn draw_bore_gizmos(mut gizmos: Gizmos, state: Res<CadsdState>) {
+    let geo = current_geo(&state);
+    let points = &geo.geo;
+    
+    if points.len() < 2 {
+        return;
+    }
+    
+    let scale = 0.01;
+    
+    // Draw bore as a series of line segments
+    for i in 0..points.len() - 1 {
+        let x1 = points[i][0] as f32 * scale;
+        let r1 = points[i][1] as f32 * scale;
+        let x2 = points[i + 1][0] as f32 * scale;
+        let r2 = points[i + 1][1] as f32 * scale;
+        
+        // Draw centerline
+        gizmos.line(
+            Vec3::new(x1, 0.0, 0.0),
+            Vec3::new(x2, 0.0, 0.0),
+            Color::WHITE,
+        );
+        
+        // Draw bore profile as two lines (top and bottom of bore cross-section)
+        gizmos.line(
+            Vec3::new(x1, r1, 0.0),
+            Vec3::new(x2, r2, 0.0),
+            Color::srgb(0.8, 0.4, 0.2),
+        );
+        gizmos.line(
+            Vec3::new(x1, -r1, 0.0),
+            Vec3::new(x2, -r2, 0.0),
+            Color::srgb(0.8, 0.4, 0.2),
+        );
+    }
+    
+    // Draw end caps
+    if let Some(first) = points.first() {
+        let r = first[1] as f32 * scale;
+        gizmos.line(
+            Vec3::new(0.0, -r, 0.0),
+            Vec3::new(0.0, r, 0.0),
+            Color::srgb(0.8, 0.4, 0.2),
+        );
+    }
+    if let Some(last) = points.last() {
+        let r = last[1] as f32 * scale;
+        let x = last[0] as f32 * scale;
+        gizmos.line(
+            Vec3::new(x, -r, 0.0),
+            Vec3::new(x, r, 0.0),
+            Color::srgb(0.8, 0.4, 0.2),
+        );
+    }
 }
 
 /// Helper: get current geo from state
@@ -1424,114 +1481,4 @@ fn export_spectrum_csv(state: &CadsdState) {
             log::info!("Spectrum CSV exported to {} ({} lines)", path.display(), csv.lines().count());
         }
     }
-}
-
-/// Save optimizer checkpoint to file
-fn save_checkpoint(state: &CadsdState) {
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs().to_string())
-        .unwrap_or_else(|_| "unknown".to_string());
-    
-    let cp = OptimizerCheckpoint {
-        timestamp: timestamp.clone(),
-        population_size: state.population_size,
-        num_generations: state.num_generations,
-        current_generation: state.current_generation,
-        mutation_rate: state.mutation_rate as f64,
-        crossover_rate: state.crossover_rate as f64,
-        elite_size: state.elite_size,
-        best_loss: state.best_loss,
-        generation_progress: state.generation_progress as f64,
-        mutation_strategy: format!("{:?}", state.mutation_strategy),
-        simulation_strategy: format!("{:?}", state.simulation_strategy),
-        geometry: OptimizerGeoState {
-            length: state.length as f64,
-            top_diameter: state.top_diameter as f64,
-            bottom_diameter: state.bottom_diameter as f64,
-            segments: state.segments,
-        },
-        loss_component_weights: state.loss_component_toggles.iter()
-            .filter(|(_, enabled, _)| *enabled)
-            .map(|(name, _, weight)| (name.clone(), *weight))
-            .collect(),
-    };
-    
-    let path = format!("checkpoint_{}.json", timestamp);
-    if let Err(e) = cp.save_to_file(&path) {
-        log::error!("Failed to save checkpoint: {}", e);
-    }
-}
-
-/// Load optimizer checkpoint from file
-fn load_checkpoint(state: &mut CadsdState) {
-    let path = "checkpoint_last.json";
-    if let Some(cp) = OptimizerCheckpoint::load_from_file(path) {
-        state.population_size = cp.population_size;
-        state.num_generations = cp.num_generations;
-        state.current_generation = cp.current_generation;
-        state.mutation_rate = cp.mutation_rate as f32;
-        state.crossover_rate = cp.crossover_rate as f32;
-        state.elite_size = cp.elite_size;
-        state.best_loss = cp.best_loss;
-        state.generation_progress = cp.generation_progress as f32;
-        state.length = cp.geometry.length as f32;
-        state.top_diameter = cp.geometry.top_diameter as f32;
-        state.bottom_diameter = cp.geometry.bottom_diameter as f32;
-        state.segments = cp.geometry.segments;
-        log::info!("Checkpoint loaded from {}", path);
-    }
-}
-
-/// Export the best genome result
-fn export_best_genome(state: &CadsdState) {
-    let genome_data = serde_json::json!({
-        "geometry": {
-            "length": state.length,
-            "top_diameter": state.top_diameter,
-            "bottom_diameter": state.bottom_diameter,
-            "segments": state.segments,
-        },
-        "best_loss": state.best_loss,
-        "strategy": format!("{:?}", state.simulation_strategy),
-        "fundamental_freq": state.fundamental_freq,
-    });
-    
-    let json_str = serde_json::to_string_pretty(&genome_data).unwrap_or_default();
-    let path = "best_genome.json";
-    if let Err(e) = std::fs::write(path, &json_str) {
-        log::error!("Failed to export genome: {}", e);
-    } else {
-        log::info!("Best genome exported to {} ({} bytes)", path, json_str.len());
-    }
-}
-
-/// Save full configuration to file
-fn save_config(state: &CadsdState) {
-    let settings = AppSettings {
-        temperature: 20.0,
-        wall_thickness: 4.0,
-        show_3d: true,
-        mesh_rotation_enabled: false,
-        mesh_rotation_speed: 30.0,
-        color_scheme: "wood".to_string(),
-        theme: state.theme.clone(),
-        log_verbosity: state.log_verbosity,
-        default_strategy: format!("{:?}", state.simulation_strategy),
-        default_mutation: format!("{:?}", state.mutation_strategy),
-    };
-    
-    if let Err(e) = settings.save_to_file("settings.json") {
-        log::error!("Failed to save configuration: {}", e);
-    }
-}
-
-/// Load full configuration from file
-fn load_config(state: &mut CadsdState) {
-    let settings = AppSettings::load_from_file("settings.json");
-    state.theme = settings.theme;
-    state.log_verbosity = settings.log_verbosity;
-    state.default_strategy = settings.default_strategy;
-    state.default_mutation = settings.default_mutation;
-    log::info!("Configuration loaded from settings.json");
 }

@@ -7,9 +7,7 @@
 #[cfg(feature = "gui-bevy")]
 use bevy::prelude::*;
 #[cfg(feature = "gui-bevy")]
-use bevy::window::WindowResolution;
-#[cfg(feature = "gui-bevy")]
-use cadsd::app::{CadsdState, ui_system, setup, poll_optimizer_progress};
+use cadsd::app::{CadsdState, draw_bore_gizmos, ui_system, setup, poll_optimizer_progress};
 
 #[cfg(feature = "gui-bevy")]
 fn main() {
@@ -22,9 +20,12 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins(bevy_gizmos::GizmoPlugin)
         .insert_resource(CadsdState::default())
         .add_systems(Startup, setup)
-        .add_systems(Update, (poll_optimizer_progress, ui_system))
+        .add_systems(Update, poll_optimizer_progress)
+        .add_systems(Update, ui_system)
+        .add_systems(Update, draw_bore_gizmos)
         .run();
 }
 

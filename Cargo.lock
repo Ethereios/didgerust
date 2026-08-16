@@ -2285,6 +2285,7 @@ dependencies = [
  "autodiff-rs",
  "bevy",
  "bevy_egui",
+ "bevy_gizmos",
  "cadsd-accurate",
  "cpal 0.18.1",
  "criterion",

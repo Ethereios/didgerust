@@ -126,6 +126,9 @@ pub struct CadsdState {
     pub stretch_factor: f32,
     pub toneholes: Vec<Tonehole>,
     pub drag_tonehole_index: Option<usize>,
+    pub selected_tonehole_index: Option<usize>,
+    pub tonehole_impedance_freqs: Vec<f64>,
+    pub tonehole_impedances: Vec<f64>,
     
     // ---- Phase B: Settings Panel ----
     pub theme: String,
@@ -222,6 +225,9 @@ impl Default for CadsdState {
             stretch_factor: 1.1,
             toneholes: Vec::new(),
             drag_tonehole_index: None,
+            selected_tonehole_index: None,
+            tonehole_impedance_freqs: Vec::new(),
+            tonehole_impedances: Vec::new(),
             // Phase B: Settings
             theme: settings.theme.clone(),
             log_verbosity: settings.log_verbosity,
@@ -1369,7 +1375,6 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
 
     ui.separator();
     ui.heading("Toneholes");
-    ui.label("Toneholes are defined but not yet simulated.");
     
     let toneholes_to_remove: Vec<usize> = state.toneholes.iter().enumerate().filter_map(|(i, th)| {
         let mut remove = false;
@@ -1386,6 +1391,24 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
     
     for i in toneholes_to_remove.iter().rev() {
         state.toneholes.remove(*i);
+        if state.selected_tonehole_index == Some(*i) {
+            state.selected_tonehole_index = None;
+        } else if let Some(sel) = state.selected_tonehole_index {
+            if sel > *i {
+                state.selected_tonehole_index = Some(sel - 1);
+            }
+        }
+    }
+    
+    for (i, th) in state.toneholes.iter().enumerate() {
+        ui.horizontal(|ui| {
+            let is_selected = state.selected_tonehole_index == Some(i);
+            if ui.selectable_label(is_selected, format!("#{}: x={:.0}mm d={:.1}mm depth={:.1}mm {}", 
+                i + 1, th.x, th.diameter, th.depth, 
+                if th.is_open { "open" } else { "closed" })).clicked() {
+                state.selected_tonehole_index = Some(i);
+            }
+        });
     }
     
     if ui.button("Add Tonehole").clicked() {
@@ -1395,6 +1418,73 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
             5.0,
             true,
         ));
+    }
+    
+    if let Some(idx) = state.selected_tonehole_index {
+        if idx < state.toneholes.len() {
+            ui.separator();
+            ui.heading("Edit Tonehole");
+            let th = &mut state.toneholes[idx];
+            ui.add(egui::Slider::new(&mut th.diameter, 2.0..=30.0).text("Diameter (mm)"));
+            ui.add(egui::Slider::new(&mut th.depth, 1.0..=20.0).text("Depth (mm)"));
+            ui.checkbox(&mut th.is_open, "Open");
+            if ui.button("Compute Impedance Spectrum").clicked() {
+                let constants = crate::sim::AcousticConstants::for_conditions(
+                    state.temperature as f64,
+                    state.pressure_pa,
+                    state.relative_humidity,
+                );
+                let freqs: Vec<f64> = (20..=2000).step_by(20).map(|x| x as f64).collect();
+                let spectrum: Vec<f64> = freqs.iter()
+                    .map(|&f| if th.is_open { th.open_impedance(f, &constants).norm() } else { th.closed_impedance(f, &constants).norm() })
+                    .collect();
+                state.tonehole_impedance_freqs = freqs;
+                state.tonehole_impedances = spectrum;
+            }
+            if !state.tonehole_impedances.is_empty() {
+                ui.separator();
+                ui.label("Tonehole Impedance Spectrum:");
+                egui::Frame::dark_canvas(ui.style()).show(ui, |ui| {
+                    let plot_size = egui::vec2(ui.available_width(), 150.0);
+                    let (response, painter) = ui.allocate_painter(plot_size, egui::Sense::hover());
+                    let rect = response.rect;
+                    painter.rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::GRAY), egui::StrokeKind::Middle);
+                    
+                    let min_freq = state.tonehole_impedance_freqs.first().copied().unwrap_or(0.0) as f32;
+                    let max_freq = state.tonehole_impedance_freqs.last().copied().unwrap_or(1.0) as f32;
+                    let max_imp = state.tonehole_impedances.iter().cloned().fold(0.0f64, f64::max).max(1.0) as f32;
+                    let freq_range = (max_freq - min_freq).max(1.0);
+                    
+                    let points: Vec<egui::Pos2> = state.tonehole_impedance_freqs.iter().zip(state.tonehole_impedances.iter())
+                        .map(|(&f, &z)| {
+                            let x = rect.left() + ((f as f32 - min_freq) / freq_range) * rect.width();
+                            let y = rect.bottom() - (z as f32 / max_imp) * rect.height();
+                            egui::pos2(x, y)
+                        })
+                        .collect();
+                    
+                    if points.len() > 1 {
+                        let color = if state.toneholes[idx].is_open { egui::Color32::RED } else { egui::Color32::GRAY };
+                        painter.add(egui::Shape::line(points, egui::Stroke::new(2.0, color)));
+                    }
+                    
+                    painter.text(
+                        egui::pos2(rect.left() + 5.0, rect.bottom() - 15.0),
+                        egui::Align2::LEFT_BOTTOM,
+                        format!("{:.0} Hz", min_freq),
+                        egui::FontId::proportional(10.0),
+                        egui::Color32::WHITE,
+                    );
+                    painter.text(
+                        egui::pos2(rect.right() - 5.0, rect.bottom() - 15.0),
+                        egui::Align2::RIGHT_BOTTOM,
+                        format!("{:.0} Hz", max_freq),
+                        egui::FontId::proportional(10.0),
+                        egui::Color32::WHITE,
+                    );
+                });
+            }
+        }
     }
 }
 

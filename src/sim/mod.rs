@@ -660,29 +660,11 @@ impl DidgeridooSimulator {
     }
 }
 
-// Placeholder structs for future extensions – SimulationParams, etc.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SimulationParams {
-    /// Frequency range in Hz – (min, max).
-    pub freq_range: (f64, f64),
-    /// Number of points in the spectrum.
-    pub points: usize,
-}
-
 /// Simple resonance result – frequency and impedance magnitude.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Resonance {
     pub frequency: f64,
     pub impedance: f64,
-}
-
-impl Default for SimulationParams {
-    fn default() -> Self {
-        Self {
-            freq_range: (20.0, 2000.0),
-            points: 512,
-        }
-    }
 }
 
 #[cfg(test)]

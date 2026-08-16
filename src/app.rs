@@ -1413,13 +1413,14 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
         }
         
         // Scroll wheel to adjust tonehole diameter
-        if response.scroll_delta.y != 0.0 {
-            if let Some(mouse_pos) = response.interact_pointer_pos() {
+        let scroll_delta = ui.input(|i| i.smooth_scroll_delta.y);
+        if scroll_delta != 0.0 {
+            if let Some(mouse_pos) = response.hover_pos() {
                 let mouse_x = mouse_pos.x;
-                for (i, th) in state.toneholes.iter_mut().enumerate() {
+                for th in state.toneholes.iter_mut() {
                     let th_px = rect.left() + (th.x as f32 / state.length.max(1.0)) * rect.width();
                     if (mouse_x - th_px).abs() < 10.0 {
-                        let delta = -response.scroll_delta.y * 0.5;
+                        let delta = -scroll_delta * 0.5;
                         th.diameter = (th.diameter + delta as f64).clamp(2.0, 30.0);
                         break;
                     }

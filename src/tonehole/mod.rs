@@ -71,9 +71,7 @@ impl Tonehole {
         let resonance_factor = ((freq_hz / f_jet.max(1e-6)).powi(2) / (1.0 + (freq_hz / f_jet.max(1e-6)).powi(2))).min(1.0);
 
         // Edge tone resistance (Pa·s/m³)
-        let r_edge = k_edge * constants.rho * constants.c / area * resonance_factor;
-
-        r_edge
+        k_edge * constants.rho * constants.c / area * resonance_factor
     }
 
     /// Convert tonehole dimensions to a short side-branch segment.

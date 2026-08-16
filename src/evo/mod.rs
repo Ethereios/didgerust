@@ -4,6 +4,7 @@
 //! to achieve target acoustic properties using the CADSD framework.
 
 use crate::Geo;
+use crate::tonehole::Tonehole;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -59,6 +60,12 @@ pub trait Genome: Send + Sync {
     
     /// Convert genome to geometry
     fn genome2geo(&self) -> Geo;
+    
+    /// Convert genome to geometry and toneholes.
+    /// Default implementation returns geometry with no toneholes.
+    fn geo_and_toneholes(&self) -> (Geo, Vec<Tonehole>) {
+        (self.genome2geo(), Vec::new())
+    }
     
     /// Get unique identifier
     fn id(&self) -> u64;
@@ -220,6 +227,7 @@ pub struct KigaliGenome {
     smoothness: f64,   // smoothness parameter
     bell_accent: f64,  // bell accent factor
     bell_start: f64,   // bell start position (mm)
+    n_toneholes: usize, // number of toneholes
 }
 
 impl KigaliGenome {
@@ -234,8 +242,9 @@ impl KigaliGenome {
         smoothness: f64,
         bell_accent: f64,
         bell_start: f64,
+        n_toneholes: usize,
     ) -> Self {
-        let n_genes = 3 + 2 * (n_segments - 1) + n_bubbles * 3;
+        let n_genes = 3 + 2 * (n_segments - 1) + n_bubbles * 3 + n_toneholes * 4;
         
         Self {
             base: BaseGenome::random(n_genes),
@@ -249,11 +258,12 @@ impl KigaliGenome {
             smoothness,
             bell_accent,
             bell_start,
+            n_toneholes,
         }
     }
     
     /// Decode genome parameters
-    fn decode_parameters(&self) -> (f64, f64, f64, Vec<f64>, Vec<f64>, Vec<(f64, f64, f64)>) {
+    fn decode_parameters(&self) -> (f64, f64, f64, Vec<f64>, Vec<f64>, Vec<(f64, f64, f64)>, Vec<Tonehole>) {
         let genome = self.base.genome();
         
         // Length and bell size
@@ -283,12 +293,30 @@ impl KigaliGenome {
         
         let mut i = geo_offset;
         while i + 1 < genome.len() {
+            // Stop if we've reached the tonehole section
+            if i >= geo_offset + 2 * (self.n_segments - 1) {
+                break;
+            }
             x_genome.push(genome[i]);
             y_genome.push(genome[i + 1]);
             i += 2;
         }
         
-        (length, bell_size, power, x_genome, y_genome, bubbles)
+        // Toneholes
+        let th_offset = geo_offset + 2 * (self.n_segments - 1);
+        let mut toneholes = Vec::new();
+        for j in 0..self.n_toneholes {
+            let idx = th_offset + j * 4;
+            if idx + 3 < genome.len() {
+                let x = genome[idx] * length;
+                let diameter = 2.0 + genome[idx + 1] * 28.0; // 2-30 mm
+                let depth = 1.0 + genome[idx + 2] * 19.0;     // 1-20 mm
+                let coverage = genome[idx + 3];                // 0.0-1.0
+                toneholes.push(Tonehole::with_coverage(x, diameter, depth, coverage));
+            }
+        }
+        
+        (length, bell_size, power, x_genome, y_genome, bubbles, toneholes)
     }
     
     /// Apply bell accent to geometry
@@ -375,6 +403,7 @@ impl Genome for KigaliGenome {
             smoothness: 0.3,
             bell_accent: 0.0,
             bell_start: 300.0,
+            n_toneholes: 0,
         }
     }
     
@@ -401,7 +430,7 @@ impl Genome for KigaliGenome {
     }
     
     fn genome2geo(&self) -> Geo {
-        let (length, bell_size, power, x_genome, y_genome, bubbles) = self.decode_parameters();
+        let (length, bell_size, power, x_genome, y_genome, bubbles, _) = self.decode_parameters();
         
         // Generate base geometry (power-law taper)
         let mut x: Vec<f64> = (0..=self.n_segments)
@@ -438,12 +467,46 @@ impl Genome for KigaliGenome {
             Self::make_bubble(&mut x, &mut y, pos, width, height);
         }
         
-        // Clamp diameters to reasonable range
-        for diameter in &mut y {
-            *diameter = diameter.max(0.9 * self.d0).min(1.3 * bell_size);
+        let points: Vec<[f64; 2]> = x.iter().zip(y.iter()).map(|(&xi, &yi)| [xi, yi]).collect();
+        Geo::new(points)
+    }
+    
+    fn geo_and_toneholes(&self) -> (Geo, Vec<Tonehole>) {
+        let (length, bell_size, power, x_genome, y_genome, bubbles, toneholes) = self.decode_parameters();
+        
+        let mut x: Vec<f64> = (0..=self.n_segments)
+            .map(|i| length * i as f64 / self.n_segments as f64)
+            .collect();
+        
+        let mut y: Vec<f64> = (0..=self.n_segments)
+            .map(|i| {
+                let t = i as f64 / self.n_segments as f64;
+                t.powf(power) * (bell_size - self.d0) + self.d0
+            })
+            .collect();
+        
+        let shift_x = length / self.n_segments as f64;
+        for (i, &offset) in x_genome.iter().enumerate() {
+            if i < x.len() && i > 0 && i < x.len() - 1 {
+                x[i] += (offset - 0.5) * shift_x;
+            }
         }
         
-        Geo::new(x.into_iter().zip(y.into_iter()).map(|(xi, yi)| [xi, yi]).collect())
+        let shift_y = (1.0 - self.smoothness) * bell_size;
+        for (i, &offset) in y_genome.iter().enumerate() {
+            if i < y.len() && i > 0 && i < y.len() - 1 {
+                y[i] += 0.3 * (offset - 0.5) * shift_y;
+            }
+        }
+        
+        self.apply_bell_accent(&mut x, &mut y, length, bell_size);
+        
+        for (pos, width, height) in bubbles {
+            Self::make_bubble(&mut x, &mut y, pos, width, height);
+        }
+        
+        let points: Vec<[f64; 2]> = x.iter().zip(y.iter()).map(|(&xi, &yi)| [xi, yi]).collect();
+        (Geo::new(points), toneholes)
     }
     
     fn id(&self) -> u64 {
@@ -844,6 +907,7 @@ mod tests {
             0.3,    // smoothness
             0.2,    // bell_accent
             300.0,  // bell_start
+            0,      // n_toneholes
         );
         
         let geo = genome.genome2geo();
@@ -855,7 +919,7 @@ mod tests {
     #[test]
     fn test_evolution_optimizer() {
         let loss_function = Box::new(TestLossFunction::new());
-        let genome_template = KigaliGenome::new(10, 32.0, 50.0, 80.0, 1800.0, 1500.0, 0, 0.3, 0.0, 300.0);
+        let genome_template = KigaliGenome::new(10, 32.0, 50.0, 80.0, 1800.0, 1500.0, 0, 0.3, 0.0, 300.0, 0);
         
         let mut optimizer = EvolutionaryOptimizer::with_random_population(
             loss_function,
@@ -878,6 +942,25 @@ mod tests {
         // This is a basic test - in practice, you'd want to test with actual loss functions
         let result = optimizer.evolve();
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_kigali_genome_with_toneholes() {
+        let genome = KigaliGenome::new(
+            10, 32.0, 50.0, 80.0, 1800.0, 1500.0, 0, 0.3, 0.0, 300.0, 2,
+        );
+        let (geo, toneholes) = genome.geo_and_toneholes();
+        assert_eq!(toneholes.len(), 2);
+        for th in &toneholes {
+            assert!(th.x >= 0.0);
+            assert!(th.diameter >= 2.0);
+            assert!(th.diameter <= 30.0);
+            assert!(th.depth >= 1.0);
+            assert!(th.depth <= 20.0);
+            assert!(th.coverage >= 0.0);
+            assert!(th.coverage <= 1.0);
+        }
+        assert!(!geo.geo.is_empty());
     }
 
     #[test]

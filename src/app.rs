@@ -401,6 +401,7 @@ pub fn start_optimization(state: &mut CadsdState, mut channels: ResMut<Optimizer
                 0.3,
                 0.0,
                 length * 0.7,
+                0,
             );
 
             let params = EvolutionParameters {

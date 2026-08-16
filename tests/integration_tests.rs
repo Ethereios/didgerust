@@ -6,6 +6,7 @@ use cadsd::Geo;
 use cadsd::visualization::{generate_text_report, plot_bore_geometry, plot_evolution_progress};
 use cadsd::sim::{find_resonance_peaks, SimulationStrategy, DidgeridooSimulator, AcousticConstants};
 use cadsd::tonehole::Tonehole;
+use cadsd::evo::{KigaliGenome, LossFunction, Genome};
 use std::fs;
 use std::path::Path;
 
@@ -185,4 +186,24 @@ fn test_tonehole_comparison_workflow() {
     let report = cadsd::validation::generate_validation_report(&geo, &freqs, &constants);
     assert!(report.contains("Validation Report"));
     assert!(report.contains("PASS") || report.contains("MARGINAL") || report.contains("FAIL"));
+}
+
+#[test]
+fn test_tonehole_evolutionary_optimization() {
+    let genome = KigaliGenome::new(
+        10, 32.0, 50.0, 80.0, 1800.0, 1500.0, 0, 0.3, 0.0, 300.0, 2,
+    );
+    let (geo, toneholes) = genome.geo_and_toneholes();
+    assert_eq!(toneholes.len(), 2);
+    
+    let mut simulator = DidgeridooSimulator::from_geo(&geo.geo);
+    simulator.toneholes = toneholes;
+    let freqs: Vec<f64> = (20..=500).step_by(20).map(|x| x as f64).collect();
+    let spectrum = simulator.impedance(&freqs);
+    assert_eq!(spectrum.len(), freqs.len());
+    
+    let loss_fn = cadsd::loss::CompositeTairuaLoss::with_default_components(50.0);
+    let loss = loss_fn.calculate(&genome);
+    assert!(loss >= 0.0);
+    assert!(loss.is_finite());
 }

@@ -354,20 +354,16 @@ impl CompositeTairuaLoss {
 
 impl crate::evo::LossFunction for CompositeTairuaLoss {
     fn calculate(&self, genome: &dyn Genome) -> f64 {
-        // Convert genome to geometry
-        let geo = genome.genome2geo();
+        let (geo, toneholes) = genome.geo_and_toneholes();
 
-        // Create simulator from geometry points
-        let simulator = DidgeridooSimulator::from_geo(&geo.geo);
-        // Frequency grid for simulation
+        let mut simulator = DidgeridooSimulator::from_geo(&geo.geo);
+        simulator.toneholes = toneholes;
+        
         let freqs = self._get_frequency_grid();
-
-        // Compute impedance spectrum (complex values) and convert to magnitudes
         let spectrum = simulator.impedance(&freqs);
         if spectrum.is_empty() {
-            return 1e6; // Large penalty for invalid geometries
+            return 1e6;
         }
-        // All frequencies and impedances as arrays
         let all_freqs = freqs.clone();
         let all_impedances = spectrum.iter().map(|c| c.norm()).collect::<Vec<f64>>();
 
@@ -706,7 +702,9 @@ impl TairuaLoss {
 
 impl crate::evo::LossFunction for TairuaLoss {
     fn calculate(&self, genome: &dyn Genome) -> f64 {
-        let geo = genome.genome2geo();
+        let (geo, toneholes) = genome.geo_and_toneholes();
+        let mut simulator = DidgeridooSimulator::from_geo(&geo.geo);
+        simulator.toneholes = toneholes;
         self.compute_loss(&geo)
     }
 }
@@ -820,7 +818,7 @@ mod tests {
             Box::new(ModalDensityLoss::new(50.0, 0.5))
         );
         
-        let genome = KigaliGenome::new(10, 32.0, 50.0, 80.0, 1800.0, 1500.0, 0, 0.3, 0.0, 300.0);
+        let genome = KigaliGenome::new(10, 32.0, 50.0, 80.0, 1800.0, 1500.0, 0, 0.3, 0.0, 300.0, 0);
         let loss = composite_loss.calculate(&genome);
         
         assert!(loss >= 0.0);

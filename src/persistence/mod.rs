@@ -6,6 +6,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
+use crate::tonehole::Tonehole;
 
 /// Validates geometry points for consistency and physical plausibility
 pub fn validate_geo_points(points: &[[f64; 2]]) -> Result<(), String> {
@@ -205,6 +206,8 @@ pub struct ProjectState {
     pub geo_history: Vec<GeoHistoryEntry>,
     /// Current index in history stack
     pub geo_history_index: usize,
+    /// Toneholes in the bore
+    pub toneholes: Vec<Tonehole>,
 }
 
 impl Default for ProjectState {
@@ -214,6 +217,7 @@ impl Default for ProjectState {
             simulation_results: String::new(),
             geo_history: Vec::new(),
             geo_history_index: 0,
+            toneholes: Vec::new(),
         }
     }
 }
@@ -458,9 +462,12 @@ fn test_validate_unacceptable_taper() {
             geo_points: vec![[0.0, 32.0], [100.0, 20.0]],
             label: "initial".to_string(),
         });
+        state.toneholes.push(Tonehole::new(500.0, 10.0, 5.0, true));
         let json = serde_json::to_string(&state).unwrap();
         let loaded: ProjectState = serde_json::from_str(&json).unwrap();
         assert_eq!(state.geometry, loaded.geometry);
         assert_eq!(state.geo_history.len(), loaded.geo_history.len());
+        assert_eq!(state.toneholes.len(), loaded.toneholes.len());
+        assert_eq!(state.toneholes[0].x, loaded.toneholes[0].x);
     }
 }

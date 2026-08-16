@@ -73,6 +73,8 @@ pub struct CadsdState {
     pub frequencies: Vec<f64>,
     pub impedances: Vec<f64>,
     pub phases: Vec<f64>,
+    pub impedances_no_toneholes: Vec<f64>,
+    pub phases_no_toneholes: Vec<f64>,
     pub fundamental_freq: Option<f64>,
     
     // Strategy selection
@@ -173,6 +175,8 @@ impl Default for CadsdState {
             frequencies: Vec::new(),
             impedances: Vec::new(),
             phases: Vec::new(),
+            impedances_no_toneholes: Vec::new(),
+            phases_no_toneholes: Vec::new(),
             fundamental_freq: None,
             simulation_strategy: default_strat,
             mutation_strategy: default_mut,
@@ -759,9 +763,12 @@ fn show_simulation_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
 fn draw_spectrum_plot(ui: &mut egui::Ui, state: &mut CadsdState) {
     let min_freq = state.frequencies.first().copied().unwrap_or(0.0) as f32;
     let max_freq = state.frequencies.last().copied().unwrap_or(1.0) as f32;
-    let max_imp = state.impedances.iter().cloned().fold(0.0f64, f64::max).max(1.0) as f32;
+    let max_imp_with = state.impedances.iter().cloned().fold(0.0f64, f64::max).max(1.0) as f32;
+    let max_imp_no = state.impedances_no_toneholes.iter().cloned().fold(0.0f64, f64::max).max(1.0) as f32;
+    let max_imp = max_imp_with.max(max_imp_no);
     
     let font_id = egui::FontId::proportional(12.0);
+    let has_no_toneholes = !state.impedances_no_toneholes.is_empty() && state.toneholes.len() > 1;
     
     egui::Frame::dark_canvas(ui.style()).show(ui, |ui| {
         let plot_size = egui::vec2(ui.available_width(), 300.0);
@@ -784,6 +791,21 @@ fn draw_spectrum_plot(ui: &mut egui::Ui, state: &mut CadsdState) {
             
             if points.len() > 1 {
                 painter.add(egui::Shape::line(points.clone(), egui::Stroke::new(2.0, egui::Color32::from_rgb(0, 200, 255))));
+            }
+            
+            // Draw no-tonehole curve for comparison
+            if has_no_toneholes {
+                let points_no: Vec<egui::Pos2> = state.frequencies.iter().zip(state.impedances_no_toneholes.iter())
+                    .map(|(&f, &z)| {
+                        let x = rect.left() + ((f as f32 - min_freq) / freq_range) * rect.width();
+                        let y = rect.bottom() - (z as f32 / max_imp) * rect.height();
+                        egui::pos2(x, y)
+                    })
+                    .collect();
+                
+                if points_no.len() > 1 {
+                    painter.add(egui::Shape::line(points_no, egui::Stroke::new(1.5, egui::Color32::from_rgb(150, 150, 150))));
+                }
             }
             
             // Draw phase overlay
@@ -838,7 +860,12 @@ fn draw_spectrum_plot(ui: &mut egui::Ui, state: &mut CadsdState) {
                             let f = state.frequencies[nearest_idx];
                             let z = state.impedances[nearest_idx];
                             let phase = state.phases.get(nearest_idx).map_or(0.0, |&p| p);
-                            state.spectrum_hover_text = format!("f: {:.2} Hz\nZ: {:.2e}\nPhase: {:.1}°", f, z, phase);
+                            let mut text = format!("f: {:.2} Hz\nZ: {:.2e}\nPhase: {:.1}°", f, z, phase);
+                            if has_no_toneholes {
+                                let z_no = state.impedances_no_toneholes.get(nearest_idx).map_or(0.0, |&v| v);
+                                text.push_str(&format!("\nZ (no holes): {:.2e}", z_no));
+                            }
+                            state.spectrum_hover_text = text;
                         }
                     }
                 }
@@ -882,6 +909,34 @@ fn draw_spectrum_plot(ui: &mut egui::Ui, state: &mut CadsdState) {
             font_id.clone(),
             egui::Color32::WHITE,
         );
+        
+        // Legend
+        if has_no_toneholes {
+            let legend_x = rect.right() - 120.0;
+            let legend_y = rect.top() + 5.0;
+            painter.line_segment(
+                [egui::pos2(legend_x, legend_y), egui::pos2(legend_x + 20.0, legend_y)],
+                egui::Stroke::new(2.0, egui::Color32::from_rgb(0, 200, 255)),
+            );
+            painter.text(
+                egui::pos2(legend_x + 25.0, legend_y),
+                egui::Align2::LEFT_CENTER,
+                "With holes",
+                egui::FontId::proportional(10.0),
+                egui::Color32::WHITE,
+            );
+            painter.line_segment(
+                [egui::pos2(legend_x, legend_y + 15.0), egui::pos2(legend_x + 20.0, legend_y + 15.0)],
+                egui::Stroke::new(1.5, egui::Color32::from_rgb(150, 150, 150)),
+            );
+            painter.text(
+                egui::pos2(legend_x + 25.0, legend_y + 15.0),
+                egui::Align2::LEFT_CENTER,
+                "No holes",
+                egui::FontId::proportional(10.0),
+                egui::Color32::WHITE,
+            );
+        }
     });
 }
 
@@ -1622,6 +1677,19 @@ fn compute_spectrum(state: &mut CadsdState) {
     let spectrum = simulator.impedance(&freqs);
     state.impedances = spectrum.iter().map(|c| c.norm()).collect();
     state.phases = spectrum.iter().map(|c| c.arg().to_degrees()).collect();
+    
+    let mut simulator_no_th = DidgeridooSimulator::with_strategy(
+        &geo.geo,
+        state.simulation_strategy
+    );
+    simulator_no_th.acoustic_constants = crate::sim::AcousticConstants::for_conditions(
+        state.temperature as f64,
+        state.pressure_pa,
+        state.relative_humidity,
+    );
+    let spectrum_no_th = simulator_no_th.impedance(&freqs);
+    state.impedances_no_toneholes = spectrum_no_th.iter().map(|c| c.norm()).collect();
+    state.phases_no_toneholes = spectrum_no_th.iter().map(|c| c.arg().to_degrees()).collect();
     
     // Find fundamental frequency from resonance peaks
     let resonances = simulator.find_resonance_peaks();

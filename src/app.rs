@@ -68,6 +68,7 @@ pub struct CadsdState {
     
     // UI state
     pub active_tab: String,
+    pub sim_message: String,
     
     // Simulation results
     pub frequencies: Vec<f64>,
@@ -174,6 +175,7 @@ impl Default for CadsdState {
             bottom_diameter: 65.0,
             segments: 30,
             active_tab: "simulation".to_string(),
+            sim_message: String::new(),
             frequencies: Vec::new(),
             impedances: Vec::new(),
             phases: Vec::new(),

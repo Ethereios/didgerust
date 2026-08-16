@@ -33,10 +33,6 @@ pub mod nn;
 #[cfg(feature = "diff-tlm")]
 pub mod diff_tlm;
 
-// MD LIF module (behind md-lif feature flag)
-#[cfg(feature = "md-lif")]
-pub mod md_lif;
-
 // Re-export local simulation functions
 pub use crate::sim::{
     create_segments_from_geo,

@@ -16,10 +16,6 @@ impl GeometryExporter {
         
         obj
     }
-
-    pub fn export_gltf(_geometry: &Geo) -> Vec<u8> {
-        Vec::new()
-    }
 }
 
 pub struct DataExporter;

@@ -425,9 +425,6 @@ fn test_geometry_exporter() {
     let obj = GeometryExporter::export_obj(&geo);
     assert!(obj.contains("# Wavefront OBJ"));
     assert!(obj.contains("v "));
-    
-    let gltf = GeometryExporter::export_gltf(&geo);
-    assert!(gltf.is_empty());
 }
 
 #[test]

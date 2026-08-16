@@ -97,7 +97,7 @@ pub struct WaveguideEngine {
     #[allow(dead_code)]
     enum Element {
         Cell(WaveguideCell),
-        ToneholePosition(f64),
+        ToneholePosition(usize),
     }
 
 impl WaveguideEngine {
@@ -143,6 +143,7 @@ impl WaveguideEngine {
         // Build element list: interleave cells and tonehole shunts
         let mut elements: Vec<Element> = Vec::new();
         let mut cum_x_mm = 0.0;
+        let mut tonehole_idx = 0;
 
         for cell in &self.cells {
             let cell_end_mm = cum_x_mm + cell.length * 1000.0;
@@ -150,7 +151,8 @@ impl WaveguideEngine {
             // Check if any tonehole falls within this cell
             while let Some(th) = sorted_toneholes.first() {
                 if th.x >= cum_x_mm && th.x <= cell_end_mm {
-                    elements.push(Element::ToneholePosition(cum_x_mm));
+                    elements.push(Element::ToneholePosition(tonehole_idx));
+                    tonehole_idx += 1;
                     sorted_toneholes.remove(0);
                 } else {
                     break;
@@ -162,8 +164,9 @@ impl WaveguideEngine {
         }
 
         // Add any remaining toneholes at the end
-        for _ in sorted_toneholes.iter() {
-            elements.push(Element::ToneholePosition(cum_x_mm));
+        while tonehole_idx < self.toneholes.len() {
+            elements.push(Element::ToneholePosition(tonehole_idx));
+            tonehole_idx += 1;
         }
 
         // Cascade all elements
@@ -182,8 +185,8 @@ impl WaveguideEngine {
                         [sin_kl / zc, cos_kl],
                     ]
                 }
-                Element::ToneholePosition(_) => {
-                    let y = self.tonehole_admittance(freq_hz);
+                Element::ToneholePosition(idx) => {
+                    let y = self.tonehole_admittance(freq_hz, *idx);
                     [
                         [Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0)],
                         [y, Complex64::new(1.0, 0.0)],
@@ -217,25 +220,21 @@ impl WaveguideEngine {
         (a * z_rad + b) / (c * z_rad + d)
     }
 
-    /// Compute the total tonehole admittance at a given frequency
-    fn tonehole_admittance(&self, freq_hz: f64) -> Complex64 {
-        let mut y_total = Complex64::new(0.0, 0.0);
-        for th in &self.toneholes {
-            let z = if th.is_open {
-                th.open_impedance(freq_hz, &self.acoustic_constants)
-            } else {
-                th.closed_impedance(freq_hz, &self.acoustic_constants)
-            };
-            if z.norm() > 1e-15 {
-                y_total += Complex64::new(1.0, 0.0) / z;
-            } else {
-                y_total += Complex64::new(1e15, 0.0);
-            }
+    /// Compute the admittance of a single tonehole at a given frequency
+    fn tonehole_admittance(&self, freq_hz: f64, idx: usize) -> Complex64 {
+        if idx >= self.toneholes.len() {
+            return Complex64::new(0.0, 0.0);
         }
-        if self.toneholes.is_empty() {
-            Complex64::new(0.0, 0.0)
+        let th = &self.toneholes[idx];
+        let z = if th.is_open {
+            th.open_impedance(freq_hz, &self.acoustic_constants)
         } else {
-            y_total
+            th.closed_impedance(freq_hz, &self.acoustic_constants)
+        };
+        if z.norm() > 1e-15 {
+            Complex64::new(1.0, 0.0) / z
+        } else {
+            Complex64::new(1e15, 0.0)
         }
     }
 

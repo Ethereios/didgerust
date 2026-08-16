@@ -301,21 +301,6 @@ pub fn viscothermal_loss_params(
 
 /// Legacy viscothermal model (simplified boundary-layer approximation).
 /// Use `viscothermal_loss_params` for DidgeLab-aligned formulation.
-pub fn viscothermal_k_complex(
-    seg: &Segment,
-    freq_hz: f64,
-    constants: &AcousticConstants,
-) -> Complex<f64> {
-    let omega = 2.0 * PI * freq_hz;
-    let k = omega / constants.c;
-    
-    let eta = 1.81e-5;
-    let delta = (2.0 * eta / (constants.rho * omega)).sqrt();
-    let alpha = delta * (seg.d0 + seg.d1) / (2.0 * seg.d0 * seg.d1);
-    
-    Complex::new(k, alpha)
-}
-
 /// CADSD impedance calculation with optional viscothermal losses.
 ///
 /// Uses DidgeLab's Tw/Zcw complex wavenumber and characteristic impedance

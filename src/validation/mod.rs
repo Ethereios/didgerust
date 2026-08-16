@@ -94,14 +94,25 @@ pub fn validate_tlm_vs_waveguide(
     _constants: &AcousticConstants,
 ) -> f64 {
     let segments = crate::sim::create_segments_from_geo(&geo.geo);
-    let _tlm_spec = crate::sim::compute_impedance_spectrum(&segments, freqs);
+    let tlm_spec = crate::sim::compute_impedance_spectrum(&segments, freqs);
 
     let wg_sim = crate::sim::DidgeridooSimulator::with_strategy(
         &geo.geo,
         crate::sim::SimulationStrategy::Waveguide,
     );
-    let _ = wg_sim;
-    0.0
+    let wg_spec = wg_sim.impedance(freqs);
+
+    let mut max_rel_error: f64 = 0.0;
+    for (z_tlm, z_wg) in tlm_spec.iter().zip(wg_spec.iter()) {
+        let mag_tlm = z_tlm.norm();
+        let mag_wg = z_wg.norm();
+        if mag_tlm > 1e-6 && mag_wg > 1e-6 {
+            let rel_error = ((mag_tlm - mag_wg) / mag_tlm).abs();
+            max_rel_error = max_rel_error.max(rel_error);
+        }
+    }
+
+    max_rel_error
 }
 
 /// Generate a detailed validation report comparing TLM to analytical solution.

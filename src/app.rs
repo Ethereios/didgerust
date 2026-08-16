@@ -1503,6 +1503,9 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
             new_th.x = (new_th.x + 50.0).min(state.length as f64);
             state.toneholes.push(new_th);
         } else {
+            if state.drag_tonehole_index == Some(*i) {
+                state.drag_tonehole_index = None;
+            }
             state.toneholes.remove(*i);
             if state.selected_tonehole_index == Some(*i) {
                 state.selected_tonehole_index = None;

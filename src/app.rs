@@ -111,6 +111,7 @@ pub struct CadsdState {
     pub spectrum_plot_id: u64,
     pub show_phase: bool,
     pub show_peak_markers: bool,
+    pub show_tonehole_difference: bool,
     
     // ---- Phase B: Optimizer Panel ----
     pub loss_component_toggles: Vec<(String, bool, f64)>,
@@ -206,6 +207,7 @@ impl Default for CadsdState {
             spectrum_plot_id: 0,
             show_phase: false,
             show_peak_markers: false,
+            show_tonehole_difference: false,
             // Phase B: Optimizer
             loss_component_toggles: vec![
                 ("integer_harmonic".to_string(), true, 5.0),
@@ -723,6 +725,7 @@ fn show_simulation_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
     ui.horizontal(|ui| {
         ui.checkbox(&mut state.show_phase, "Show phase");
         ui.checkbox(&mut state.show_peak_markers, "Show peak markers");
+        ui.checkbox(&mut state.show_tonehole_difference, "Show tonehole difference");
     });
     
     if !state.frequencies.is_empty() && !state.impedances.is_empty() {
@@ -804,7 +807,23 @@ fn draw_spectrum_plot(ui: &mut egui::Ui, state: &mut CadsdState) {
                     .collect();
                 
                 if points_no.len() > 1 {
-                    painter.add(egui::Shape::line(points_no, egui::Stroke::new(1.5, egui::Color32::from_rgb(150, 150, 150))));
+                    painter.add(egui::Shape::line(points_no.clone(), egui::Stroke::new(1.5, egui::Color32::from_rgb(150, 150, 150))));
+                }
+                
+                // Draw filled difference region if enabled
+                if state.show_tonehole_difference && points.len() > 1 && points_no.len() > 1 {
+                    let mut diff_points = Vec::new();
+                    for (p_with, p_no) in points.iter().zip(points_no.iter()) {
+                        diff_points.push(*p_with);
+                        diff_points.push(*p_no);
+                    }
+                    if diff_points.len() >= 4 {
+                        painter.add(egui::Shape::convex_polygon(
+                            diff_points,
+                            egui::Color32::from_rgba_unmultiplied(255, 100, 100, 40),
+                            egui::Stroke::new(0.0, egui::Color32::TRANSPARENT),
+                        ));
+                    }
                 }
             }
             

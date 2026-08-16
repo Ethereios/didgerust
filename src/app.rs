@@ -1476,26 +1476,36 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
     ui.separator();
     ui.heading("Toneholes");
     
-    let toneholes_to_remove: Vec<usize> = state.toneholes.iter().enumerate().filter_map(|(i, th)| {
+    let toneholes_to_remove: Vec<(usize, Option<bool>)> = state.toneholes.iter().enumerate().filter_map(|(i, th)| {
         let mut remove = false;
+        let mut duplicate = false;
         ui.horizontal(|ui| {
             ui.label(format!("#{}: x={:.0}mm d={:.1}mm depth={:.1}mm {}", 
                 i + 1, th.x, th.diameter, th.depth, 
                 if th.is_open { "open" } else { "closed" }));
+            if ui.button("Duplicate").clicked() {
+                duplicate = true;
+            }
             if ui.button("Delete").clicked() {
                 remove = true;
             }
         });
-        if remove { Some(i) } else { None }
+        if remove { Some((i, None)) } else if duplicate { Some((i, Some(true))) } else { None }
     }).collect();
     
-    for i in toneholes_to_remove.iter().rev() {
-        state.toneholes.remove(*i);
-        if state.selected_tonehole_index == Some(*i) {
-            state.selected_tonehole_index = None;
-        } else if let Some(sel) = state.selected_tonehole_index {
-            if sel > *i {
-                state.selected_tonehole_index = Some(sel - 1);
+    for (i, action) in toneholes_to_remove.iter().rev() {
+        if let Some(true) = action {
+            let mut new_th = state.toneholes[*i].clone();
+            new_th.x = (new_th.x + 50.0).min(state.length as f64);
+            state.toneholes.push(new_th);
+        } else {
+            state.toneholes.remove(*i);
+            if state.selected_tonehole_index == Some(*i) {
+                state.selected_tonehole_index = None;
+            } else if let Some(sel) = state.selected_tonehole_index {
+                if sel > *i {
+                    state.selected_tonehole_index = Some(sel - 1);
+                }
             }
         }
     }
@@ -1524,11 +1534,21 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
         if idx < state.toneholes.len() {
             ui.separator();
             ui.heading("Edit Tonehole");
-            let th = &mut state.toneholes[idx];
-            ui.add(egui::Slider::new(&mut th.diameter, 2.0..=30.0).text("Diameter (mm)"));
-            ui.add(egui::Slider::new(&mut th.depth, 1.0..=20.0).text("Depth (mm)"));
-            ui.checkbox(&mut th.is_open, "Open");
-            let is_open = th.is_open;
+            let cloned_for_dup = state.toneholes[idx].clone();
+            {
+                let th = &mut state.toneholes[idx];
+                ui.add(egui::Slider::new(&mut th.diameter, 2.0..=30.0).text("Diameter (mm)"));
+                ui.add(egui::Slider::new(&mut th.depth, 1.0..=20.0).text("Depth (mm)"));
+                ui.add(egui::Slider::new(&mut th.x, 0.0..=state.length as f64).text("Position (mm)"));
+                ui.add(egui::Slider::new(&mut th.coverage, 0.0..=1.0).text("Coverage"));
+                ui.checkbox(&mut th.is_open, "Open");
+            }
+            let is_open = state.toneholes[idx].is_open;
+            if ui.button("Duplicate Tonehole").clicked() {
+                let mut new_th = cloned_for_dup;
+                new_th.x = (new_th.x + 50.0).min(state.length as f64);
+                state.toneholes.push(new_th);
+            }
             if ui.button("Compute Impedance Spectrum").clicked() {
                 let constants = crate::sim::AcousticConstants::for_conditions(
                     state.temperature as f64,
@@ -1537,7 +1557,7 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
                 );
                 let freqs: Vec<f64> = (20..=2000).step_by(20).map(|x| x as f64).collect();
                 let spectrum: Vec<f64> = freqs.iter()
-                    .map(|&f| if is_open { th.open_impedance(f, &constants).norm() } else { th.closed_impedance(f, &constants).norm() })
+                    .map(|&f| if is_open { state.toneholes[idx].open_impedance(f, &constants).norm() } else { state.toneholes[idx].closed_impedance(f, &constants).norm() })
                     .collect();
                 state.tonehole_impedance_freqs = freqs;
                 state.tonehole_impedances = spectrum;

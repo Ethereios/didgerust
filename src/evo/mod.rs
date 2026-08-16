@@ -4,10 +4,10 @@
 //! to achieve target acoustic properties using the CADSD framework.
 
 use crate::Geo;
-use crate::sim::SimulationStrategy;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, atomic::{AtomicBool, Ordering as SyncOrdering}};
 use std::f64::consts::PI;
 use rand_distr::Distribution;
 
@@ -490,6 +490,7 @@ pub struct EvolutionaryOptimizer {
     pub population: Vec<Box<dyn Genome>>,
     pub parameters: EvolutionParameters,
     pub prime_generator: PrimeGenerator,
+    pub pause_flag: Option<Arc<AtomicBool>>,
 }
 
 /// Evolution parameters
@@ -503,6 +504,8 @@ pub struct EvolutionParameters {
     pub elite_size: usize,
     pub mutation_strategy: MutationStrategy,
     pub crossover_strategy: CrossoverStrategy,
+    pub convergence_patience: usize,
+    pub convergence_threshold: f64,
 }
 
 impl Default for EvolutionParameters {
@@ -516,6 +519,8 @@ impl Default for EvolutionParameters {
             elite_size: 5,
             mutation_strategy: MutationStrategy::Gaussian,
             crossover_strategy: CrossoverStrategy::SinglePoint,
+            convergence_patience: 10,
+            convergence_threshold: 1e-6,
         }
     }
 }
@@ -531,7 +536,13 @@ impl EvolutionaryOptimizer {
             population: initial_population,
             parameters,
             prime_generator: PrimeGenerator::default(),
+            pause_flag: None,
         }
+    }
+    
+    /// Set a shared pause flag for the evolution loop
+    pub fn set_pause_flag(&mut self, flag: Arc<AtomicBool>) {
+        self.pause_flag = Some(flag);
     }
     
     /// Create optimizer with random initial population
@@ -561,8 +572,18 @@ impl EvolutionaryOptimizer {
         // Evaluate initial population
         self.evaluate_population()?;
         
+        let mut best_loss_so_far = f64::INFINITY;
+        let mut generations_without_improvement = 0;
+        
         // Evolution loop
         for generation in 0..self.parameters.num_generations {
+            // Check for pause request and spin-wait until resumed
+            if let Some(ref flag) = self.pause_flag {
+                while flag.load(SyncOrdering::Relaxed) {
+                    std::thread::yield_now();
+                }
+            }
+            
             log::info!("Generation {}/{}", generation + 1, self.parameters.num_generations);
             
             // Create offspring
@@ -578,6 +599,18 @@ impl EvolutionaryOptimizer {
             if let Some(best) = self.get_best_individual() {
                 let best_loss = best.loss().unwrap_or(f64::INFINITY);
                 progress_cb(generation, best_loss);
+                
+                if best_loss < best_loss_so_far - self.parameters.convergence_threshold {
+                    best_loss_so_far = best_loss;
+                    generations_without_improvement = 0;
+                } else {
+                    generations_without_improvement += 1;
+                }
+                
+                if generations_without_improvement >= self.parameters.convergence_patience {
+                    log::info!("Converged after {} generations (no improvement for {} generations)", generation + 1, generations_without_improvement);
+                    break;
+                }
             }
         }
         
@@ -837,6 +870,8 @@ mod tests {
                 elite_size: 2,
                 mutation_strategy: MutationStrategy::Gaussian,
                 crossover_strategy: CrossoverStrategy::SinglePoint,
+                convergence_patience: 10,
+                convergence_threshold: 1e-6,
             },
         );
         

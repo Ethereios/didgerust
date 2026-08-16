@@ -211,7 +211,7 @@ impl DifferentiableTLM {
         
         // Radiation impedance at bell
         let last_seg = segments.last().expect("at least one segment");
-        let r_last = (last_seg.d1 / 2.0).max(1e-6);
+        let _r_last = (last_seg.d1 / 2.0).max(1e-6);
         let omega = 2.0 * PI * frequency_hz;
         let k = omega / constants.c;
         let z_rad = Complex::new(1.0 - 0.366 * k, 0.613 * k);
@@ -253,7 +253,7 @@ impl DifferentiableTLM {
         
         if let Some(total_mat) = &self.total_matrix {
             // For each segment, compute gradient contribution
-            for (i, seg) in self.segments.iter().enumerate() {
+            for seg in self.segments.iter() {
                 // This is a simplified gradient computation
                 // Real implementation would use proper Wirtinger chain rule
                 
@@ -302,6 +302,7 @@ impl DifferentiableTLM {
             x0: 0.0,
             x1: s.length,
             r0: s.characteristic_impedance(),
+            effective_length: s.length,
         }).collect()
     }
 }
@@ -373,12 +374,13 @@ impl NeuralFitnessPredictor {
             let grad = loss::complex_mse_grad(&pred, target);
             
             // Simple gradient update (placeholder - real backprop would be more complex)
-            for layer in &mut self.layers {
-                for i in 0..layer.out_features {
-                    for j in 0..layer.in_features {
-                        layer.weight[i][j] = layer.weight[i][j] - Cf32::new(lr as f32, 0.0) * grad[i].clone();
+            // Only update the output layer since gradient dimensions match there
+            if let Some(last_layer) = self.layers.last_mut() {
+                for i in 0..last_layer.out_features.min(grad.len()) {
+                    for j in 0..last_layer.in_features {
+                        last_layer.weight[i][j] = last_layer.weight[i][j] - Cf32::new(lr as f32, 0.0) * grad[i].clone();
                     }
-                    layer.bias[i] = layer.bias[i] - Cf32::new(lr as f32, 0.0) * grad[i].clone();
+                    last_layer.bias[i] = last_layer.bias[i] - Cf32::new(lr as f32, 0.0) * grad[i].clone();
                 }
             }
         }
@@ -395,7 +397,8 @@ impl NeuralFitnessPredictor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sim::{Geo, create_segments_from_geo, AcousticConstants};
+    use crate::Geo;
+    use crate::sim::{create_segments_from_geo, AcousticConstants};
 
     #[test]
     fn test_diff_segment_from_segment() {

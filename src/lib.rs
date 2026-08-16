@@ -36,6 +36,10 @@ pub mod diff_tlm;
 #[cfg(feature = "fdtd-validator")]
 pub mod fdtd;
 
+// MD LIF module (behind md-lif feature flag)
+#[cfg(feature = "md-lif")]
+pub mod md_lif;
+
 // Re-export simulation types from accurate crate
 pub use cadsd_accurate::sim::{
     acoustical_simulation, 
@@ -147,3 +151,4 @@ pub fn init() -> Result<Config, CadsdError> {
     env_logger::init();
     Ok(Config::default())
 }
+

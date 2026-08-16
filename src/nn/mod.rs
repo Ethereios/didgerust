@@ -11,7 +11,6 @@
 
 #![cfg(feature = "nn-integration")]
 
-use num_complex::Complex;
 use crate::evo::Genome;
 
 pub mod complex_activations {
@@ -236,6 +235,7 @@ impl NeuralFitnessPredictor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use num_complex::Complex;
 
     #[test]
     fn test_complex_sigmoid() {

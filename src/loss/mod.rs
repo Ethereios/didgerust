@@ -687,17 +687,27 @@ impl TairuaLoss {
     }
 
     /// Computes loss based on how close the fundamental frequency is to target
-    pub fn compute_loss(&self, _geometry: &Geo) -> f64 {
-        // This is a simplified implementation
-        // In a real implementation, we would:
-        // 1. Simulate the impedance spectrum for the geometry
-        // 2. Find the fundamental frequency (first peak)
-        // 3. Calculate loss based on difference from target
-        
-        // For now, return a placeholder value
-        // TODO: Implement actual simulation and fundamental frequency detection
-        let fundamental = 261.6; // A4 note as placeholder
-        (fundamental - self.target_frequency).abs() / self.target_frequency.max(1.0)
+    pub fn compute_loss(&self, geometry: &Geo) -> f64 {
+        let simulator = DidgeridooSimulator::from_geo(&geometry.geo);
+        let freqs = vec![20.0, 30.0, 40.0, 50.0, 60.0, 80.0, 100.0, 120.0, 150.0, 200.0, 250.0, 300.0, 400.0, 500.0, 600.0, 800.0, 1000.0, 1200.0, 1500.0, 2000.0];
+        let spectrum = simulator.impedance(&freqs);
+        if spectrum.is_empty() {
+            return 1e6;
+        }
+        let peaks = simulator.peaks(&freqs);
+        if let Some(first_peak) = peaks.first() {
+            let fundamental = first_peak.1;
+            (fundamental - self.target_frequency).abs() / self.target_frequency.max(1.0)
+        } else {
+            1e6
+        }
+    }
+}
+
+impl crate::evo::LossFunction for TairuaLoss {
+    fn calculate(&self, genome: &dyn Genome) -> f64 {
+        let geo = genome.genome2geo();
+        self.compute_loss(&geo)
     }
 }
 

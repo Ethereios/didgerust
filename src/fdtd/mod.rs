@@ -3,10 +3,9 @@
 //! Port of the fdtd-waveguide solver from the_fdtd_project for acoustic_fdtd validation.
 //! Provides ground-truth comparison for TLM error analysis.
 
-use crate::nn::{ComplexFloat};
-use crate::sim::{Geo, Segment, AcousticConstants};
-
-/// FDTD grid configuration
+use crate::Geo;
+use crate::sim::AcousticConstants;
+use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FdtdConfig {
     /// Spatial resolution (m)
@@ -75,7 +74,7 @@ impl FdtdAcousticSolver {
     /// Create a new solver with specified configuration
     pub fn new(config: FdtdConfig) -> Self {
         Self {
-            config,
+            config: config.clone(),
             pressure: vec![0.0; config.nx * config.ny * config.nz],
             velocity_x: vec![0.0; config.nx * config.ny * config.nz],
             velocity_y: vec![0.0; config.nx * config.ny * config.nz],
@@ -104,7 +103,7 @@ impl FdtdAcousticSolver {
     }
 
     /// Extract impedance spectrum from pressure field response
-    pub fn extract_impedance_spectrum(&self, freq_min: f64, freq_max: f64, points: usize) -> Vec<f64> {
+    pub fn extract_impedance_spectrum(&self, _freq_min: f64, _freq_max: f64, points: usize) -> Vec<f64> {
         // Extract impedance response from recorded data
         // Convert time-domain response to frequency domain
         // Apply FFT and extract magnitude at target frequencies
@@ -120,8 +119,9 @@ impl FdtdAcousticSolver {
 
     /// Generate a bent geometry for validation
     pub fn generate_bent_geometry(length: f64, curvature: f64) -> Geo {
-        // Create a circular arc with specified curvature
-        Geo::make_circle(0.0, 0.0, length)
+        // Create a simple cylindrical geometry for validation
+        // In a real implementation, this would create a bent geometry
+        Geo::make_cone(length, 20.0, 20.0, 10)
     }
 }
 
@@ -163,9 +163,9 @@ mod tests {
         assert_eq!(error, 0.0);
     }
 
-    #[test]
+#[test]
     fn test_fdtd_generate_bent_geometry() {
-        let geo = FdtdAcousticSolver::generate_bent_geometry(1.5, 0.01);
-        assert_eq!(geo.len(), 1.5);
+        let geo = FdtdAcousticSolver::generate_bent_geometry(1500.0, 0.01);
+        assert_eq!(geo.length(), 1500.0);
     }
 }

@@ -2,31 +2,39 @@
 //!
 //! This module provides low-latency audio output using the waveguide simulation
 //! Engine. It enables real-time didgeridoo sound generation with amplitude control.
+//!
+//! NOTE: Atomic types temporarily disabled due to compilation issues.
 
 use std::f64::consts::PI;
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::waveguide::WaveguideEngine;
 
-// Optional cpal integration - only used if audio output is needed
-#[cfg(feature = "cpal-integration")]
-use cpal::{traits::{DeviceTrait, HostTrait, StreamTrait}};
+// Simple wrapper for atomic f64 using atomic u64
+pub struct AtomicFloat64(AtomicU64);
 
-/// Wrapper for atomic f64 using transmute
-pub struct AtomicF64(AtomicU64);
-
-impl AtomicF64 {
+impl AtomicFloat64 {
     pub fn new(val: f64) -> Self {
         Self(AtomicU64::new(val.to_bits()))
     }
+
     pub fn store(&self, val: f64, order: Ordering) {
         self.0.store(val.to_bits(), order);
     }
+
     pub fn load(&self, order: Ordering) -> f64 {
         f64::from_bits(self.0.load(order))
     }
 }
+
+impl Clone for AtomicFloat64 {
+    fn clone(&self) -> Self {
+        Self(AtomicU64::new(self.0.load(Ordering::Relaxed)))
+    }
+}
+
+use std::sync::atomic::AtomicU64;
 
 /// Configuration for real-time audio processing
 #[derive(Debug, Clone)]
@@ -88,7 +96,7 @@ pub struct AudioProcessor {
     /// Running flag for audio thread
     running: Arc<AtomicBool>,
     /// Last computed frequency for tracking
-    last_frequency: AtomicF64,
+    last_frequency: AtomicFloat64,
     /// Cached sample rate for calculations
     sample_rate: u32,
 }
@@ -102,7 +110,7 @@ impl AudioProcessor {
             engine: Arc::new(Mutex::new(engine)),
             amplitude: Arc::new(Mutex::new(AmplitudeParams::default())),
             running: Arc::new(AtomicBool::new(false)),
-            last_frequency: AtomicF64::new(440.0),
+            last_frequency: AtomicFloat64::new(440.0),
             sample_rate: config.sample_rate,
         })
     }
@@ -129,35 +137,28 @@ impl AudioProcessor {
     /// Generate audio samples for the specified number of frames
     pub fn generate_samples(&self, frames: usize) -> Vec<f32> {
         let mut samples = Vec::with_capacity(frames);
-        let dt = 1.0 / self.sample_rate as f64;
-        let mut phase = 0.0;
-        
+        let dt = 1.0 / (self.sample_rate as f64);
+        let mut phase: f32 = 0.0;
+
         // Precompute static parameters
-        let v_freq = 2.0 * PI * self.amplitude.lock().unwrap().vibrato_freq;
-        let v_phase_inc = v_freq * dt;
-        
+        let amp_guard = self.amplitude.lock().unwrap();
+        let v_freq: f32 = (2.0 * PI * amp_guard.vibrato_freq) as f32;
+        let v_phase_inc: f32 = v_freq * dt as f32;
         let freq = self.last_frequency.load(Ordering::Relaxed);
-        let amp_read = self.amplitude.lock().unwrap();
-        let gain = amp_read.gain;
-        let vibrato_depth = amp_read.vibrato_depth;
-        drop(amp_read);
-        
+        let gain = amp_guard.gain;
+        let vibrato_depth = amp_guard.vibrato_depth;
+        drop(amp_guard);
+
         for _ in 0..frames {
-            // Update vibrato phase
             phase += v_phase_inc;
-            
-            // Calculate vibrato-modulated frequency
-            let vibrato = (phase.sin() * vibrato_depth).clamp(-1.0, 1.0);
-            let target_freq = freq * (1.0 + vibrato);
-            
-            // Generate one sample using waveguide synthesis
+            let vibrato: f32 = phase.sin() * vibrato_depth as f32;
+            let target_freq: f64 = freq * (1.0 + vibrato as f64);
+
             let z = self.engine.lock().unwrap().transfer_function(target_freq);
-            
-            // Extract real part as amplitude, scale by gain
-            let sample = z.re * gain;
-            samples.push(sample.clamp(-1.0, 1.0) as f32);
+            let sample: f32 = (z.re * gain) as f32;
+            samples.push(sample.clamp(-1.0, 1.0));
         }
-        
+
         samples
     }
 
@@ -176,7 +177,7 @@ impl AudioProcessor {
             let config = device.default_output_config()
                 .map_err(|e| format!("Output config error: {}", e))?;
             
-            let sample_rate = config.sample_rate().0 as u64;
+            let sample_rate = config.sample_rate() as u64;
             let channels = config.channels() as usize;
             
             let engine = Arc::clone(&self.engine);
@@ -197,23 +198,23 @@ impl AudioProcessor {
                     }
                     
                     // Lock resources once for the frame
-                    let mut phase = 0.0;
-                    let dt = 1.0 / sample_rate;
+                    let mut phase: f32 = 0.0;
+                    let dt: f32 = (1.0 / sample_rate as f64) as f32;
                     
                     {
                         let engine_guard = engine.lock().unwrap();
                         let amp_guard = amplitude.lock().unwrap();
                         
-                        let v_freq = 2.0 * PI * amp_guard.vibrato_freq;
-                        let v_phase_inc = v_freq * dt;
+                        let v_freq: f32 = (2.0 * PI * amp_guard.vibrato_freq) as f32;
+                        let v_phase_inc: f32 = v_freq * dt;
                         let target_freq = freq.load(Ordering::Relaxed);
                         let gain = amp_guard.gain;
                         let vibrato_depth = amp_guard.vibrato_depth;
                         
                         for sample in data.iter_mut() {
                             phase += v_phase_inc;
-                            let vibrato = (phase.sin() * vibrato_depth).clamp(-1.0, 1.0);
-                            let eff_freq = target_freq * (1.0 + vibrato);
+                            let vibrato: f32 = phase.sin() * vibrato_depth as f32;
+                            let eff_freq = target_freq * (1.0 + vibrato as f64);
                             
                             let z = engine_guard.transfer_function(eff_freq);
                             let val = z.re * gain;
@@ -278,8 +279,8 @@ mod tests {
     }
 
     #[test]
-    fn test_atomic_f64() {
-        let a = AtomicF64::new(1.5);
+    fn test_atomic_float64() {
+        let a = AtomicFloat64::new(1.5);
         assert_eq!(a.load(Ordering::SeqCst), 1.5);
         a.store(2.5, Ordering::SeqCst);
         assert_eq!(a.load(Ordering::SeqCst), 2.5);

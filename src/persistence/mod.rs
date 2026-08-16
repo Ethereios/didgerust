@@ -104,6 +104,39 @@ impl Default for AppSettings {
 }
 
 impl AppSettings {
+    /// Load settings from a JSON file
+    pub fn load_from_file(path: &str) -> Self {
+        if !Path::new(path).exists() {
+            return Self::default();
+        }
+        match fs::read_to_string(path) {
+            Ok(contents) => {
+                match serde_json::from_str::<Self>(&contents) {
+                    Ok(settings) => {
+                        log::info!("Settings loaded from {}", path);
+                        settings.validate()
+                    }
+                    Err(e) => {
+                        log::error!("Failed to parse settings file {}: {}", path, e);
+                        Self::default()
+                    }
+                }
+            }
+            Err(e) => {
+                log::error!("Failed to read settings file {}: {}", path, e);
+                Self::default()
+            }
+        }
+    }
+
+    /// Save settings to a JSON file
+    pub fn save_to_file(&self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let json_str = serde_json::to_string_pretty(self)?;
+        fs::write(path, json_str)?;
+        log::info!("Settings saved to {}", path);
+        Ok(())
+    }
+
     /// Validate settings and return a validated copy with corrected values
     pub fn validate(&self) -> Self {
         let mut result = self.clone();

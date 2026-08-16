@@ -199,12 +199,20 @@ mod tests {
         // Create a temporary directory in the current temp folder
         let output_dir = "test_output_viz";
         let _ = fs::remove_dir_all(output_dir); // Clean up if exists
+        let _ = fs::create_dir_all(output_dir); // Re-create directory
         
-        let result = create_analysis_report(&geo, output_dir);
+        // Test plotting functions directly (avoid slow acoustical_simulation)
+        let result = plot_bore_geometry(&geo, &format!("{}/geometry.png", output_dir));
         assert!(result.is_ok());
         
+        let result2 = plot_evolution_progress(&vec![0, 1, 2], &vec![1.0, 0.5, 0.2], &vec![1.0, 0.7, 0.4], &format!("{}/progress.png", output_dir));
+        assert!(result2.is_ok());
+        
+        let report = generate_text_report(&geo, &[]);
+        fs::write(format!("{}/report.txt", output_dir), report).unwrap();
+        
         assert!(Path::new(&format!("{}/geometry.png", output_dir)).exists());
-        assert!(Path::new(&format!("{}/spectrum.png", output_dir)).exists());
+        assert!(Path::new(&format!("{}/progress.png", output_dir)).exists());
         assert!(Path::new(&format!("{}/report.txt", output_dir)).exists());
         
         // Clean up

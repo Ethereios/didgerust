@@ -1502,6 +1502,7 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
             ui.add(egui::Slider::new(&mut th.diameter, 2.0..=30.0).text("Diameter (mm)"));
             ui.add(egui::Slider::new(&mut th.depth, 1.0..=20.0).text("Depth (mm)"));
             ui.checkbox(&mut th.is_open, "Open");
+            let is_open = th.is_open;
             if ui.button("Compute Impedance Spectrum").clicked() {
                 let constants = crate::sim::AcousticConstants::for_conditions(
                     state.temperature as f64,
@@ -1510,7 +1511,7 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
                 );
                 let freqs: Vec<f64> = (20..=2000).step_by(20).map(|x| x as f64).collect();
                 let spectrum: Vec<f64> = freqs.iter()
-                    .map(|&f| if th.is_open { th.open_impedance(f, &constants).norm() } else { th.closed_impedance(f, &constants).norm() })
+                    .map(|&f| if is_open { th.open_impedance(f, &constants).norm() } else { th.closed_impedance(f, &constants).norm() })
                     .collect();
                 state.tonehole_impedance_freqs = freqs;
                 state.tonehole_impedances = spectrum;
@@ -1538,7 +1539,7 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
                         .collect();
                     
                     if points.len() > 1 {
-                        let color = if state.toneholes[idx].is_open { egui::Color32::RED } else { egui::Color32::GRAY };
+                        let color = if is_open { egui::Color32::RED } else { egui::Color32::GRAY };
                         painter.add(egui::Shape::line(points, egui::Stroke::new(2.0, color)));
                     }
                     
@@ -1557,6 +1558,22 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
                         egui::Color32::WHITE,
                     );
                 });
+                if !state.tonehole_impedances.is_empty() {
+                    let (resonance_freq, resonance_type) = if is_open {
+                        let (min_idx, _) = state.tonehole_impedances.iter()
+                            .enumerate()
+                            .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                            .unwrap();
+                        (state.tonehole_impedance_freqs.get(min_idx).copied().unwrap_or(0.0), "min impedance")
+                    } else {
+                        let (max_idx, _) = state.tonehole_impedances.iter()
+                            .enumerate()
+                            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                            .unwrap();
+                        (state.tonehole_impedance_freqs.get(max_idx).copied().unwrap_or(0.0), "max impedance")
+                    };
+                    ui.label(format!("Resonance: {:.0} Hz ({})", resonance_freq, resonance_type));
+                }
             }
         }
     }

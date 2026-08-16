@@ -18,6 +18,7 @@ use num_complex::Complex;
 use crate::sim::{SimulationStrategy, DidgeridooSimulator};
 use crate::evo::{MutationStrategy, EvolutionaryOptimizer, EvolutionParameters};
 use crate::Geo;
+use crate::tonehole::Tonehole;
 use crate::persistence::{AppSettings, OptimizerCheckpoint, OptimizerGeoState};
 use std::sync::{Arc, atomic::{AtomicBool, Ordering as SyncOrdering}, mpsc};
 use std::thread;
@@ -122,6 +123,7 @@ pub struct CadsdState {
     pub bubble_width: f32,
     pub bubble_height: f32,
     pub stretch_factor: f32,
+    pub toneholes: Vec<Tonehole>,
     
     // ---- Phase B: Settings Panel ----
     pub theme: String,
@@ -213,6 +215,7 @@ impl Default for CadsdState {
             bubble_width: 200.0,
             bubble_height: 40.0,
             stretch_factor: 1.1,
+            toneholes: Vec::new(),
             // Phase B: Settings
             theme: settings.theme.clone(),
             log_verbosity: settings.log_verbosity,

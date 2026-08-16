@@ -726,6 +726,10 @@ fn show_simulation_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
             state.budget_ops * state.generation_progress as f64, state.budget_ops));
     }
     
+    if !state.toneholes.is_empty() && state.simulation_strategy != SimulationStrategy::Tlm {
+        ui.colored_label(egui::Color32::YELLOW, "⚠️ Toneholes are ignored in non-TLM strategies");
+    }
+    
     ui.horizontal(|ui| {
         ui.checkbox(&mut state.show_phase, "Show phase");
         ui.checkbox(&mut state.show_peak_markers, "Show peak markers");

@@ -33,10 +33,6 @@ pub mod nn;
 #[cfg(feature = "diff-tlm")]
 pub mod diff_tlm;
 
-// FDTD validator module (behind fdtd-validator feature flag)
-#[cfg(feature = "fdtd-validator")]
-pub mod fdtd;
-
 // MD LIF module (behind md-lif feature flag)
 #[cfg(feature = "md-lif")]
 pub mod md_lif;

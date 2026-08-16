@@ -124,6 +124,7 @@ pub struct CadsdState {
     pub bubble_height: f32,
     pub stretch_factor: f32,
     pub toneholes: Vec<Tonehole>,
+    pub drag_tonehole_index: Option<usize>,
     
     // ---- Phase B: Settings Panel ----
     pub theme: String,
@@ -218,6 +219,7 @@ impl Default for CadsdState {
             bubble_height: 40.0,
             stretch_factor: 1.1,
             toneholes: Vec::new(),
+            drag_tonehole_index: None,
             // Phase B: Settings
             theme: settings.theme.clone(),
             log_verbosity: settings.log_verbosity,
@@ -1217,7 +1219,7 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
     // Simple bore profile preview
     egui::Frame::dark_canvas(ui.style()).show(ui, |ui| {
         let plot_size = egui::vec2(ui.available_width(), 150.0);
-        let (response, painter) = ui.allocate_painter(plot_size, egui::Sense::hover());
+        let (response, painter) = ui.allocate_painter(plot_size, egui::Sense::click_and_drag());
         let rect = response.rect;
         
         painter.rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::GRAY), egui::StrokeKind::Middle);
@@ -1240,6 +1242,71 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
                 egui::pos2(px, py)
             }).collect();
             painter.add(egui::Shape::line(bottom_points, egui::Stroke::new(2.0, egui::Color32::GREEN)));
+        }
+        
+        // Draw tonehole markers with drag support
+        for (i, th) in state.toneholes.iter().enumerate() {
+            let px = rect.left() + (th.x as f32 / state.length.max(1.0)) * rect.width();
+            let top_y = rect.center().y - (th.diameter as f32 / max_d as f32) * rect.height() / 2.0;
+            let bottom_y = rect.center().y + (th.diameter as f32 / max_d as f32) * rect.height() / 2.0;
+            let color = if th.is_open { egui::Color32::RED } else { egui::Color32::GRAY };
+            let highlight = state.drag_tonehole_index == Some(i);
+            let radius = if highlight { 5.0 } else { 3.0 };
+            painter.circle_filled(egui::pos2(px, top_y), radius, color);
+            painter.circle_filled(egui::pos2(px, bottom_y), radius, color);
+            painter.line_segment(
+                [egui::pos2(px, top_y), egui::pos2(px, bottom_y)],
+                egui::Stroke::new(if highlight { 2.0 } else { 1.0 }, color),
+            );
+        }
+        
+        // Handle tonehole dragging
+        if response.clicked() || response.dragged() {
+            if let Some(mouse_pos) = response.interact_pointer_pos() {
+                let mouse_x = mouse_pos.x;
+                let mut closest_idx = None;
+                let mut closest_dist = f32::INFINITY;
+                
+                for (i, th) in state.toneholes.iter().enumerate() {
+                    let th_px = rect.left() + (th.x as f32 / state.length.max(1.0)) * rect.width();
+                    let dist = (mouse_x - th_px).abs();
+                    if dist < 10.0 && dist < closest_dist {
+                        closest_dist = dist;
+                        closest_idx = Some(i);
+                    }
+                }
+                
+                if response.clicked() {
+                    state.drag_tonehole_index = closest_idx;
+                } else if response.dragged() {
+                    if let Some(idx) = state.drag_tonehole_index {
+                        if idx < state.toneholes.len() {
+                            let new_x = ((mouse_x - rect.left()) / rect.width() * state.length).max(0.0).min(state.length);
+                            state.toneholes[idx].x = new_x as f64;
+                        }
+                    }
+                }
+            }
+        }
+        
+        if response.clicked() && state.drag_tonehole_index.is_some() {
+            let mouse_pos = response.interact_pointer_pos();
+            if let Some(mouse_pos) = mouse_pos {
+                let mouse_x = mouse_pos.x;
+                let mut near_any = false;
+                for th in &state.toneholes {
+                    let th_px = rect.left() + (th.x as f32 / state.length.max(1.0)) * rect.width();
+                    if (mouse_x - th_px).abs() < 10.0 {
+                        near_any = true;
+                        break;
+                    }
+                }
+                if !near_any {
+                    state.drag_tonehole_index = None;
+                }
+            } else {
+                state.drag_tonehole_index = None;
+            }
         }
     });
     

@@ -40,7 +40,6 @@ gui-bevy = ["bevy", "bevy_egui", "bevy_gizmos", "egui_plot", "rfd"]
 cpal-integration = ["cpal"]
 nn-integration = ["dfdx"]
 diff-tlm = ["autodiff-rs"]
-fdtd-validator = []
 md-lif = []
 
 [[bench]]

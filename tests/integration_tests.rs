@@ -333,3 +333,20 @@ fn test_tonehole_clone_and_duplicate() {
     assert_eq!(original.x, 400.0, "Clone should be independent");
     assert_eq!(cloned.x, 450.0);
 }
+
+#[test]
+fn test_waveguide_with_toneholes() {
+    use cadsd::{sim::{DidgeridooSimulator, SimulationStrategy, AcousticConstants}, tonehole::Tonehole};
+    let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+    let mut sim = DidgeridooSimulator::with_strategy(&geo.geo, SimulationStrategy::Waveguide);
+    sim.acoustic_constants = AcousticConstants::for_temperature(20.0);
+    sim.toneholes = vec![Tonehole::new(400.0, 10.0, 5.0, true)];
+    
+    let freqs: Vec<f64> = (20..=500).step_by(20).map(|x| x as f64).collect();
+    let spec = sim.impedance(&freqs);
+    
+    assert_eq!(spec.len(), freqs.len());
+    for z in spec.iter() {
+        assert!(z.norm() > 0.0, "Waveguide tonehole impedance should be finite");
+    }
+}

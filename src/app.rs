@@ -1181,6 +1181,7 @@ fn show_optimizer_panel(ui: &mut egui::Ui, state: &mut CadsdState, channels: Res
                     .filter(|(_, enabled, _)| *enabled)
                     .map(|(name, _, weight)| (name.clone(), *weight))
                     .collect(),
+                toneholes: state.toneholes.clone(),
             };
             if let Some(path) = FileDialog::new()
                 .add_filter("JSON", &["json"])
@@ -1210,6 +1211,7 @@ fn show_optimizer_panel(ui: &mut egui::Ui, state: &mut CadsdState, channels: Res
                     state.top_diameter = cp.geometry.top_diameter as f32;
                     state.bottom_diameter = cp.geometry.bottom_diameter as f32;
                     state.segments = cp.geometry.segments;
+                    state.toneholes = cp.toneholes;
                     log::info!("Resumed from checkpoint: {}", path.display());
                 } else {
                     log::error!("Failed to load checkpoint from {}", path.display());
@@ -1407,6 +1409,21 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
                 }
             } else {
                 state.drag_tonehole_index = None;
+            }
+        }
+        
+        // Scroll wheel to adjust tonehole diameter
+        if response.scroll_delta.y != 0.0 {
+            if let Some(mouse_pos) = response.interact_pointer_pos() {
+                let mouse_x = mouse_pos.x;
+                for (i, th) in state.toneholes.iter_mut().enumerate() {
+                    let th_px = rect.left() + (th.x as f32 / state.length.max(1.0)) * rect.width();
+                    if (mouse_x - th_px).abs() < 10.0 {
+                        let delta = -response.scroll_delta.y * 0.5;
+                        th.diameter = (th.diameter + delta as f64).clamp(2.0, 30.0);
+                        break;
+                    }
+                }
             }
         }
     });

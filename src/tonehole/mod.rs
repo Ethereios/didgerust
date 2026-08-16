@@ -45,6 +45,37 @@ impl Tonehole {
         }
     }
 
+    /// Compute edge-tone resistance for an open tonehole.
+    ///
+    /// When air flows past a sharp edge (the tonehole opening), vortex shedding
+    /// creates an additional resistive loss. This model approximates that effect
+    /// as a frequency-dependent real impedance component.
+    ///
+    /// Reference: Fletcher & Rossing, "The Physics of Musical Instruments"
+    pub fn edge_tone_resistance(&self, freq_hz: f64, constants: &AcousticConstants) -> f64 {
+        if !self.is_open || self.diameter < 1e-6 {
+            return 0.0;
+        }
+
+        let r = (self.diameter / 1000.0) / 2.0;
+        let area = PI * r * r;
+        let _omega = 2.0 * PI * freq_hz;
+
+        // Strouhal number for tonehole jet (typically 0.2-0.5)
+        let strouhal = 0.3;
+        // Edge tone coefficient (empirical)
+        let k_edge = 0.5;
+
+        // Jet frequency from Strouhal number
+        let f_jet = strouhal * constants.c / (2.0 * PI * r);
+        let resonance_factor = ((freq_hz / f_jet.max(1e-6)).powi(2) / (1.0 + (freq_hz / f_jet.max(1e-6)).powi(2))).min(1.0);
+
+        // Edge tone resistance (Pa·s/m³)
+        let r_edge = k_edge * constants.rho * constants.c / area * resonance_factor;
+
+        r_edge
+    }
+
     /// Convert tonehole dimensions to a short side-branch segment.
     ///
     /// The side branch is modeled as a small tube section with its own
@@ -100,7 +131,9 @@ impl Tonehole {
         if denominator.norm() < 1e-15 {
             Complex::new(1e15, 0.0)
         } else {
-            (numerator / denominator) / area_fraction
+            let z_hole = (numerator / denominator) / area_fraction;
+            let r_edge = self.edge_tone_resistance(freq_hz, constants);
+            Complex::new(z_hole.re + r_edge, z_hole.im)
         }
     }
 

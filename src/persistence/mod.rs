@@ -257,6 +257,7 @@ pub struct OptimizerCheckpoint {
     pub simulation_strategy: String,
     pub geometry: OptimizerGeoState,
     pub loss_component_weights: Vec<(String, f64)>,
+    pub toneholes: Vec<Tonehole>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

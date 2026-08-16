@@ -239,3 +239,51 @@ use cadsd::loss::LossComponent;
     let empty_loss = loss_fn.calculate_with_toneholes(&f_log, &amps, &all_f, &all_z, &idx, &[]);
     assert_eq!(empty_loss, 0.0);
 }
+
+#[test]
+fn test_tonehole_edge_tone_resistance() {
+    use cadsd::tonehole::Tonehole;
+    let constants = AcousticConstants::for_temperature(20.0);
+    let closed_th = Tonehole::new(500.0, 12.0, 5.0, false);
+    let r_closed = closed_th.edge_tone_resistance(440.0, &constants);
+    assert_eq!(r_closed, 0.0, "Closed tonehole should have zero edge-tone resistance");
+    
+    let open_th = Tonehole::new(500.0, 12.0, 5.0, true);
+    let r_open = open_th.edge_tone_resistance(440.0, &constants);
+    assert!(r_open >= 0.0, "Open tonehole edge-tone resistance should be non-negative");
+}
+
+#[test]
+fn test_optimizer_checkpoint_with_toneholes() {
+    use cadsd::persistence::OptimizerCheckpoint;
+    use cadsd::tonehole::Tonehole;
+    
+    let cp = OptimizerCheckpoint {
+        timestamp: "test".to_string(),
+        population_size: 50,
+        num_generations: 100,
+        current_generation: 10,
+        mutation_rate: 0.1,
+        crossover_rate: 0.7,
+        elite_size: 5,
+        best_loss: Some(0.05),
+        generation_progress: 0.1,
+        mutation_strategy: "Gaussian".to_string(),
+        simulation_strategy: "Tlm".to_string(),
+        geometry: cadsd::persistence::OptimizerGeoState {
+            length: 1500.0,
+            top_diameter: 32.0,
+            bottom_diameter: 60.0,
+            segments: 24,
+        },
+        loss_component_weights: vec![("integer_harmonic".to_string(), 5.0)],
+        toneholes: vec![Tonehole::new(400.0, 10.0, 5.0, true)],
+    };
+    
+    let json = serde_json::to_string(&cp).unwrap();
+    let loaded: OptimizerCheckpoint = serde_json::from_str(&json).unwrap();
+    assert_eq!(loaded.toneholes.len(), 1);
+    assert_eq!(loaded.toneholes[0].x, 400.0);
+    assert_eq!(loaded.toneholes[0].diameter, 10.0);
+    assert!(loaded.toneholes[0].is_open);
+}

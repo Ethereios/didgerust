@@ -1,171 +1,150 @@
-//! 3-D Finite-Difference Time-Domain validator for bent geometries.
-//! 
-//! Port of the fdtd-waveguide solver from the_fdtd_project for acoustic_fdtd validation.
-//! Provides ground-truth comparison for TLM error analysis.
+//! Finite-Difference Time-Domain (FDTD) validator for CADSD TLM results.
+//!
+//! Implements a 1D time-domain transmission line model that can be used to
+//! cross-check frequency-domain TLM impedance calculations. The FDTD model
+//! uses staggered grids for pressure and volume velocity.
 
-use crate::Geo;
-use crate::sim::AcousticConstants;
-use serde::{Deserialize, Serialize};
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FdtdConfig {
-    /// Spatial resolution (m)
+use crate::sim::{AcousticConstants, za};
+use num_complex::Complex;
+use std::f64::consts::PI;
+
+/// 1D FDTD tube simulator for impedance validation.
+///
+/// Uses a staggered grid:
+/// - Pressure at integer spatial indices (cell centers)
+/// - Volume velocity at half-integer spatial indices (cell faces)
+///
+/// Time stepping uses leapfrog: velocity at n+1 depends on pressure at n,
+/// pressure at n+1 depends on velocity at n+1.
+pub struct FdtdValidator {
+    pub length: f64,
+    pub radius: f64,
+    pub n_cells: usize,
     pub dx: f64,
-    /// Spatial resolution (m)
-    pub dy: f64,
-    /// Spatial resolution (m)
-    pub dz: f64,
-    /// Time step (s) - must satisfy CFL condition
     pub dt: f64,
-    /// Domain size (m)
-    pub nx: usize,
-    pub ny: usize,
-    pub nz: usize,
-    /// Perfectly Matched Layer thickness (cells)
-    pub pml_thickness: usize,
-    /// Number of time steps
-    pub n_timesteps: usize,
-}
-
-impl Default for FdtdConfig {
-    fn default() -> Self {
-        Self {
-            dx: 0.01,
-            dy: 0.01,
-            dz: 0.01,
-            dt: 0.0001,
-            nx: 32,
-            ny: 32,
-            nz: 32,
-            pml_thickness: 5,
-            n_timesteps: 5000,
-        }
-    }
-}
-
-/// 3-D Acoustic FDTD solver implementation
-pub struct FdtdAcousticSolver {
-    /// Grid configuration
-    pub config: FdtdConfig,
-    
-    /// Field buffers
-    pub pressure: Vec<f64>,
-    pub velocity_x: Vec<f64>,
-    pub velocity_y: Vec<f64>,
-    pub velocity_z: Vec<f64>,
-    
-    /// Constants
     pub constants: AcousticConstants,
+    pub loss_factor: f64,
 }
 
-impl Default for FdtdAcousticSolver {
-    fn default() -> Self {
+impl FdtdValidator {
+    /// Create a new FDTD validator for a cylindrical tube.
+    ///
+    /// `length` and `radius` in metres. `n_cells` controls spatial resolution.
+    /// The time step is chosen automatically for stability (CFL condition).
+    pub fn new(length: f64, radius: f64, n_cells: usize, constants: AcousticConstants) -> Self {
+        let dx = length / (n_cells as f64);
+        let c = constants.c;
+        let dt = 0.5 * dx / c; // Conservative CFL-safe time step
         Self {
-            config: FdtdConfig::default(),
-            pressure: Vec::new(),
-            velocity_x: Vec::new(),
-            velocity_y: Vec::new(),
-            velocity_z: Vec::new(),
-            constants: AcousticConstants::default(),
+            length,
+            radius,
+            n_cells,
+            dx,
+            dt,
+            constants,
+            loss_factor: 0.999,
         }
+    }
+
+    /// Set the per-step amplitude loss factor (0.0 = fully lossy, 1.0 = lossless).
+    pub fn with_loss(mut self, loss_factor: f64) -> Self {
+        self.loss_factor = loss_factor.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Compute input impedance at a single frequency using sinusoidal steady-state.
+    ///
+    /// The tube is excited with a sinusoidal pressure source at the input (x=0).
+    /// After the transient decays, the complex impedance Z(ω) = P(ω) / U(ω)
+    /// is computed from the steady-state phasors.
+    ///
+    /// Returns `None` if the simulation fails to produce valid spectra.
+    pub fn impedance_at(&self, freq_hz: f64) -> Option<Complex<f64>> {
+        let omega = 2.0 * PI * freq_hz;
+        let n_transient = 5000; // steps to reach steady state
+        let n_steady = 512;     // steps to average for phasor
+        let total_steps = n_transient + n_steady;
+
+        let mut p = vec![0.0; self.n_cells + 1];
+        let mut u = vec![0.0; self.n_cells];
+
+        let rho = self.constants.rho;
+        let c = self.constants.c;
+        let zc = rho * c / (PI * self.radius * self.radius);
+
+        let mut p_cos_sum = 0.0;
+        let mut p_sin_sum = 0.0;
+        let mut u_cos_sum = 0.0;
+        let mut u_sin_sum = 0.0;
+        let mut steady_count = 0;
+
+        for step in 0..total_steps {
+            let t = step as f64 * self.dt;
+            let source = (omega * t).sin() * 1.0; // 1 Pa excitation
+
+            // Update velocity
+            for i in 0..self.n_cells {
+                let dp_dx = (p[i + 1] - p[i]) / self.dx;
+                u[i] = u[i] * self.loss_factor - (self.dt / (rho * self.dx)) * dp_dx;
+            }
+
+            // Update pressure
+            for i in 1..self.n_cells {
+                let du_dx = (u[i] - u[i - 1]) / self.dx;
+                p[i] = p[i] * self.loss_factor - (rho * c * c * self.dt / self.dx) * du_dx;
+            }
+
+            // Absorbing boundary at open end
+            let r_last = self.radius;
+            let z_open = za(freq_hz, r_last, rho, c, self.constants.nu);
+            let reflection = (z_open.re - zc) / (z_open.re + zc);
+            p[self.n_cells] = reflection * p[self.n_cells - 1];
+
+            // Sinusoidal pressure source at input
+            p[0] = source;
+
+            // Accumulate steady-state phasors
+            if step >= n_transient {
+                let phase = omega * t;
+                p_cos_sum += p[0] * phase.cos();
+                p_sin_sum += p[0] * phase.sin();
+                u_cos_sum += u[0] * phase.cos();
+                u_sin_sum += u[0] * phase.sin();
+                steady_count += 1;
+            }
+        }
+
+        if steady_count == 0 {
+            return None;
+        }
+
+        let n = steady_count as f64;
+        let p_phasor = Complex::new(p_cos_sum / n, p_sin_sum / n);
+        let u_phasor = Complex::new(u_cos_sum / n, u_sin_sum / n);
+
+        if u_phasor.norm() < 1e-15 {
+            return None;
+        }
+
+        Some(p_phasor / u_phasor)
+    }
+
+    /// Compute impedance spectrum over a frequency range.
+    pub fn impedance_spectrum(&self, freqs: &[f64]) -> Vec<Complex<f64>> {
+        freqs.iter().filter_map(|&f| self.impedance_at(f)).collect()
     }
 }
-
-impl FdtdAcousticSolver {
-    /// Create a new solver with specified configuration
-    pub fn new(config: FdtdConfig) -> Self {
-        Self {
-            config: config.clone(),
-            pressure: vec![0.0; config.nx * config.ny * config.nz],
-            velocity_x: vec![0.0; config.nx * config.ny * config.nz],
-            velocity_y: vec![0.0; config.nx * config.ny * config.nz],
-            velocity_z: vec![0.0; config.nx * config.ny * config.nz],
-            constants: AcousticConstants::default(),
-        }
-    }
-
-    /// Initialize the solver with a bent geometry from Geo
-    pub fn initialize_from_geo(&mut self, geo: &Geo) {
-        // Create a simple circular bend geometry for validation
-        // In a real implementation, this would voxelize the geometry into the FDTD grid
-    }
-
-    /// Run the simulation for a specified number of time steps
-    pub fn run(&mut self, steps: usize) {
-        // Implement FDTD Yee scheme for acoustics
-        // Pressure and velocity fields are updated on staggered grids
-        // This is a placeholder implementation
-        for _ in 0..steps {
-            // Simple time stepping - real implementation would involve:
-            // 1. Update velocity fields using pressure gradients
-            // 2. Update pressure field using velocity divergence  
-            // 3. Apply boundary conditions and PML
-        }
-    }
-
-    /// Extract impedance spectrum from pressure field response
-    pub fn extract_impedance_spectrum(&self, _freq_min: f64, _freq_max: f64, points: usize) -> Vec<f64> {
-        // Extract impedance response from recorded data
-        // Convert time-domain response to frequency domain
-        // Apply FFT and extract magnitude at target frequencies
-        vec![1.0; points] // placeholder for real implementation
-    }
-
-    /// Compare TLM and FDTD results for a given geometry
-    pub fn compare_with_tlm(&self, tlms_result: f64) -> f64 {
-        // Calculate error between FDTD and TLM predictions
-        // This would typically involve comparing frequency responses
-        (tlms_result - 1.0).abs() // simplified error metric
-    }
-
-    /// Generate a bent geometry for validation
-    pub fn generate_bent_geometry(length: f64, curvature: f64) -> Geo {
-        // Create a simple cylindrical geometry for validation
-        // In a real implementation, this would create a bent geometry
-        Geo::make_cone(length, 20.0, 20.0, 10)
-    }
-}
-
-/// Alias for backward compatibility
-pub type FdtdSolver = FdtdAcousticSolver;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sim::SimulationStrategy;
-    use crate::sim::DidgeridooSimulator;
+    use crate::sim::AcousticConstants;
 
     #[test]
-    fn test_fdtd_config_default() {
-        let config = FdtdConfig::default();
-        assert_eq!(config.nx, 32);
-        assert_eq!(config.ny, 32);
-        assert_eq!(config.nz, 32);
-    }
-
-    #[test]
-    fn test_fdtd_solver_new() {
-        let config = FdtdConfig::default();
-        let solver = FdtdAcousticSolver::new(config);
-        assert_eq!(solver.pressure.len(), 32*32*32);
-    }
-
-    #[test]
-    fn test_fdtd_extract_spectrum() {
-        let solver = FdtdAcousticSolver::default();
-        let spectrum = solver.extract_impedance_spectrum(20.0, 2000.0, 100);
-        assert_eq!(spectrum.len(), 100);
-    }
-
-    #[test]
-    fn test_fdtd_compare_with_tlm() {
-        let solver = FdtdAcousticSolver::default();
-        let error = solver.compare_with_tlm(1.0);
-        assert_eq!(error, 0.0);
-    }
-
-#[test]
-    fn test_fdtd_generate_bent_geometry() {
-        let geo = FdtdAcousticSolver::generate_bent_geometry(1500.0, 0.01);
-        assert_eq!(geo.length(), 1500.0);
+    fn test_fdtd_construct() {
+        let constants = AcousticConstants::for_temperature(20.0);
+        let fdtd = FdtdValidator::new(1.5, 0.016, 100, constants);
+        assert_eq!(fdtd.n_cells, 100);
+        assert!(fdtd.dt > 0.0);
     }
 }

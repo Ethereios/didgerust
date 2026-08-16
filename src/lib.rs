@@ -16,6 +16,7 @@ pub mod persistence;
 pub mod integration;
 pub mod export;
 pub mod waveguide;
+pub mod validation;
 
 // Expose UI module (only when gui-bevy feature is enabled)
 #[cfg(feature = "gui-bevy")]

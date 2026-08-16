@@ -84,6 +84,10 @@ pub struct AppSettings {
     pub default_strategy: String,
     /// Default mutation strategy name
     pub default_mutation: String,
+    /// Absolute pressure in Pa
+    pub pressure_pa: f64,
+    /// Relative humidity 0.0–1.0
+    pub relative_humidity: f64,
 }
 
 impl Default for AppSettings {
@@ -99,6 +103,8 @@ impl Default for AppSettings {
             log_verbosity: 2,
             default_strategy: "Tlm".to_string(),
             default_mutation: "Gaussian".to_string(),
+            pressure_pa: 101325.0,
+            relative_humidity: 0.0,
         }
     }
 }
@@ -157,6 +163,19 @@ impl AppSettings {
         // Non-negative values
         if result.mesh_rotation_speed < 0.0 {
             result.mesh_rotation_speed = 0.0;
+        }
+        
+        // Pressure must be positive
+        if result.pressure_pa < 100.0 {
+            result.pressure_pa = 101325.0;
+        }
+        
+        // Humidity bounds
+        if result.relative_humidity < 0.0 {
+            result.relative_humidity = 0.0;
+        }
+        if result.relative_humidity > 1.0 {
+            result.relative_humidity = 1.0;
         }
         
         // Non-empty strings (at minimum set to "unknown" if empty)

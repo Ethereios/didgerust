@@ -130,6 +130,8 @@ pub struct CadsdState {
     pub log_verbosity: u8,
     pub default_strategy: String,
     pub default_mutation: String,
+    pub pressure_pa: f64,
+    pub relative_humidity: f64,
     
     // Audio controls
     pub audio_enabled: bool,
@@ -221,6 +223,8 @@ impl Default for CadsdState {
             log_verbosity: settings.log_verbosity,
             default_strategy: settings.default_strategy.clone(),
             default_mutation: settings.default_mutation.clone(),
+            pressure_pa: settings.pressure_pa,
+            relative_humidity: settings.relative_humidity,
             audio_enabled: false,
             audio_gain: 0.5,
             audio_vibrato_depth: 0.0,
@@ -1338,6 +1342,8 @@ fn show_settings_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
     ui.separator();
     ui.label("Acoustic Environment:");
     ui.add(egui::Slider::new(&mut state.temperature, -20.0..=50.0).text("Temperature (°C)"));
+    ui.add(egui::Slider::new(&mut state.pressure_pa, 50000.0..=200000.0).text("Pressure (Pa)"));
+    ui.add(egui::Slider::new(&mut state.relative_humidity, 0.0..=1.0).text("Relative Humidity"));
     
     ui.separator();
     ui.label("Default Simulation Strategy:");
@@ -1379,6 +1385,8 @@ fn show_settings_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
                     log_verbosity: state.log_verbosity,
                     default_strategy: format!("{:?}", state.simulation_strategy),
                     default_mutation: format!("{:?}", state.mutation_strategy),
+                    pressure_pa: state.pressure_pa,
+                    relative_humidity: state.relative_humidity,
                 };
                 if let Err(e) = settings.save_to_file(path.to_str().unwrap_or_default()) {
                     log::error!("Failed to save config: {}", e);
@@ -1434,7 +1442,11 @@ fn compute_spectrum(state: &mut CadsdState) {
         &geo.geo,
         state.simulation_strategy
     );
-    simulator.acoustic_constants = crate::sim::AcousticConstants::for_temperature(state.temperature as f64);
+    simulator.acoustic_constants = crate::sim::AcousticConstants::for_conditions(
+        state.temperature as f64,
+        state.pressure_pa,
+        state.relative_humidity,
+    );
     simulator.toneholes = state.toneholes.clone();
     
     let spectrum = simulator.impedance(&freqs);
@@ -1475,7 +1487,11 @@ fn run_comparison_simulation(state: &mut CadsdState) {
     let mut tlm_sim = DidgeridooSimulator::from_geo(&geo.geo);
     let wg_sim = DidgeridooSimulator::with_strategy(&geo.geo, SimulationStrategy::Waveguide);
     let ci_sim = DidgeridooSimulator::with_strategy(&geo.geo, SimulationStrategy::ComplexImpedance);
-    tlm_sim.acoustic_constants = crate::sim::AcousticConstants::for_temperature(state.temperature as f64);
+    tlm_sim.acoustic_constants = crate::sim::AcousticConstants::for_conditions(
+        state.temperature as f64,
+        state.pressure_pa,
+        state.relative_humidity,
+    );
     tlm_sim.toneholes = state.toneholes.clone();
     
     let tlm_spec = tlm_sim.impedance(&freqs);

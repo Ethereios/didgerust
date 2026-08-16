@@ -142,6 +142,7 @@ pub struct CadsdState {
     pub default_mutation: String,
     pub pressure_pa: f64,
     pub relative_humidity: f64,
+    pub bore_style: String,
     
     // Audio controls
     pub audio_enabled: bool,
@@ -224,6 +225,7 @@ impl Default for CadsdState {
             ],
             loss_history: Vec::new(),
             validation_report: String::new(),
+            bore_style: "cone".to_string(),
             // Phase B: Geometry
             geo_history: Vec::new(),
             geo_history_index: 0,

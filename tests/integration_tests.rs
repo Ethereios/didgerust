@@ -425,6 +425,11 @@ fn test_geometry_exporter() {
     let obj = GeometryExporter::export_obj(&geo);
     assert!(obj.contains("# Wavefront OBJ"));
     assert!(obj.contains("v "));
+    
+    let gltf = GeometryExporter::export_gltf(&geo);
+    assert!(!gltf.is_empty(), "glTF export should produce data");
+    let gltf_str = String::from_utf8_lossy(&gltf);
+    assert!(gltf_str.contains("asset"), "glTF should contain asset info");
 }
 
 #[test]

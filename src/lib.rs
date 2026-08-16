@@ -32,6 +32,7 @@ pub mod nn;
 // Differentiable TLM module (behind diff-tlm feature flag)
 #[cfg(feature = "diff-tlm")]
 pub mod diff_tlm;
+pub mod md_lif;
 
 // Re-export local simulation functions
 pub use crate::sim::{

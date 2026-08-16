@@ -376,4 +376,18 @@ use crate::Geo;
             assert!(z.norm() > 0.0, "Impedance should be finite");
         }
     }
+
+    #[test]
+    fn test_waveguide_impedance_spectrum_fast() {
+        let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+        let engine = WaveguideEngine::from_geo(&geo);
+        let freqs = vec![100.0, 200.0, 440.0, 1000.0];
+        let spec_fast = engine.impedance_spectrum_fast(&freqs);
+        let spec_full = engine.impedance_spectrum(&freqs);
+        assert_eq!(spec_fast.len(), spec_full.len());
+        for (z_fast, z_full) in spec_fast.iter().zip(spec_full.iter()) {
+            assert!(z_fast.norm() > 0.0, "Fast impedance should be finite");
+            assert!(z_full.norm() > 0.0, "Full impedance should be finite");
+        }
+    }
 }

@@ -204,4 +204,14 @@ mod tests {
         assert!(report.contains("Max relative error"));
         assert!(report.contains("PASS") || report.contains("MARGINAL") || report.contains("FAIL"));
     }
+
+    #[test]
+    fn test_validate_tlm_vs_waveguide() {
+        let geo = Geo::new(vec![[0.0, 32.0], [1500.0, 32.0]]);
+        let constants = AcousticConstants::for_temperature(20.0);
+        let freqs: Vec<f64> = (50..=500).step_by(50).map(|x| x as f64).collect();
+        let error = validate_tlm_vs_waveguide(&geo, &freqs, &constants);
+        assert!(error >= 0.0, "Error should be non-negative");
+        assert!(error.is_finite(), "Error should be finite");
+    }
 }

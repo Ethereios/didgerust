@@ -371,4 +371,19 @@ mod tests {
         processor.stop();
         assert!(!processor.is_running());
     }
+
+    #[test]
+    fn test_export_wav() {
+        let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+        let config = AudioConfig::default();
+        let processor = AudioProcessor::new(&geo, config).unwrap();
+        let samples = vec![0.1f32, -0.2, 0.3, -0.4, 0.0];
+        let tmp_path = std::env::temp_dir().join("didgerust_test.wav");
+        let result = processor.export_wav(&samples, tmp_path.to_str().unwrap());
+        assert!(result.is_ok(), "WAV export should succeed");
+        let data = std::fs::read(&tmp_path).unwrap();
+        assert!(data.starts_with(b"RIFF"), "Should have RIFF header");
+        assert!(data.windows(4).any(|w| w == b"WAVE"), "Should have WAVE format");
+        let _ = std::fs::remove_file(tmp_path);
+    }
 }

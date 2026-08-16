@@ -113,6 +113,7 @@ pub struct CadsdState {
     // ---- Phase B: Optimizer Panel ----
     pub loss_component_toggles: Vec<(String, bool, f64)>,
     pub loss_history: Vec<(usize, f64)>,
+    pub validation_report: String,
     
     // ---- Phase B: Geometry Panel ----
     pub geo_history: Vec<GeoHistoryEntry>,
@@ -209,6 +210,7 @@ impl Default for CadsdState {
                 ("scale_tuning".to_string(), true, 5.0),
             ],
             loss_history: Vec::new(),
+            validation_report: String::new(),
             // Phase B: Geometry
             geo_history: Vec::new(),
             geo_history_index: 0,
@@ -724,16 +726,27 @@ fn show_simulation_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
     ui.separator();
     ui.label("Controls:");
     ui.horizontal(|ui| {
-        if ui.button("▶️ Compute Spectrum").clicked() {
+        if ui.button("Compute Spectrum").clicked() {
             compute_spectrum(state);
         }
-        if ui.button("🔍 Find Resonance Peaks").clicked() {
+        if ui.button("Find Resonance Peaks").clicked() {
             find_peaks(state);
         }
-        if ui.button("📊 Export CSV").clicked() {
+        if ui.button("Export CSV").clicked() {
             export_spectrum_csv(state);
         }
+        if ui.button("Validate TLM").clicked() {
+            validate_tlm(state);
+        }
     });
+    
+    if !state.validation_report.is_empty() {
+        ui.separator();
+        ui.label("Validation Report:");
+        egui::ScrollArea::vertical().max_height(200.0).show(ui, |ui| {
+            ui.label(egui::RichText::new(&state.validation_report).monospace());
+        });
+    }
 }
 
 /// Draw the impedance spectrum plot with tooltips
@@ -1608,4 +1621,16 @@ fn export_spectrum_csv(state: &CadsdState) {
             log::info!("Spectrum CSV exported to {} ({} lines)", path.display(), csv.lines().count());
         }
     }
+}
+
+fn validate_tlm(state: &mut CadsdState) {
+    let geo = current_geo(state);
+    let constants = crate::sim::AcousticConstants::for_conditions(
+        state.temperature as f64,
+        state.pressure_pa,
+        state.relative_humidity,
+    );
+    let freqs: Vec<f64> = (20..=2000).step_by(20).map(|x| x as f64).collect();
+    state.validation_report = crate::validation::generate_validation_report(&geo, &freqs, &constants);
+    log::info!("Validation complete");
 }

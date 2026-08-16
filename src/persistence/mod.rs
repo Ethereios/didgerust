@@ -172,12 +172,7 @@ impl AppSettings {
         }
         
         // Humidity bounds
-        if result.relative_humidity < 0.0 {
-            result.relative_humidity = 0.0;
-        }
-        if result.relative_humidity > 1.0 {
-            result.relative_humidity = 1.0;
-        }
+        result.relative_humidity = result.relative_humidity.clamp(0.0, 1.0);
         
         // Non-empty strings (at minimum set to "unknown" if empty)
         if result.color_scheme.is_empty() {
@@ -198,7 +193,7 @@ impl AppSettings {
 }
 
 /// Project-level state (geometry + simulation results)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ProjectState {
     pub geometry: String,
     pub simulation_results: String,
@@ -208,18 +203,6 @@ pub struct ProjectState {
     pub geo_history_index: usize,
     /// Toneholes in the bore
     pub toneholes: Vec<Tonehole>,
-}
-
-impl Default for ProjectState {
-    fn default() -> Self {
-        Self {
-            geometry: String::new(),
-            simulation_results: String::new(),
-            geo_history: Vec::new(),
-            geo_history_index: 0,
-            toneholes: Vec::new(),
-        }
-    }
 }
 
 impl ProjectState {

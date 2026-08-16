@@ -70,7 +70,7 @@ impl WaveguideCell {
 
     /// Compute the delay in samples for a given sampling rate
     pub fn delay_samples(&self, sample_rate: f64) -> usize {
-        let wavelength = C / (sample_rate as f64 / 1024.0); // Approximate wavelength
+        let wavelength = C / (sample_rate / 1024.0); // Approximate wavelength
         (self.length / wavelength).ceil() as usize
     }
 }

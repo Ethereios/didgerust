@@ -336,7 +336,7 @@ pub fn cadsd_ze_with_losses(
         match elem {
             TlmElement::Segment(seg) => {
                 let (k_complex, zc) = if include_losses {
-                    let (tw, zcw) = viscothermal_loss_params(&seg, freq_hz, constants);
+                    let (tw, zcw) = viscothermal_loss_params(seg, freq_hz, constants);
                     (tw, Complex::new(zcw.re, zcw.im))
                 } else {
                     (Complex::new(omega / constants.c, 0.0), Complex::new(seg.r0, 0.0))
@@ -538,7 +538,7 @@ pub struct DidgeridooSimulator {
 }
 
 impl DidgeridooSimulator {
-    pub fn from_geo(geo: &Vec<[f64; 2]>) -> Self {
+    pub fn from_geo(geo: &[[f64; 2]]) -> Self {
         let segments = create_segments_from_geo(geo);
         Self { 
             segments, 
@@ -548,7 +548,7 @@ impl DidgeridooSimulator {
         }
     }
     
-    pub fn with_strategy(geo: &Vec<[f64; 2]>, strategy: SimulationStrategy) -> Self {
+    pub fn with_strategy(geo: &[[f64; 2]], strategy: SimulationStrategy) -> Self {
         let segments = create_segments_from_geo(geo);
         Self { segments, strategy, acoustic_constants: AcousticConstants::default(), toneholes: Vec::new() }
     }

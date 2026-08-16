@@ -231,6 +231,7 @@ pub struct KigaliGenome {
 }
 
 impl KigaliGenome {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         n_segments: usize,
         d0: f64,
@@ -263,6 +264,7 @@ impl KigaliGenome {
     }
     
     /// Decode genome parameters
+    #[allow(clippy::type_complexity)]
     fn decode_parameters(&self) -> (f64, f64, f64, Vec<f64>, Vec<f64>, Vec<(f64, f64, f64)>, Vec<Tonehole>) {
         let genome = self.base.genome();
         
@@ -701,6 +703,7 @@ impl EvolutionaryOptimizer {
     }
     
     /// Create offspring through mutation and crossover
+    #[allow(clippy::borrowed_box)]
     fn create_offspring(&self) -> Result<Vec<Box<dyn Genome>>, Box<dyn std::error::Error>> {
         let mut offspring = Vec::new();
         
@@ -714,8 +717,8 @@ impl EvolutionaryOptimizer {
                 .unwrap()
         });
         
-        for i in 0..self.parameters.elite_size.min(sorted_population.len()) {
-            offspring.push(sorted_population[i].clone_with_loss());
+        for individual in sorted_population.iter().take(self.parameters.elite_size.min(sorted_population.len())) {
+            offspring.push(individual.clone_with_loss());
         }
         
         // Create remaining offspring
@@ -852,6 +855,7 @@ impl EvolutionaryOptimizer {
     }
     
     /// Select new population from combined parent and offspring
+    #[allow(clippy::borrowed_box)]
     fn select_population(&mut self, offspring: Vec<Box<dyn Genome>>) -> Result<(), Box<dyn std::error::Error>> {
         let mut combined: Vec<Box<dyn Genome>> = self.population.iter()
             .map(|g| g.clone_with_new_id())

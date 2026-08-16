@@ -147,13 +147,13 @@ pub fn generate_text_report(geo: &Geo, peaks: &[Resonance]) -> String {
     
     report.push_str("=== CADSD Analysis Report ===\n\n");
     
-    report.push_str(&format!("Geometry Summary:\n"));
+    report.push_str("Geometry Summary:\n");
     report.push_str(&format!("  Length: {:.2} mm\n", geo.length())); 
     report.push_str(&format!("  Bell diameter: {:.2} mm\n", geo.bellsize()));
     report.push_str(&format!("  Number of segments: {}\n", geo.geo.len()));
     report.push_str(&format!("  Volume: {:.2} mm\u{b0}\n\n", geo.compute_volume()));
     
-    report.push_str(&format!("Resonance Analysis:\n"));
+    report.push_str("Resonance Analysis:\n");
     report.push_str(&format!("  Number of peaks: {}\n", peaks.len()));
     
     if !peaks.is_empty() {

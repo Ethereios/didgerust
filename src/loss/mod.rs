@@ -52,6 +52,12 @@ impl TestLossFunction {
     }
 }
 
+impl Default for TestLossFunction {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl crate::evo::LossFunction for TestLossFunction {
     fn calculate(&self, genome: &dyn Genome) -> f64 {
         // Simple test: loss based on genome sum
@@ -110,7 +116,7 @@ impl LossComponent for FrequencyTuningLoss {
             let freq_loss = freq_error_cents / 600.0;
             
             // Impedance loss (if target != -1)
-            let amp_loss = if self.target_impedances.get(i).map_or(false, |&imp| imp != -1.0) {
+            let amp_loss = if self.target_impedances.get(i).is_some_and(|&imp| imp != -1.0) {
                 (self.target_impedances[i] - actual_amp).abs()
             } else {
                 0.0
@@ -726,10 +732,7 @@ impl LossComponent for ToneholeTuningLoss {
         }
         
         let mut total_error = 0.0;
-        let n = toneholes.len().min(self.targets.len());
-        
-        for i in 0..n {
-            let th = &toneholes[i];
+        for (i, th) in toneholes.iter().enumerate().take(self.targets.len().min(toneholes.len())) {
             let target = self.targets[i];
             
             let x_norm = th.x / 2000.0;
@@ -782,6 +785,12 @@ impl TairuaLoss {
         } else {
             1e6
         }
+    }
+}
+
+impl Default for TairuaLoss {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

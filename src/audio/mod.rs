@@ -131,7 +131,7 @@ impl AudioProcessor {
 
     /// Get current amplitude parameters
     pub fn get_amplitude(&self) -> AmplitudeParams {
-        self.amplitude.lock().unwrap().clone()
+        *self.amplitude.lock().unwrap()
     }
 
     /// Generate audio samples for the specified number of frames

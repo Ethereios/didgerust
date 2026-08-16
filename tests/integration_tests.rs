@@ -287,3 +287,49 @@ fn test_optimizer_checkpoint_with_toneholes() {
     assert_eq!(loaded.toneholes[0].diameter, 10.0);
     assert!(loaded.toneholes[0].is_open);
 }
+
+#[test]
+fn test_tonehole_edge_tone_frequency_dependence() {
+    use cadsd::tonehole::Tonehole;
+    let constants = AcousticConstants::for_temperature(20.0);
+    let th = Tonehole::new(500.0, 12.0, 5.0, true);
+    
+    let r_100 = th.edge_tone_resistance(100.0, &constants);
+    let r_440 = th.edge_tone_resistance(440.0, &constants);
+    let r_1000 = th.edge_tone_resistance(1000.0, &constants);
+    
+    assert!(r_440 >= r_100, "Edge-tone resistance should increase with frequency in low range");
+    assert!(r_1000 >= 0.0, "Edge-tone resistance should be non-negative at high frequency");
+}
+
+#[test]
+fn test_tonehole_edge_tone_diameter_dependence() {
+    use cadsd::tonehole::Tonehole;
+    let constants = AcousticConstants::for_temperature(20.0);
+    
+    let small = Tonehole::new(500.0, 5.0, 5.0, true);
+    let medium = Tonehole::new(500.0, 12.0, 5.0, true);
+    let large = Tonehole::new(500.0, 25.0, 5.0, true);
+    
+    let r_small = small.edge_tone_resistance(440.0, &constants);
+    let r_medium = medium.edge_tone_resistance(440.0, &constants);
+    let r_large = large.edge_tone_resistance(440.0, &constants);
+    
+    assert!(r_small > r_medium, "Smaller holes should have higher edge-tone resistance");
+    assert!(r_medium > r_large, "Medium holes should have higher resistance than large holes");
+}
+
+#[test]
+fn test_tonehole_clone_and_duplicate() {
+    use cadsd::tonehole::Tonehole;
+    let original = Tonehole::new(400.0, 10.0, 5.0, true);
+    let mut cloned = original.clone();
+    
+    assert_eq!(original.x, cloned.x);
+    assert_eq!(original.diameter, cloned.diameter);
+    assert_eq!(original.is_open, cloned.is_open);
+    
+    cloned.x = 450.0;
+    assert_eq!(original.x, 400.0, "Clone should be independent");
+    assert_eq!(cloned.x, 450.0);
+}

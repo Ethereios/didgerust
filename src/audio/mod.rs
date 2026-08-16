@@ -285,4 +285,50 @@ mod tests {
         a.store(2.5, Ordering::SeqCst);
         assert_eq!(a.load(Ordering::SeqCst), 2.5);
     }
+
+    #[test]
+    fn test_generate_samples() {
+        let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+        let config = AudioConfig::default();
+        let processor = AudioProcessor::new(&geo, config).unwrap();
+        let samples = processor.generate_samples(100);
+        assert_eq!(samples.len(), 100);
+        for &sample in &samples {
+            assert!(sample >= -1.0 && sample <= 1.0, "Sample out of range: {}", sample);
+        }
+    }
+
+    #[test]
+    fn test_set_frequency() {
+        let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+        let config = AudioConfig::default();
+        let processor = AudioProcessor::new(&geo, config).unwrap();
+        processor.set_frequency(880.0);
+        let samples = processor.generate_samples(10);
+        assert_eq!(samples.len(), 10);
+    }
+
+    #[test]
+    fn test_set_amplitude() {
+        let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+        let config = AudioConfig::default();
+        let processor = AudioProcessor::new(&geo, config).unwrap();
+        processor.set_amplitude(0.8, 0.1, 4.0);
+        let amp = processor.get_amplitude();
+        assert_eq!(amp.gain, 0.8);
+        assert_eq!(amp.vibrato_depth, 0.1);
+        assert_eq!(amp.vibrato_freq, 4.0);
+    }
+
+    #[test]
+    fn test_audio_start_stop() {
+        let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+        let config = AudioConfig::default();
+        let processor = AudioProcessor::new(&geo, config).unwrap();
+        assert!(!processor.is_running());
+        processor.start().unwrap_or_default();
+        assert!(processor.is_running());
+        processor.stop();
+        assert!(!processor.is_running());
+    }
 }

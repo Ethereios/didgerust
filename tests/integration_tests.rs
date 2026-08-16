@@ -350,3 +350,36 @@ fn test_waveguide_with_toneholes() {
         assert!(z.norm() > 0.0, "Waveguide tonehole impedance should be finite");
     }
 }
+
+#[test]
+fn test_complex_impedance_strategy() {
+    use cadsd::sim::{DidgeridooSimulator, SimulationStrategy, AcousticConstants};
+    let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+    let mut sim = DidgeridooSimulator::with_strategy(&geo.geo, SimulationStrategy::ComplexImpedance);
+    sim.acoustic_constants = AcousticConstants::for_temperature(20.0);
+    
+    let freqs: Vec<f64> = (20..=500).step_by(20).map(|x| x as f64).collect();
+    let spec = sim.impedance(&freqs);
+    
+    assert_eq!(spec.len(), freqs.len());
+    for z in spec.iter() {
+        assert!(z.norm() > 0.0, "Complex impedance should be finite");
+    }
+}
+
+#[test]
+fn test_simulator_peaks_methods() {
+    use cadsd::sim::{DidgeridooSimulator, SimulationStrategy, AcousticConstants};
+    let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+    let mut sim = DidgeridooSimulator::with_strategy(&geo.geo, SimulationStrategy::Tlm);
+    sim.acoustic_constants = AcousticConstants::for_temperature(20.0);
+    
+    let freqs: Vec<f64> = (20..=2000).step_by(10).map(|x| x as f64).collect();
+    let peaks = sim.peaks(&freqs);
+    assert!(!peaks.is_empty(), "Should find at least one peak");
+    
+    let peaks_prom = sim.peaks_with_prominence(&freqs, 1, 0.001);
+    assert!(!peaks_prom.is_empty(), "Should find peaks with prominence");
+    
+    let _peaks_phase = sim.peaks_phase_based(&freqs, 1, 0.01);
+}

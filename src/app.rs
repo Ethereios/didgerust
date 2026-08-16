@@ -1282,6 +1282,36 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
             }
         }
     });
+
+    ui.separator();
+    ui.heading("Toneholes");
+    ui.label("Toneholes are defined but not yet simulated.");
+    
+    let toneholes_to_remove: Vec<usize> = state.toneholes.iter().enumerate().filter_map(|(i, th)| {
+        let mut remove = false;
+        ui.horizontal(|ui| {
+            ui.label(format!("#{}: x={:.0}mm d={:.1}mm depth={:.1}mm {}", 
+                i + 1, th.x, th.diameter, th.depth, 
+                if th.is_open { "open" } else { "closed" }));
+            if ui.button("Delete").clicked() {
+                remove = true;
+            }
+        });
+        if remove { Some(i) } else { None }
+    }).collect();
+    
+    for i in toneholes_to_remove.iter().rev() {
+        state.toneholes.remove(*i);
+    }
+    
+    if ui.button("Add Tonehole").clicked() {
+        state.toneholes.push(Tonehole::new(
+            state.length as f64 * 0.5,
+            10.0,
+            5.0,
+            true,
+        ));
+    }
 }
 
 /// Settings Panel - application configuration
@@ -1405,6 +1435,7 @@ fn compute_spectrum(state: &mut CadsdState) {
         state.simulation_strategy
     );
     simulator.acoustic_constants = crate::sim::AcousticConstants::for_temperature(state.temperature as f64);
+    simulator.toneholes = state.toneholes.clone();
     
     let spectrum = simulator.impedance(&freqs);
     state.impedances = spectrum.iter().map(|c| c.norm()).collect();
@@ -1441,9 +1472,11 @@ fn run_comparison_simulation(state: &mut CadsdState) {
     let freqs: Vec<f64> = (20..=2000).step_by(10).map(|x| x as f64).collect();
     
     // Run all three strategies
-    let tlm_sim = DidgeridooSimulator::from_geo(&geo.geo);
+    let mut tlm_sim = DidgeridooSimulator::from_geo(&geo.geo);
     let wg_sim = DidgeridooSimulator::with_strategy(&geo.geo, SimulationStrategy::Waveguide);
     let ci_sim = DidgeridooSimulator::with_strategy(&geo.geo, SimulationStrategy::ComplexImpedance);
+    tlm_sim.acoustic_constants = crate::sim::AcousticConstants::for_temperature(state.temperature as f64);
+    tlm_sim.toneholes = state.toneholes.clone();
     
     let tlm_spec = tlm_sim.impedance(&freqs);
     let wg_spec = wg_sim.impedance(&freqs);

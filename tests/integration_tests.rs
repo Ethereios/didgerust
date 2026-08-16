@@ -111,6 +111,17 @@ fn test_acoustic_constants_temperature() {
 }
 
 #[test]
+fn test_acoustic_constants_pressure_humidity() {
+    let dry = AcousticConstants::for_conditions(20.0, 101325.0, 0.0);
+    let humid = AcousticConstants::for_conditions(20.0, 101325.0, 0.8);
+    let high_p = AcousticConstants::for_conditions(20.0, 202650.0, 0.0);
+    assert!(humid.c > dry.c, "Humid air should have slightly higher speed of sound");
+    assert!(high_p.rho > dry.rho, "Higher pressure should increase density");
+    assert_eq!(dry.pressure_pa, 101325.0);
+    assert_eq!(dry.relative_humidity, 0.0);
+}
+
+#[test]
 fn test_tonehole_impedance() {
     let th = Tonehole::new(500.0, 10.0, 5.0, true);
     let constants = AcousticConstants::for_temperature(20.0);
@@ -130,4 +141,21 @@ fn test_simulator_with_acoustic_constants() {
     let spectrum = simulator.impedance(&freqs);
     assert!(!spectrum.is_empty(), "Simulator spectrum should not be empty");
     assert_eq!(spectrum.len(), freqs.len());
+}
+
+#[test]
+fn test_tonehole_simulation_integration() {
+    let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+    let sim_no_th = DidgeridooSimulator::from_geo(&geo.geo);
+    let mut sim_with_th = DidgeridooSimulator::from_geo(&geo.geo);
+    sim_with_th.toneholes = vec![Tonehole::new(400.0, 10.0, 5.0, true)];
+
+    let freqs: Vec<f64> = (20..=500).step_by(20).map(|x| x as f64).collect();
+    let spec_no_th = sim_no_th.impedance(&freqs);
+    let spec_with_th = sim_with_th.impedance(&freqs);
+
+    assert_eq!(spec_no_th.len(), spec_with_th.len());
+    for z_with in spec_with_th.iter() {
+        assert!(z_with.norm() > 0.0, "Tonehole impedance should be finite");
+    }
 }

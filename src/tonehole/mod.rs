@@ -121,15 +121,10 @@ mod tests {
         assert!(hole.is_open);
     }
 
-#[test]
+    #[test]
     fn test_open_impedance() {
         let hole = Tonehole::new(500.0, 12.0, 5.0, true);
-        let constants = AcousticConstants {
-            rho: 1.225,  // kg/m³
-            c: 343.0,    // m/s
-            nu: 1.51e-5, // mPa·s
-            temperature_c: 20.0
-        };
+        let constants = AcousticConstants::for_temperature(20.0);
         let z = hole.open_impedance(440.0, &constants);
         println!("test_open_impedance: z = {:?}", z);
         assert!(z.re > 0.0 || z.im > 0.0);
@@ -138,12 +133,7 @@ mod tests {
     #[test]
     fn test_closed_impedance() {
         let hole = Tonehole::new(500.0, 12.0, 5.0, false);
-        let constants = AcousticConstants {
-            rho: 1.225,
-            c: 343.0,
-            nu: 1.51e-5,
-            temperature_c: 20.0
-        };
+        let constants = AcousticConstants::for_temperature(20.0);
         let z = hole.closed_impedance(440.0, &constants);
         println!("test_closed_impedance: z = {:?}", z);
         assert!(z.im < 0.0);

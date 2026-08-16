@@ -421,6 +421,7 @@ pub mod grid {
 pub struct DidgeridooSimulator {
     pub segments: Vec<Segment>,
     pub strategy: SimulationStrategy,
+    pub acoustic_constants: AcousticConstants,
 }
 
 impl DidgeridooSimulator {
@@ -428,21 +429,21 @@ impl DidgeridooSimulator {
         let segments = create_segments_from_geo(geo);
         Self { 
             segments, 
-            strategy: SimulationStrategy::Tlm
+            strategy: SimulationStrategy::Tlm,
+            acoustic_constants: AcousticConstants::default(),
         }
     }
     
     pub fn with_strategy(geo: &Vec<[f64; 2]>, strategy: SimulationStrategy) -> Self {
         let segments = create_segments_from_geo(geo);
-        Self { segments, strategy }
+        Self { segments, strategy, acoustic_constants: AcousticConstants::default() }
     }
 
     pub fn impedance(&self, freqs: &[f64]) -> Vec<Complex<f64>> {
         match self.strategy {
             SimulationStrategy::Tlm => {
-                let constants = AcousticConstants::default();
                 freqs.iter()
-                    .map(|&f| cadsd_ze_with_losses(&self.segments, f, &constants, true))
+                    .map(|&f| cadsd_ze_with_losses(&self.segments, f, &self.acoustic_constants, true))
                     .collect()
             }
             SimulationStrategy::Waveguide => self.waveguide_impedance(freqs),

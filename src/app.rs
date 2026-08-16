@@ -91,6 +91,7 @@ pub struct CadsdState {
     pub optimizer_running: bool,
     pub optimizer_paused: bool,
     pub optimizer_error: Option<String>,
+    pub temperature: f32,
     
     // Frequency grid config
     pub freq_min: f32,
@@ -178,6 +179,7 @@ impl Default for CadsdState {
             optimizer_running: false,
             optimizer_paused: false,
             optimizer_error: None,
+            temperature: settings.temperature,
             freq_min: 20.0,
             freq_max: 2000.0,
             freq_points: 200,
@@ -1301,6 +1303,10 @@ fn show_settings_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
     });
     
     ui.separator();
+    ui.label("Acoustic Environment:");
+    ui.add(egui::Slider::new(&mut state.temperature, -20.0..=50.0).text("Temperature (°C)"));
+    
+    ui.separator();
     ui.label("Default Simulation Strategy:");
     ui.horizontal(|ui| {
         ui.selectable_value(&mut state.default_strategy, "Tlm".to_string(), "TLM");
@@ -1330,7 +1336,7 @@ fn show_settings_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
                 .set_file_name("settings.json")
                 .save_file() {
                 let settings = AppSettings {
-                    temperature: 20.0,
+                    temperature: state.temperature as f32,
                     wall_thickness: 4.0,
                     show_3d: true,
                     mesh_rotation_enabled: false,
@@ -1355,6 +1361,7 @@ fn show_settings_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
                 let settings = AppSettings::load_from_file(path.to_str().unwrap_or_default());
                 state.theme = settings.theme;
                 state.log_verbosity = settings.log_verbosity;
+                state.temperature = settings.temperature;
                 state.default_strategy = settings.default_strategy;
                 state.default_mutation = settings.default_mutation;
                 log::info!("Configuration loaded from {}", path.display());
@@ -1390,10 +1397,11 @@ fn compute_spectrum(state: &mut CadsdState) {
     
     state.frequencies = freqs.clone();
     
-    let simulator = DidgeridooSimulator::with_strategy(
+    let mut simulator = DidgeridooSimulator::with_strategy(
         &geo.geo,
         state.simulation_strategy
     );
+    simulator.acoustic_constants = crate::sim::AcousticConstants::for_temperature(state.temperature as f64);
     
     let spectrum = simulator.impedance(&freqs);
     state.impedances = spectrum.iter().map(|c| c.norm()).collect();

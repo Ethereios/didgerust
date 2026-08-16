@@ -339,9 +339,26 @@ use crate::Geo;
     #[test]
     fn test_prime_generator() {
         let mut gen = PrimeGenerator::new(1000);
-assert_eq!(gen.next_prime(), 2);
-    assert_eq!(gen.next_prime(), 3);
-    assert_eq!(gen.next_prime(), 5);
-    assert_eq!(gen.next_prime(), 7);
+        assert_eq!(gen.next_prime(), 2);
+        assert_eq!(gen.next_prime(), 3);
+        assert_eq!(gen.next_prime(), 5);
+        assert_eq!(gen.next_prime(), 7);
+    }
+
+    #[test]
+    fn test_waveguide_with_toneholes() {
+        use crate::tonehole::Tonehole;
+        let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+        let toneholes = vec![Tonehole::new(500.0, 12.0, 5.0, true)];
+        let engine = WaveguideEngine::from_geo_with_toneholes(
+            &geo,
+            &toneholes,
+            AcousticConstants::default(),
+        );
+        let z_with = engine.transfer_function(440.0);
+        let z_without = WaveguideEngine::from_geo(&geo).transfer_function(440.0);
+        assert!(z_with.norm() > 0.0);
+        assert!(z_without.norm() > 0.0);
+        assert!((z_with - z_without).norm() > 1e-10, "Toneholes should change impedance");
     }
 }

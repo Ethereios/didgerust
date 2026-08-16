@@ -4,7 +4,8 @@
 
 use cadsd::Geo;
 use cadsd::visualization::{generate_text_report, plot_bore_geometry, plot_evolution_progress};
-use cadsd::sim::{find_resonance_peaks, SimulationStrategy};
+use cadsd::sim::{find_resonance_peaks, SimulationStrategy, DidgeridooSimulator, AcousticConstants};
+use cadsd::tonehole::Tonehole;
 use std::fs;
 use std::path::Path;
 
@@ -81,4 +82,52 @@ fn test_geometry_to_simulation_workflow() {
     let impedances = cadsd::acoustical_simulation(&geo, &freqs, "tlm_cython").unwrap();
     assert!(!impedances.is_empty(), "Impedance spectrum should not be empty");
     assert_eq!(impedances.len(), freqs.len());
+}
+
+#[test]
+fn test_tlm_python_simulation() {
+    let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+    let freqs: Vec<f64> = (20..=200).step_by(10).map(|x| x as f64).collect();
+    let impedances = cadsd::acoustical_simulation(&geo, &freqs, "tlm_python").unwrap();
+    assert!(!impedances.is_empty(), "TLM Python impedance spectrum should not be empty");
+    assert_eq!(impedances.len(), freqs.len());
+}
+
+#[test]
+fn test_tlm_cython_simulation() {
+    let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+    let freqs: Vec<f64> = (20..=200).step_by(10).map(|x| x as f64).collect();
+    let impedances = cadsd::acoustical_simulation(&geo, &freqs, "tlm_cython").unwrap();
+    assert!(!impedances.is_empty(), "TLM Cython impedance spectrum should not be empty");
+    assert_eq!(impedances.len(), freqs.len());
+}
+
+#[test]
+fn test_acoustic_constants_temperature() {
+    let cold = AcousticConstants::for_temperature(0.0);
+    let warm = AcousticConstants::for_temperature(40.0);
+    assert!(warm.c > cold.c, "Speed of sound should increase with temperature");
+    assert!(warm.rho < cold.rho, "Air density should decrease with temperature");
+}
+
+#[test]
+fn test_tonehole_impedance() {
+    let th = Tonehole::new(500.0, 10.0, 5.0, true);
+    let constants = AcousticConstants::for_temperature(20.0);
+    let z_open = th.open_impedance(440.0, &constants);
+    assert!(z_open.norm() > 0.0, "Open tonehole impedance should be positive");
+    
+    let z_closed = th.closed_impedance(440.0, &constants);
+    assert!(z_closed.norm() > 0.0, "Closed tonehole impedance should be positive");
+}
+
+#[test]
+fn test_simulator_with_acoustic_constants() {
+    let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+    let mut simulator = DidgeridooSimulator::from_geo(&geo.geo);
+    simulator.strategy = SimulationStrategy::Tlm;
+    let freqs: Vec<f64> = (20..=200).step_by(10).map(|x| x as f64).collect();
+    let spectrum = simulator.impedance(&freqs);
+    assert!(!spectrum.is_empty(), "Simulator spectrum should not be empty");
+    assert_eq!(spectrum.len(), freqs.len());
 }

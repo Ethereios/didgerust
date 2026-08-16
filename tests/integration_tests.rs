@@ -383,3 +383,54 @@ fn test_simulator_peaks_methods() {
     
     let _peaks_phase = sim.peaks_phase_based(&freqs, 1, 0.01);
 }
+
+#[test]
+fn test_default_simulator() {
+    use cadsd::integration::DefaultSimulator;
+    let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+    let sim = DefaultSimulator;
+    let freqs = vec![100.0, 200.0, 440.0];
+    let spectrum = sim.simulate(&geo, &freqs);
+    assert_eq!(spectrum.len(), freqs.len());
+    for &z in &spectrum {
+        assert!(z >= 0.0, "Impedance magnitude should be non-negative");
+    }
+    let fundamental = sim.get_fundamental(&geo);
+    if let Some(f) = fundamental {
+        assert!(f > 0.0, "Fundamental frequency should be positive");
+    }
+}
+
+#[test]
+fn test_default_optimizer() {
+    use cadsd::integration::DefaultOptimizer;
+    let optimizer = DefaultOptimizer;
+    let geo = optimizer.optimize(100.0, 10, 5);
+    assert!(!geo.geo.is_empty(), "Optimized geometry should not be empty");
+    assert!(geo.length() > 0.0, "Optimized geometry should have positive length");
+}
+
+#[test]
+fn test_geometry_exporter() {
+    use cadsd::export::GeometryExporter;
+    let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+    let obj = GeometryExporter::export_obj(&geo);
+    assert!(obj.contains("# Wavefront OBJ"));
+    assert!(obj.contains("v "));
+    
+    let gltf = GeometryExporter::export_gltf(&geo);
+    assert!(gltf.is_empty());
+}
+
+#[test]
+fn test_data_exporter() {
+    use cadsd::export::DataExporter;
+    let freqs = vec![100.0, 200.0, 440.0];
+    let impedances = vec![10.0, 20.0, 30.0];
+    let csv = DataExporter::export_spectrum_csv(&freqs, &impedances);
+    assert!(csv.contains("frequency,impedance"));
+    assert!(csv.contains("100"));
+    assert!(csv.contains("10"));
+    assert!(csv.contains("440"));
+    assert!(csv.contains("30"));
+}

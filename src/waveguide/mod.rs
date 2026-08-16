@@ -361,4 +361,19 @@ use crate::Geo;
         assert!(z_without.norm() > 0.0);
         assert!((z_with - z_without).norm() > 1e-10, "Toneholes should change impedance");
     }
+
+    #[test]
+    fn test_waveguide_simulator() {
+        let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+        let sim = WaveguideSimulator::new(&geo);
+        assert_eq!(sim.n_segments(), 20);
+        assert!((sim.total_length() - 1.0).abs() < 1e-6);
+        
+        let freqs = vec![100.0, 200.0, 440.0, 1000.0];
+        let spec = sim.compute_impedance(&freqs);
+        assert_eq!(spec.len(), 4);
+        for z in spec.iter() {
+            assert!(z.norm() > 0.0, "Impedance should be finite");
+        }
+    }
 }

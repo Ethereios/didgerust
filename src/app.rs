@@ -94,6 +94,7 @@ pub struct CadsdState {
     pub optimizer_running: bool,
     pub optimizer_paused: bool,
     pub optimizer_error: Option<String>,
+    pub optimizer_n_toneholes: usize,
     pub temperature: f32,
     
     // Frequency grid config
@@ -193,6 +194,7 @@ impl Default for CadsdState {
             optimizer_running: false,
             optimizer_paused: false,
             optimizer_error: None,
+            optimizer_n_toneholes: 0,
             temperature: settings.temperature,
             freq_min: 20.0,
             freq_max: 2000.0,
@@ -386,6 +388,7 @@ pub fn start_optimization(state: &mut CadsdState, mut channels: ResMut<Optimizer
     let top_diameter = state.top_diameter as f64;
     let bottom_diameter = state.bottom_diameter as f64;
     let segments = state.segments;
+    let n_toneholes = state.optimizer_n_toneholes;
 
     thread::spawn(move || {
         let result = (|| {
@@ -401,7 +404,7 @@ pub fn start_optimization(state: &mut CadsdState, mut channels: ResMut<Optimizer
                 0.3,
                 0.0,
                 length * 0.7,
-                0,
+                n_toneholes,
             );
 
             let params = EvolutionParameters {
@@ -1087,6 +1090,10 @@ fn show_optimizer_panel(ui: &mut egui::Ui, state: &mut CadsdState, channels: Res
     ui.add(egui::Slider::new(&mut state.mutation_rate, 0.0..=1.0).text("Mutation Rate"));
     ui.add(egui::Slider::new(&mut state.crossover_rate, 0.0..=1.0).text("Crossover Rate"));
     ui.add(egui::Slider::new(&mut state.elite_size, 1..=20).text("Elite Size"));
+    
+    ui.separator();
+    ui.label("Tonehole Parameters:");
+    ui.add(egui::Slider::new(&mut state.optimizer_n_toneholes, 0..=5).text("Number of Toneholes"));
     
     ui.separator();
     ui.label("Loss Function Components:");

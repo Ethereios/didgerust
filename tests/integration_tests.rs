@@ -207,3 +207,35 @@ fn test_tonehole_evolutionary_optimization() {
     assert!(loss >= 0.0);
     assert!(loss.is_finite());
 }
+
+#[test]
+fn test_tonehole_tuning_loss_integration() {
+    use cadsd::loss::ToneholeTuningLoss;
+use cadsd::loss::LossComponent;
+    use cadsd::evo::Genome;
+    
+    let genome = KigaliGenome::new(
+        10, 32.0, 50.0, 80.0, 1800.0, 1500.0, 0, 0.3, 0.0, 300.0, 2,
+    );
+    let (_geo, toneholes) = genome.geo_and_toneholes();
+    assert_eq!(toneholes.len(), 2);
+    
+    let targets = vec![
+        (0.3, 0.5, 0.3, 0.0),
+        (0.7, 0.4, 0.2, 0.0),
+    ];
+    let loss_fn = ToneholeTuningLoss::new(targets, 1.0);
+    
+    let f_log: Vec<f64> = vec![];
+    let amps: Vec<f64> = vec![];
+    let all_f: Vec<f64> = vec![];
+    let all_z: Vec<f64> = vec![];
+    let idx: Vec<usize> = vec![];
+    
+    let loss = loss_fn.calculate_with_toneholes(&f_log, &amps, &all_f, &all_z, &idx, &toneholes);
+    assert!(loss >= 0.0);
+    assert!(loss.is_finite());
+    
+    let empty_loss = loss_fn.calculate_with_toneholes(&f_log, &amps, &all_f, &all_z, &idx, &[]);
+    assert_eq!(empty_loss, 0.0);
+}

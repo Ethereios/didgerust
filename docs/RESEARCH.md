@@ -892,23 +892,23 @@ This is the strategy used by Wang (MIT 2019) and by contemporary aerospace multi
 ---
  
 ## 15. Implementation Status Update (2026-08-16)
- 
+
 ### 15.1 Recent Fixes Applied
- 
+
 | Issue | Resolution | Files Modified |
 |-------|------------|----------------|
 | **AtomicFloat64 compilation** | Fixed tuple-struct wrapper using `AtomicU64` with manual `Clone` impl; resolved type visibility issues | `src/audio/mod.rs` |
 | **nn-integration Complex type** | Restored proper `num_complex::Complex` usage and `complex_activations` module behind feature flag | `src/nn/mod.rs` |
 | **Radiation impedance tests** | Updated test bounds in `src/sim/mod.rs` to match physical reality (magnitudes up to 1e7, frequency-scaling ratio 0.5–100) | `src/sim/mod.rs` |
- 
+
 ### 15.2 Current Test Suite Status
- 
-- **All 66 tests pass** with full feature set: `--features "nn-integration diff-tlm fdtd-validator md-lif cpal-integration"`
+
+- **All 66 tests pass** with full feature set: `--features "nn-integration diff-tlm md-lif cpal-integration"`
 - Build succeeds with only minor warnings (unused imports, dead code, non-snake_case identifiers)
 - No blocking errors remain
- 
+
 ### 15.3 Remaining Technical Debt
- 
+
 | Warning | Location | Priority |
 |---------|----------|----------|
 | Unused import `num_complex::Complex` | `src/nn/mod.rs:14` | Low |
@@ -916,9 +916,9 @@ This is the strategy used by Wang (MIT 2019) and by contemporary aerospace multi
 | Unused variables `geo`, `curvature` | `src/fdtd/mod.rs:87,121` | Low |
 | Dead code fields in `DifferentiableTLM`, `NeuralFitnessPredictor` | `src/diff_tlm.rs:201,314` | Medium |
 | Non-snake_case variables `kL`, `cos_kL`, `sin_kL` | `src/diff_tlm.rs:133-136` | Low |
- 
+
 These are non-blocking warnings that do not affect correctness but should be addressed in a cleanup pass.
- 
+
 ### 15.4 Completed Implementation Summary
 
 **1. ✅ Radiation Impedance Upgrade (COMPLETED)**
@@ -942,7 +942,7 @@ These are non-blocking warnings that do not affect correctness but should be add
 - Added `Segment::new_with_curvature` for bent geometries.
 - Verified by passing `test_bent_effective_length`.
 
-## 15.5 Updated Pending Tasks
+### 15.5 Updated Pending Tasks
 
 | Task | Estimated Effort | Complexity | Status |
 |------|------------------|------------|--------|
@@ -952,5 +952,105 @@ These are non-blocking warnings that do not affect correctness but should be add
 | Test Suite Performance Optimization | Low | Low | Deferred for Now |
 
 ---
- 
-*Document generated 2026-08-13. Updated 2026-08-16 to include implementation status.*
+
+## 16. Session Work Summary (2026-08-17)
+
+### 16.1 Modules Created This Session
+
+| Module | Description | Status |
+|--------|-------------|--------|
+| `src/fdtd/mod.rs` | 3-D Yee staggered-grid FDTD acoustic solver with solid masking, source injection, CFL stability check, and spectrum extraction | **New** — replaces unstable FDTD removed in 4689d76 |
+| `src/prime_conv/mod.rs` | Prime-sized 1-D convolution block (OS-CNN inspired) + complex-valued linear layers with Wirtinger backpropagation + complex activations (CReLU, modReLU, zReLU) | **New** |
+| `src/dwm/mod.rs` | 2-D rectangular and 3-D tetrahedral Digital Waveguide Mesh with scattering junctions, boundary conditions, and line extraction | **New** |
+
+### 16.2 Modules Already Existing Before This Session
+
+The following were **already implemented** in prior commits and were **not** created during this session:
+
+| Module | Commit | Description |
+|--------|--------|-------------|
+| `src/nn/mod.rs` | 0eff1e5 | Complex-valued neural network primitives (`complex_activations`, `differentiable` TLM interface) |
+| `src/diff_tlm.rs` | 0eff1e5 | Differentiable TLM with complex linear layers, Wirtinger calculus backprop, radiation impedance |
+| `src/waveguide/mod.rs` | prior | 1-D waveguide cascade with tonehole support, transfer function, fast/slow impedance paths |
+| Optimizer loop with progress callbacks | prior | `EvolutionaryOptimizer::evolve_with_progress` in `src/app.rs:447` |
+| 3-D bore preview with bevy_gizmos | prior | `draw_bore_gizmos` in `src/app.rs:272` |
+| Peak markers toggle | prior | `show_peak_markers` in `src/app.rs:115` |
+| Phase overlay toggle | prior | `show_phase` in `src/app.rs:114` |
+| Loss curve plot | prior | `draw_loss_curve` in `src/app.rs:987` |
+
+### 16.3 Honest Assessment
+
+**Accomplished this session:**
+- Created 3 new modules: FDTD, prime-conv, DWM
+- Added module declarations in `src/lib.rs`
+- Fixed compilation errors in new modules
+- All 77 tests pass
+
+**Not accomplished this session (contrary to initial claims):**
+- Optimizer loop wiring — already existed, no changes made
+- 3-D bore preview — already existed, no changes made
+- Phase overlay / peak markers / loss curve — already existed, no changes made
+- Tonehole editor UI and parametric shape presets — not implemented
+- Clippy run — not performed
+
+### 16.4 Key Research Findings This Session
+
+**Prime Convolutional Networks (OS-CNN)**
+- Tang et al. (ICLR 2022): prime-sized kernels `{2,3,5,7,11,13,17,...}` cover all receptive-field sizes via Goldbach's conjecture
+- Parameter complexity: **O(r² / log r)** vs O(r²) for sequential kernels
+- EcoScale-Net (2025): 90% parameter reduction, 99% FLOP reduction via hierarchical kernel capping
+
+**Complex-Valued NNs for Audio**
+- ComVo (ICLR 2026): CVNNs outperform real-valued networks on waveform generation
+- Wind instrument impedance is inherently complex (R + jX); real-valued networks destroy phase coupling
+- Wirtinger calculus enables proper backpropagation through non-holomorphic activations (CReLU, modReLU)
+
+**Digital Waveguide Mesh (DWM)**
+- Murphy et al. (2007): 2-D/3-D scattering-junction networks for complex geometries
+- De Sena et al. (2015): Scattering Delay Networks with arbitrary topology and impedance boundaries
+- For didgerust: handles bent bores and branching where 1-D TLM assumptions break down
+
+---
+
+## 17. Long-Term Goals and Roadmap
+
+### 17.1 Near-Term (1-3 months)
+
+| Goal | Approach | Success Criterion |
+|------|----------|-------------------|
+| **Surrogate Impedance Model** | Train `ComplexPrimeMLP` on (genome → complex spectrum) pairs from existing simulator | <1 ms inference, <5 cents error vs TLM |
+| **Gradient-Based Optimization** | Wire `DiffTLM` + Adam optimizer for bore-shape refinement | Sub-cent tuning in <500 gradient steps |
+| **Tonehole Editor UI** | Add drag-and-drop tonehole positioning + parametric presets (open/closed, diameter, chimney height) | Interactive tonehole placement in GUI |
+| **Multi-Fidelity Validation** | Compare TLM vs DWM vs FDTD on canonical geometries | <2% impedance magnitude error between models |
+
+### 17.2 Medium-Term (3-6 months)
+
+| Goal | Approach | Success Criterion |
+|------|----------|-------------------|
+| **PINN Surrogate** | Physics-informed neural network predicting complex impedance from bore geometry | 100× speedup over TLM, ±5 cents accuracy |
+| **Neural Fitness Predictor** | Small MLP predicting top-5 resonance frequencies from genome vector | 5-10× wall-clock speedup in evolutionary loop |
+| **Time-Domain Synthesis** | Lip-valve nonlinearity + waveguide delay lines + cpal audio output | Playable drone with stable toot transitions |
+| **Bent-Bore Validation** | FDTD validation of bent-shape correction against 3-D mesh | Quantitative error bounds for curvature correction |
+
+### 17.3 Long-Term (6-12 months)
+
+| Goal | Approach | Success Criterion |
+|------|----------|-------------------|
+| **End-to-End Differentiable Pipeline** | Differentiable TLM → prime-conv surrogate → gradient-based design | Fully automatic bore optimization from target spectrum |
+| **Real-Time Audio Backend** | cpal/rodio low-latency output with MIDI breath controller input | <10ms latency, musically responsive |
+| **Multi-Instrument Support** | Extend beyond didgeridoo to trumpet, clarinet, flute models |通用 waveguide + DWM framework |
+| **Published Validation Study** | Compare didgerust predictions against measured impedance data | Peer-reviewed benchmark dataset |
+
+### 17.4 Crate Selection (Updated)
+
+| Task | Primary Crate | Rationale |
+|------|---------------|-----------|
+| Differentiable TLM | Custom scalar autodiff (in `src/diff_tlm.rs`) | Already implemented; avoids archived `autodiff-rs` dependency |
+| Complex-valued CNN | `tch-rs` (future) | Native complex tensor support, mature ecosystem |
+| PINN surrogate | `tch-rs` or `burn` | GPU acceleration, autodiff, production-ready |
+| FDTD/DWM validation | Pure Rust (in `src/fdtd/`, `src/dwm/`) | No external ML dependency needed |
+| Audio synthesis | `cpal` + `rodio` | Already partially integrated |
+
+---
+
+*Document generated 2026-08-13. Updated 2026-08-17 to include session work summary and long-term goals.*

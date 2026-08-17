@@ -622,42 +622,61 @@ impl DidgeridooSimulator {
     fn complex_impedance(&self, freqs: &[f64]) -> Vec<Complex<f64>> {
         use std::f64::consts::PI;
         
+        let elements = insert_toneholes(&self.segments, &self.toneholes);
+        
         freqs.iter().map(|&freq| {
             let omega = 2.0 * PI * freq;
-            let k = omega / C;
+            let constants = &self.acoustic_constants;
+            let _k = omega / constants.c;
             let mut m_total = Matrix2::identity();
-            let mut total_phase_shift = 0.0;
             
-            for seg in &self.segments {
-                let delta = (2.0 * 1.81e-5 / (1.225 * omega)).sqrt();
-                let alpha = delta * (seg.d0 + seg.d1) / (2.0 * seg.d0 * seg.d1);
-                let k_complex = Complex::new(k, alpha);
-                let cos_kl = (k_complex * seg.l).cos();
-                let j_sin_kl = (k_complex * seg.l).sin();
-                let zc = seg.r0 * (1.0 + Complex::new(0.0, alpha / k));
-                let t = Matrix2::new(
-                    cos_kl,
-                    zc * j_sin_kl,
-                    j_sin_kl / zc,
-                    cos_kl,
-                );
-                m_total = ap(&m_total, &t);
-                total_phase_shift += (k * seg.l).sin().atan2((k * seg.l).cos());
+            for elem in &elements {
+                match elem {
+                    TlmElement::Segment(seg) => {
+                        let (tw, zcw) = viscothermal_loss_params(seg, freq, constants);
+                        let k_complex = tw;
+                        let zc = Complex::new(zcw.re, zcw.im);
+                        let cos_kl = (k_complex * seg.effective_length).cos();
+                        let sin_kl = (k_complex * seg.effective_length).sin();
+                        let zc_safe = if zc.norm() < 1e-15 { Complex::new(1e-15, 0.0) } else { zc };
+                        let t = Matrix2::new(
+                            cos_kl,
+                            Complex::new(0.0, 1.0) * zc_safe * sin_kl,
+                            Complex::new(0.0, 1.0) * sin_kl / zc_safe,
+                            cos_kl,
+                        );
+                        m_total = ap(&m_total, &t);
+                    }
+                    TlmElement::Tonehole(th) => {
+                        let z_th = if th.is_open {
+                            th.open_impedance(freq, constants)
+                        } else {
+                            th.closed_impedance(freq, constants)
+                        };
+                        let y_th = if z_th.norm() > 1e-15 {
+                            Complex::new(1.0, 0.0) / z_th
+                        } else {
+                            Complex::new(1e15, 0.0)
+                        };
+                        let shunt = Matrix2::new(
+                            Complex::new(1.0, 0.0),
+                            Complex::new(0.0, 0.0),
+                            y_th,
+                            Complex::new(1.0, 0.0),
+                        );
+                        m_total = ap(&m_total, &shunt);
+                    }
+                }
             }
             
             let last = self.segments.last().expect("at least one segment");
             let r_last = (last.d1 / 2.0).max(1e-6);
-            let z_rad = Complex::new(
-                RHO * C / (2.0 * PI * r_last),
-                RHO * C * 0.6 / (PI * r_last)
-            );
-            
+            let z_open = za(freq, r_last, constants.rho, constants.c, constants.nu);
             let a = m_total[(0, 0)];
             let b = m_total[(0, 1)];
             let c = m_total[(1, 0)];
             let d = m_total[(1, 1)];
-            let z_in = (a * z_rad + b) / (c * z_rad + d);
-            z_in * Complex::new(0.0, total_phase_shift * 0.01).exp()
+            (a * z_open + b) / (c * z_open + d)
         }).collect()
     }
 }

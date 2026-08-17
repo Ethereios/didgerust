@@ -96,6 +96,9 @@ pub struct CadsdState {
     pub optimizer_paused: bool,
     pub optimizer_error: Option<String>,
     pub optimizer_n_toneholes: usize,
+    pub use_surrogate_loss: bool,
+    pub surrogate_trained: bool,
+    pub use_gradient_optimizer: bool,
     pub temperature: f32,
     
     // Frequency grid config
@@ -132,8 +135,11 @@ pub struct CadsdState {
     pub toneholes: Vec<Tonehole>,
     pub drag_tonehole_index: Option<usize>,
     pub selected_tonehole_index: Option<usize>,
+    pub selected_tonehole_preset: crate::tonehole::ToneholePreset,
+    pub drag_tonehole_3d: Option<usize>,
     pub tonehole_impedance_freqs: Vec<f64>,
     pub tonehole_impedances: Vec<f64>,
+    pub surrogate_model: Option<crate::prime_conv::SurrogateLossFunction>,
     
     // ---- Phase B: Settings Panel ----
     pub theme: String,
@@ -198,6 +204,9 @@ impl Default for CadsdState {
             optimizer_paused: false,
             optimizer_error: None,
             optimizer_n_toneholes: 0,
+            use_surrogate_loss: false,
+            surrogate_trained: false,
+            use_gradient_optimizer: false,
             temperature: settings.temperature,
             freq_min: 20.0,
             freq_max: 2000.0,
@@ -238,8 +247,11 @@ impl Default for CadsdState {
             toneholes: Vec::new(),
             drag_tonehole_index: None,
             selected_tonehole_index: None,
+            selected_tonehole_preset: crate::tonehole::ToneholePreset::None,
+            drag_tonehole_3d: None,
             tonehole_impedance_freqs: Vec::new(),
             tonehole_impedances: Vec::new(),
+            surrogate_model: None,
             // Phase B: Settings
             theme: settings.theme.clone(),
             log_verbosity: settings.log_verbosity,
@@ -268,8 +280,11 @@ pub fn setup(mut commands: Commands) {
     commands.insert_resource(OptimizerChannels { rx: None, pause_flag: None });
 }
 
-/// Draw 3D bore preview using bevy_gizmos
-pub fn draw_bore_gizmos(mut gizmos: Gizmos, state: Res<CadsdState>) {
+/// Draw 3D bore preview using bevy_gizmos with tonehole markers
+pub fn draw_bore_gizmos(
+    mut gizmos: Gizmos,
+    state: Res<CadsdState>,
+) {
     let geo = current_geo(&state);
     let points = &geo.geo;
     
@@ -286,14 +301,12 @@ pub fn draw_bore_gizmos(mut gizmos: Gizmos, state: Res<CadsdState>) {
         let x2 = points[i + 1][0] as f32 * scale;
         let r2 = points[i + 1][1] as f32 * scale;
         
-        // Draw centerline
         gizmos.line(
             Vec3::new(x1, 0.0, 0.0),
             Vec3::new(x2, 0.0, 0.0),
             Color::WHITE,
         );
         
-        // Draw bore profile as two lines (top and bottom of bore cross-section)
         gizmos.line(
             Vec3::new(x1, r1, 0.0),
             Vec3::new(x2, r2, 0.0),
@@ -306,23 +319,18 @@ pub fn draw_bore_gizmos(mut gizmos: Gizmos, state: Res<CadsdState>) {
         );
     }
     
-    // Draw end caps
-    if let Some(first) = points.first() {
-        let r = first[1] as f32 * scale;
-        gizmos.line(
-            Vec3::new(0.0, -r, 0.0),
-            Vec3::new(0.0, r, 0.0),
-            Color::srgb(0.8, 0.4, 0.2),
-        );
-    }
-    if let Some(last) = points.last() {
-        let r = last[1] as f32 * scale;
-        let x = last[0] as f32 * scale;
-        gizmos.line(
-            Vec3::new(x, -r, 0.0),
-            Vec3::new(x, r, 0.0),
-            Color::srgb(0.8, 0.4, 0.2),
-        );
+    // Draw tonehole markers in 3D
+    for (i, th) in state.toneholes.iter().enumerate() {
+        let x = th.x as f32 * scale;
+        let r = th.diameter as f32 * scale * 0.5;
+        let is_selected = state.drag_tonehole_3d == Some(i) || state.selected_tonehole_index == Some(i);
+        let color = if th.is_open {
+            if is_selected { Color::srgb(1.0, 0.9, 0.0) } else { Color::srgb(1.0, 0.3, 0.3) }
+        } else {
+            if is_selected { Color::srgb(0.9, 0.9, 0.0) } else { Color::srgb(0.5, 0.5, 0.5) }
+        };
+        
+        gizmos.sphere(Vec3::new(x, r, 0.0), r * 0.8, 8, color);
     }
 }
 
@@ -362,6 +370,87 @@ pub fn push_geo_history(state: &mut CadsdState, label: &str) {
     }
 }
 
+/// Run gradient-based optimization using DifferentiableTLM + Adam.
+fn run_gradient_optimization(
+    length: f64,
+    top_diameter: f64,
+    bottom_diameter: f64,
+    n_segments: usize,
+    n_toneholes: usize,
+    num_generations: usize,
+    tx: &mpsc::Sender<OptimizerProgressMsg>,
+) -> OptimizerProgressMsg {
+    let geo = Geo::make_cone(length, top_diameter, bottom_diameter, n_segments);
+    let segments = crate::sim::create_segments_from_geo(&geo.geo);
+    let constants = crate::sim::AcousticConstants::default();
+    let target_freq = 50.0;
+
+    let mut diff_tlm = crate::diff_tlm::DifferentiableTLM::new(segments, target_freq, constants);
+    let mut adam = crate::diff_tlm::AdamOptimizer::new(0.01);
+
+    let num_params = diff_tlm.segments.len() * 3;
+    let mut params = vec![0.0; num_params];
+    let mut grads = vec![0.0; num_params];
+
+    for (i, seg) in diff_tlm.segments.iter().enumerate() {
+        params[i * 3] = seg.length;
+        params[i * 3 + 1] = seg.d0;
+        params[i * 3 + 2] = seg.d1;
+    }
+
+    let mut best_loss = f64::INFINITY;
+
+    for gen in 0..num_generations {
+        let z_in = diff_tlm.forward();
+        let loss = (z_in.re * z_in.re + z_in.im * z_in.im) as f64;
+        let loss_grad = num_complex::Complex64::new(loss, 0.0);
+
+        let seg_grads = diff_tlm.backward(num_complex::Complex64::new(loss_grad.re as f32, loss_grad.im as f32));
+
+        for (i, (dl, dd0, dd1)) in seg_grads.into_iter().enumerate() {
+            grads[i * 3] = dl;
+            grads[i * 3 + 1] = dd0;
+            grads[i * 3 + 2] = dd1;
+        }
+
+        adam.step(&mut params, &grads);
+
+        for (i, seg) in diff_tlm.segments.iter_mut().enumerate() {
+            seg.length = params[i * 3].max(1e-4);
+            seg.d0 = params[i * 3 + 1].max(1e-4);
+            seg.d1 = params[i * 3 + 2].max(1e-4);
+        }
+
+        if loss < best_loss {
+            best_loss = loss;
+        }
+
+        let _ = tx.send(OptimizerProgressMsg::GenerationUpdate {
+            generation: gen + 1,
+            total: num_generations,
+            best_loss,
+        });
+    }
+
+    let final_segs = diff_tlm.get_segments();
+    let mut geo_points = Vec::new();
+    let mut x_acc = 0.0;
+    for seg in &final_segs {
+        x_acc += seg.l * 1000.0;
+        geo_points.push([x_acc, seg.d1 * 1000.0]);
+    }
+
+    let genome_json = serde_json::json!({
+        "segments": geo_points,
+        "loss": best_loss,
+    });
+
+    OptimizerProgressMsg::Complete {
+        best_loss,
+        genome_json,
+    }
+}
+
 /// Start evolutionary optimization in a background thread.
 pub fn start_optimization(state: &mut CadsdState, mut channels: ResMut<OptimizerChannels>) {
     if state.optimizer_running {
@@ -393,10 +482,34 @@ pub fn start_optimization(state: &mut CadsdState, mut channels: ResMut<Optimizer
     let bottom_diameter = state.bottom_diameter as f64;
     let segments = state.segments;
     let n_toneholes = state.optimizer_n_toneholes;
+    let use_surrogate = state.use_surrogate_loss && state.surrogate_trained;
+    let use_gradient = state.use_gradient_optimizer;
+    let trained_surrogate = state.surrogate_model.take();
 
     thread::spawn(move || {
         let result = (|| {
-            let loss_function = crate::loss::CompositeTairuaLoss::with_default_components(50.0);
+            if use_gradient {
+                return run_gradient_optimization(
+                    length,
+                    top_diameter,
+                    bottom_diameter,
+                    segments,
+                    n_toneholes,
+                    num_generations,
+                    &tx,
+                );
+            }
+
+            let base_loss = crate::loss::CompositeTairuaLoss::with_default_components(50.0);
+            let loss_function: Box<dyn crate::evo::LossFunction> = if use_surrogate {
+                if let Some(surrogate) = trained_surrogate {
+                    Box::new(surrogate)
+                } else {
+                    Box::new(base_loss)
+                }
+            } else {
+                Box::new(base_loss)
+            };
             let genome_template = crate::evo::KigaliGenome::new(
                 segments,
                 top_diameter,
@@ -1104,6 +1217,57 @@ fn show_optimizer_panel(ui: &mut egui::Ui, state: &mut CadsdState, channels: Res
     ui.add(egui::Slider::new(&mut state.optimizer_n_toneholes, 0..=5).text("Number of Toneholes"));
     
     ui.separator();
+    ui.heading("Neural Surrogate");
+    ui.checkbox(&mut state.use_surrogate_loss, "Use surrogate loss");
+    if state.use_surrogate_loss {
+    if ui.button("Train Surrogate on Current Geometry").clicked() {
+        let geo = current_geo(state);
+        let segments = crate::sim::create_segments_from_geo(&geo.geo);
+        let constants = crate::sim::AcousticConstants::for_conditions(
+            state.temperature as f64,
+            state.pressure_pa,
+            state.relative_humidity,
+        );
+        let freqs: Vec<f64> = (20..=2000).step_by(20).map(|x| x as f64).collect();
+        
+        let mut surrogate = crate::prime_conv::SurrogateLossFunction::new(
+            20, 100, 1, &[32, 32], 50,
+        );
+        
+        let simulator_fn = move |genome: &[f64]| -> Vec<f64> {
+            let mut geo_points = Vec::new();
+            let mut x_acc = 0.0;
+            for chunk in genome.chunks(3) {
+                let l = chunk.get(0).copied().unwrap_or(0.1).max(0.01);
+                let d0 = chunk.get(1).copied().unwrap_or(0.03).max(0.005);
+                let d1 = chunk.get(2).copied().unwrap_or(0.05).max(0.005);
+                x_acc += l * 1000.0;
+                geo_points.push([x_acc, d1 * 1000.0]);
+            }
+            
+            if geo_points.len() >= 2 {
+                let geo = Geo { geo: geo_points };
+                let mut sim = crate::sim::DidgeridooSimulator::from_geo(&geo.geo);
+                sim.acoustic_constants = constants.clone();
+                let spectrum = sim.impedance(&freqs);
+                spectrum.iter().map(|c| c.norm()).collect()
+            } else {
+                vec![0.0; 50]
+            }
+        };
+        
+        surrogate.train_from_simulator(simulator_fn, 100, 0.01, 10);
+        state.surrogate_model = Some(surrogate);
+        state.surrogate_trained = true;
+    }
+    ui.label(format!("Status: {}", if state.surrogate_trained { "Trained" } else { "Not trained (falling back to TLM)" }));
+    }
+    
+    ui.separator();
+    ui.heading("Optimization Mode");
+    ui.checkbox(&mut state.use_gradient_optimizer, "Use gradient-based optimizer (Adam + DiffTLM)");
+    
+    ui.separator();
     ui.label("Loss Function Components:");
     let mut any_changed = false;
     for (name, enabled, weight) in &mut state.loss_component_toggles {
@@ -1530,6 +1694,20 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
                 state.selected_tonehole_index = Some(i);
             }
         });
+    }
+    
+    ui.label("Tonehole Preset:");
+    egui::ComboBox::from_label("Preset")
+        .selected_text(state.selected_tonehole_preset.name())
+        .show_ui(ui, |ui| {
+            for preset in crate::tonehole::ToneholePreset::all() {
+                ui.selectable_value(&mut state.selected_tonehole_preset, *preset, preset.name());
+            }
+        });
+    
+    if ui.button("Apply Preset").clicked() {
+        state.toneholes = state.selected_tonehole_preset.generate(state.length as f64);
+        state.selected_tonehole_index = None;
     }
     
     if ui.button("Add Tonehole").clicked() {

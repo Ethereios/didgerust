@@ -130,14 +130,14 @@ impl DiffTransferMatrix {
         let len = Cf32::new(seg.length as f32, 0.0);
         
         // k * L
-        let kL = k_complex * len;
+        let k_l = k_complex * len;
         
-        let cos_kL = kL.cos();
-        let sin_kL = kL.sin();
+        let cos_k_l = k_l.cos();
+        let sin_k_l = k_l.sin();
         
         let matrix = [
-            [cos_kL, zc * sin_kL],
-            [Cf32::new(0.0, 1.0 / zc.re) * sin_kL, cos_kL],
+            [cos_k_l, zc * sin_k_l],
+            [Cf32::new(0.0, 1.0 / zc.re) * sin_k_l, cos_k_l],
         ];
         
         Self {
@@ -198,7 +198,7 @@ pub struct DifferentiableTLM {
     segments: Vec<DiffSegment>,
     transfer_matrices: Vec<DiffTransferMatrix>,
     total_matrix: Option<DiffTransferMatrix>,
-    target_frequency: f64,
+    _target_frequency: f64,
     radiation_impedance: Cf32,
 }
 
@@ -221,7 +221,7 @@ impl DifferentiableTLM {
             segments: diff_segments,
             transfer_matrices: Vec::new(),
             total_matrix: None,
-            target_frequency: frequency_hz,
+            _target_frequency: frequency_hz,
             radiation_impedance,
         }
     }
@@ -278,7 +278,7 @@ impl DifferentiableTLM {
     pub fn optimize_step(&mut self, lr: f64) {
         let z_in = self.forward();
         let loss = z_in.re * z_in.re + z_in.im * z_in.im;
-        let loss_grad = Cf32::new(loss as f32, 0.0);
+        let loss_grad = Cf32::new(loss, 0.0);
         
         let gradients = self.backward(loss_grad);
         
@@ -312,8 +312,8 @@ impl DifferentiableTLM {
 pub struct NeuralFitnessPredictor {
     /// Complex-valued MLP for impedance spectrum prediction
     layers: Vec<DenseCLayer<Cf32>>,
-    input_dim: usize,
-    output_dim: usize,
+    _input_dim: usize,
+    _output_dim: usize,
 }
 
 impl NeuralFitnessPredictor {
@@ -331,8 +331,8 @@ impl NeuralFitnessPredictor {
         
         Self {
             layers,
-            input_dim,
-            output_dim,
+            _input_dim: input_dim,
+            _output_dim: output_dim,
         }
     }
 
@@ -346,10 +346,10 @@ impl NeuralFitnessPredictor {
             // Simple dense layer forward pass
             let mut next = vec![Cf32::new(0.0, 0.0); layer.out_features];
             
-            for i in 0..layer.out_features {
-                let mut sum = layer.bias[i].clone();
-                for j in 0..layer.in_features {
-                    sum += x[j].clone() * layer.weight[i][j].clone();
+            for (i, bias) in layer.bias.iter().enumerate().take(layer.out_features) {
+                let mut sum = *bias;
+                for (j, &inp) in x.iter().enumerate().take(layer.in_features) {
+                    sum += layer.weight[i][j] * inp;
                 }
                 next[i] = sum;
             }
@@ -376,11 +376,11 @@ impl NeuralFitnessPredictor {
             // Simple gradient update (placeholder - real backprop would be more complex)
             // Only update the output layer since gradient dimensions match there
             if let Some(last_layer) = self.layers.last_mut() {
-                for i in 0..last_layer.out_features.min(grad.len()) {
+                for (i, grad_i) in grad.iter().enumerate().take(last_layer.out_features.min(grad.len())) {
                     for j in 0..last_layer.in_features {
-                        last_layer.weight[i][j] = last_layer.weight[i][j] - Cf32::new(lr as f32, 0.0) * grad[i].clone();
+                        last_layer.weight[i][j] -= Cf32::new(lr as f32, 0.0) * grad_i;
                     }
-                    last_layer.bias[i] = last_layer.bias[i] - Cf32::new(lr as f32, 0.0) * grad[i].clone();
+                    last_layer.bias[i] -= Cf32::new(lr as f32, 0.0) * grad_i;
                 }
             }
         }
@@ -391,6 +391,75 @@ impl NeuralFitnessPredictor {
         let pred = self.forward(genome);
         let mag_sq: f64 = pred.iter().map(|z| (z.re * z.re + z.im * z.im) as f64).sum();
         mag_sq
+    }
+}
+
+/// Adam optimizer for gradient-based optimization of differentiable TLM parameters.
+#[derive(Debug, Clone)]
+pub struct AdamOptimizer {
+    pub lr: f64,
+    pub beta1: f64,
+    pub beta2: f64,
+    pub epsilon: f64,
+    pub t: usize,
+    pub m: Vec<f64>,
+    pub v: Vec<f64>,
+}
+
+impl AdamOptimizer {
+    pub fn new(lr: f64) -> Self {
+        Self {
+            lr,
+            beta1: 0.9,
+            beta2: 0.999,
+            epsilon: 1e-8,
+            t: 0,
+            m: Vec::new(),
+            v: Vec::new(),
+        }
+    }
+
+    pub fn with_params(lr: f64, beta1: f64, beta2: f64, epsilon: f64) -> Self {
+        Self {
+            lr,
+            beta1,
+            beta2,
+            epsilon,
+            t: 0,
+            m: Vec::new(),
+            v: Vec::new(),
+        }
+    }
+
+    /// Initialize moment estimates for a parameter vector
+    pub fn initialize(&mut self, num_params: usize) {
+        self.m = vec![0.0; num_params];
+        self.v = vec![0.0; num_params];
+        self.t = 0;
+    }
+
+    /// Perform one Adam update step
+    pub fn step(&mut self, params: &mut [f64], grads: &[f64]) {
+        if self.m.len() != params.len() {
+            self.initialize(params.len());
+        }
+
+        self.t += 1;
+        let lr_t = self.lr * (1.0 - self.beta2.powi(self.t as i32)).sqrt() / (1.0 - self.beta1.powi(self.t as i32));
+
+        for i in 0..params.len() {
+            let g = grads[i];
+            self.m[i] = self.beta1 * self.m[i] + (1.0 - self.beta1) * g;
+            self.v[i] = self.beta2 * self.v[i] + (1.0 - self.beta2) * g * g;
+            params[i] -= lr_t * self.m[i] / (self.v[i].sqrt() + self.epsilon);
+        }
+    }
+
+    /// Reset optimizer state
+    pub fn reset(&mut self) {
+        self.m.clear();
+        self.v.clear();
+        self.t = 0;
     }
 }
 
@@ -462,5 +531,17 @@ mod tests {
         
         let fitness = predictor.predict_fitness(&genomes[0]);
         assert!(fitness > 0.0);
+    }
+
+    #[test]
+    fn test_adam_optimizer() {
+        let mut adam = AdamOptimizer::new(0.01);
+        let mut params = vec![1.0, 2.0, 3.0];
+        let grads = vec![0.1, -0.2, 0.3];
+        
+        adam.step(&mut params, &grads);
+        
+        assert!(params[0] < 1.0, "Adam should decrease param with positive grad");
+        assert!(params[1] > 2.0, "Adam should increase param with negative grad");
     }
 }

@@ -17,6 +17,9 @@ pub mod integration;
 pub mod export;
 pub mod waveguide;
 pub mod validation;
+pub mod fdtd;
+pub mod prime_conv;
+pub mod dwm;
 
 // Expose UI module (only when gui-bevy feature is enabled)
 #[cfg(feature = "gui-bevy")]
@@ -32,6 +35,8 @@ pub mod nn;
 // Differentiable TLM module (behind diff-tlm feature flag)
 #[cfg(feature = "diff-tlm")]
 pub mod diff_tlm;
+
+// MD LIF module (always available)
 pub mod md_lif;
 
 // Re-export local simulation functions

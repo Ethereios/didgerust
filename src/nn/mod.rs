@@ -113,17 +113,17 @@ pub mod differentiable {
             
             if let Some(g) = self.grad_cache.0 {
                 if let Some(ref mut p) = self.length.gradient {
-                    *p = *p + g;
+                    *p += g;
                 }
             }
             if let Some(g) = self.grad_cache.1 {
                 if let Some(ref mut p) = self.d0.gradient {
-                    *p = *p + g;
+                    *p += g;
                 }
             }
             if let Some(g) = self.grad_cache.2 {
                 if let Some(ref mut p) = self.d1.gradient {
-                    *p = *p + g;
+                    *p += g;
                 }
             }
         }

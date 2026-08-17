@@ -195,6 +195,113 @@ impl ToneholeSet {
     }
 }
 
+/// Predefined parametric tonehole configurations for common instrument types.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ToneholePreset {
+    None,
+    ChromaticDidgeridoo,
+    Trumpet,
+    Clarinet,
+    Flute,
+    Saxophone,
+    BagpipeChanter,
+}
+
+impl ToneholePreset {
+    /// Generate toneholes for a bore of given length (mm)
+    pub fn generate(&self, length_mm: f64) -> Vec<Tonehole> {
+        match self {
+            ToneholePreset::None => vec![],
+            ToneholePreset::ChromaticDidgeridoo => {
+                let mut holes = Vec::new();
+                let positions = [0.15, 0.30, 0.45, 0.60, 0.75, 0.90];
+                for &p in &positions {
+                    holes.push(Tonehole::new(
+                        length_mm * p,
+                        14.0,
+                        6.0,
+                        true,
+                    ));
+                }
+                holes
+            }
+            ToneholePreset::Trumpet => {
+                vec![
+                    Tonehole::new(length_mm * 0.25, 18.0, 8.0, true),
+                    Tonehole::new(length_mm * 0.50, 16.0, 7.0, true),
+                    Tonehole::new(length_mm * 0.75, 14.0, 6.0, true),
+                ]
+            }
+            ToneholePreset::Clarinet => {
+                vec![
+                    Tonehole::new(length_mm * 0.20, 16.0, 7.0, true),
+                    Tonehole::new(length_mm * 0.35, 14.0, 6.0, true),
+                    Tonehole::new(length_mm * 0.50, 15.0, 7.0, false),
+                    Tonehole::new(length_mm * 0.65, 13.0, 5.0, true),
+                    Tonehole::new(length_mm * 0.80, 12.0, 5.0, true),
+                ]
+            }
+            ToneholePreset::Flute => {
+                let mut holes = Vec::new();
+                let positions = [0.15, 0.28, 0.41, 0.54, 0.67, 0.80];
+                for &p in &positions {
+                    holes.push(Tonehole::new(
+                        length_mm * p,
+                        12.0,
+                        5.0,
+                        true,
+                    ));
+                }
+                holes
+            }
+            ToneholePreset::Saxophone => {
+                vec![
+                    Tonehole::new(length_mm * 0.18, 20.0, 9.0, true),
+                    Tonehole::new(length_mm * 0.32, 18.0, 8.0, true),
+                    Tonehole::new(length_mm * 0.46, 16.0, 7.0, true),
+                    Tonehole::new(length_mm * 0.60, 17.0, 8.0, false),
+                    Tonehole::new(length_mm * 0.74, 15.0, 6.0, true),
+                    Tonehole::new(length_mm * 0.88, 14.0, 6.0, true),
+                ]
+            }
+            ToneholePreset::BagpipeChanter => {
+                vec![
+                    Tonehole::new(length_mm * 0.22, 10.0, 4.0, true),
+                    Tonehole::new(length_mm * 0.40, 9.0, 4.0, true),
+                    Tonehole::new(length_mm * 0.58, 10.0, 4.0, false),
+                    Tonehole::new(length_mm * 0.76, 8.0, 3.0, true),
+                ]
+            }
+        }
+    }
+
+    /// Get display name for the preset
+    pub fn name(&self) -> &'static str {
+        match self {
+            ToneholePreset::None => "None",
+            ToneholePreset::ChromaticDidgeridoo => "Chromatic Didgeridoo",
+            ToneholePreset::Trumpet => "Trumpet",
+            ToneholePreset::Clarinet => "Clarinet",
+            ToneholePreset::Flute => "Flute",
+            ToneholePreset::Saxophone => "Saxophone",
+            ToneholePreset::BagpipeChanter => "Bagpipe Chanter",
+        }
+    }
+
+    /// Get all available presets
+    pub fn all() -> &'static [ToneholePreset] {
+        &[
+            ToneholePreset::None,
+            ToneholePreset::ChromaticDidgeridoo,
+            ToneholePreset::Trumpet,
+            ToneholePreset::Clarinet,
+            ToneholePreset::Flute,
+            ToneholePreset::Saxophone,
+            ToneholePreset::BagpipeChanter,
+        ]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

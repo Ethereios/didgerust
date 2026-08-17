@@ -3,6 +3,18 @@
 This file documents important features and improvements that are **not yet implemented**.
 These are intentional future goals — not placeholders or stubs.
 
+## Completed (recently merged)
+
+- **CLI for non-Rust developers** — `src/bin/cli.rs` exposes `simulate`, `optimize`, `validate`, `waveguide`, `tonehole`, `ml primes`, and `primes list` commands with JSON output.
+- **Advanced feature CLI access** — experimental features (prime-conv ML, waveguide, tonehole impedance) are callable from the command line without writing Rust code.
+- **Strategy-aware tonehole editing in GUI** — tonehole controls are disabled with a warning when non-TLM strategy is selected.
+- **Tonehole drag-and-drop on 3-D bore gizmo** — existing `draw_bore_gizmos` supports `drag_tonehole_3d`.
+- **`insert_toneholes` direct tests** — empty, single, and multiple-sorted cases covered in `src/sim/mod.rs`.
+- **`bent_effective_length` parameterized tests** — zero, negative, and large curvature cases covered.
+- **`AcousticConstants::for_conditions` edge cases** — extreme temperatures, pressures, and humidities tested.
+- **`EvolutionaryOptimizer` pause/resume test** — `pause_flag` setter covered in `src/evo/mod.rs`.
+- **Geo utility method tests** — `scale_length`, `scale_diameter`, `get_max_d`, `make_bubble`, `diameter_at_x` edge cases covered in `rust-cadsd-accurate`.
+
 ## Acoustics / Simulation
 
 - **Webster Horn Equation solver** — explicit standalone solver for varying cross-section tubes, complementing the current TLM approach.
@@ -15,7 +27,7 @@ These are intentional future goals — not placeholders or stubs.
 
 - **Expose `make_mbeya` and `make_kigali`** — parametric didgeridoo shape generators exist in the accurate crate but are not yet exposed through the wrapper API.
 - **RBF constraint systems** — radial-basis-function constraints for smooth geometry deformation during optimization.
-- **Geo utility method tests** — `scale_length`, `scale_diameter`, `get_max_d`, `make_bubble`, `diameter_at_x` edge cases.
+- **Bent-shape correction integration** — wire `bent_effective_length` into optimizer loss and GUI bore display.
 
 ## Audio
 
@@ -26,6 +38,7 @@ These are intentional future goals — not placeholders or stubs.
 
 - **Consolidate `diff_tlm` and `nn-integration`** — merge `DiffSegment` / `NeuralFitnessPredictor` into a single, correct differentiable TLM with real backpropagation (Wirtinger calculus through the full cascade).
 - **Neural fitness predictor training** — replace the current mean-predictor stub with a real MLP trained on simulation data.
+- **PINN surrogate for bent-geometry correction** — physics-informed neural network to correct TLM predictions for bent bores.
 
 ## Visualization
 
@@ -34,9 +47,8 @@ These are intentional future goals — not placeholders or stubs.
 
 ## GUI / UX
 
-- **Wire up Settings Panel buttons** — "Play Note" should trigger `AudioProcessor`; "Run Simulation" should compute spectrum; "Refresh Preview" should redraw 3D view; Bore Style ComboBox should map to actual geometry presets.
-- **Tonehole drag-and-drop on bore visualization** — currently toneholes are edited via scroll wheel and sliders; direct drag interaction on the bore plot would improve UX.
-- **Strategy-aware tonehole editing** — when a non-TLM strategy is selected, tonehole controls should be disabled rather than just warned.
+- **Settings Panel full wiring** — remaining buttons need backend connections.
+- **3D bore gizmo interaction polish** — camera controls, zoom, rotation.
 
 ## Performance
 
@@ -48,7 +60,3 @@ These are intentional future goals — not placeholders or stubs.
 ## Testing
 
 - **File I/O tests for persistence** — test `AppSettings`, `ProjectState`, and `OptimizerCheckpoint` save/load with real files.
-- **`insert_toneholes` direct tests** — test the tonehole insertion logic with edge cases (multiple toneholes, toneholes at segment boundaries).
-- **`bent_effective_length` parameterized tests** — cover zero, negative, and large curvature values.
-- **`AcousticConstants::for_conditions` edge cases** — extreme temperatures, pressures, and humidities.
-- **`EvolutionaryOptimizer` pause/resume tests** — cover `set_pause_flag` and `evolve_with_progress` callback.

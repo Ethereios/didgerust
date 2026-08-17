@@ -1051,6 +1051,21 @@ The following were **already implemented** in prior commits and were **not** cre
 | FDTD/DWM validation | Pure Rust (in `src/fdtd/`, `src/dwm/`) | No external ML dependency needed |
 | Audio synthesis | `cpal` + `rodio` | Already partially integrated |
 
+### 17.5 CLI Access to Experimental Features
+
+The experimental modules (`prime_conv`, `waveguide`, `fdtd`, `tonehole`, `diff_tlm`) are now accessible via the CLI without requiring Rust knowledge. This allows non-Rust developers and researchers to test scientific features directly from the command line.
+
+| Command | Module | Purpose |
+|---------|--------|---------|
+| `cli ml primes --max-prime 17 --input 10` | `prime_conv` | Test `ComplexPrimeMLP` forward pass with prime-kernel convolutions |
+| `cli primes list --max 100` | `prime_conv` | List prime numbers used as kernel sizes |
+| `cli waveguide cone --length 1500 --top 32 --bottom 65` | `waveguide` | Run 3D waveguide impedance simulation |
+| `cli tonehole --diameter 10 --depth 5 --open` | `tonehole` | Compute tonehole open/closed impedance spectrum |
+| `cli validate cone --length 1500 --top 32 --bottom 65` | `fdtd`/`validation` | Compare TLM vs analytical cylinder impedance |
+| `cli simulate cone --length 1500 --top 32 --bottom 65 --json` | `sim` | Standard TLM simulation with JSON output |
+
+All commands support `--json` for machine-readable output, enabling integration with Python/Matlab/R pipelines for further analysis.
+
 ---
 
 *Document generated 2026-08-13. Updated 2026-08-17 to include session work summary and long-term goals.*

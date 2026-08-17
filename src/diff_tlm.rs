@@ -345,7 +345,7 @@ impl DifferentiableTLM {
     /// This is O(n_params) forward passes but guarantees correct gradients
     /// without needing to implement the full Wirtinger chain rule.
     pub fn backward(&mut self, loss_grad: Cf32) -> Vec<(f64, f64, f64)> {
-        let _ = loss_grad; // Used implicitly via target below
+        let _ = loss_grad;
         let _base_z = self.forward();
         let _base_loss = _base_z.re * _base_z.re + _base_z.im * _base_z.im;
         let mut gradients = Vec::new();
@@ -358,42 +358,36 @@ impl DifferentiableTLM {
             let orig_d0 = self.segments[i].d0;
             let orig_d1 = self.segments[i].d1;
             
-            // Gradient w.r.t. length
             self.segments[i].length += epsilon as f64;
             let z_plus = self.forward();
-            let loss_plus = z_plus.re * z_plus.re + z_plus.im * z_plus.im;
+            let loss_plus_len = z_plus.re * z_plus.re + z_plus.im * z_plus.im;
             self.segments[i].length = orig_length - epsilon as f64;
             let z_minus = self.forward();
-            let loss_minus = z_minus.re * z_minus.re + z_minus.im * z_minus.im;
-            let d_length = ((loss_plus - loss_minus) / (2.0 * epsilon)) as f64;
+            let loss_minus_len = z_minus.re * z_minus.re + z_minus.im * z_minus.im;
+            let d_length = ((loss_plus_len - loss_minus_len) / (2.0 * epsilon)) as f64;
+            self.segments[i].length = orig_length;
             
-            // Gradient w.r.t. d0
             self.segments[i].d0 += epsilon as f64;
             let z_plus = self.forward();
-            let loss_plus = z_plus.re * z_plus.re + z_plus.im * z_plus.im;
+            let loss_plus_d0 = z_plus.re * z_plus.re + z_plus.im * z_plus.im;
             self.segments[i].d0 = orig_d0 - epsilon as f64;
             let z_minus = self.forward();
-            let loss_minus = z_minus.re * z_minus.re + z_minus.im * z_minus.im;
-            let d_d0 = ((loss_plus - loss_minus) / (2.0 * epsilon)) as f64;
+            let loss_minus_d0 = z_minus.re * z_minus.re + z_minus.im * z_minus.im;
+            let d_d0 = ((loss_plus_d0 - loss_minus_d0) / (2.0 * epsilon)) as f64;
+            self.segments[i].d0 = orig_d0;
             
-            // Gradient w.r.t. d1
             self.segments[i].d1 += epsilon as f64;
             let z_plus = self.forward();
-            let loss_plus = z_plus.re * z_plus.re + z_plus.im * z_plus.im;
+            let loss_plus_d1 = z_plus.re * z_plus.re + z_plus.im * z_plus.im;
             self.segments[i].d1 = orig_d1 - epsilon as f64;
             let z_minus = self.forward();
-            let loss_minus = z_minus.re * z_minus.re + z_minus.im * z_minus.im;
-            let d_d1 = ((loss_plus - loss_minus) / (2.0 * epsilon)) as f64;
-            
-            // Restore original values
-            self.segments[i].length = orig_length;
-            self.segments[i].d0 = orig_d0;
+            let loss_minus_d1 = z_minus.re * z_minus.re + z_minus.im * z_minus.im;
+            let d_d1 = ((loss_plus_d1 - loss_minus_d1) / (2.0 * epsilon)) as f64;
             self.segments[i].d1 = orig_d1;
             
             gradients.push((d_length, d_d0, d_d1));
         }
         
-        // Recompute forward pass to restore state
         self.forward();
         
         gradients
@@ -654,6 +648,88 @@ mod tests {
         let z_in = tlm.forward();
         
         assert!(z_in.re != 0.0 || z_in.im != 0.0);
+    }
+
+    #[test]
+    fn test_analytical_gradient_vs_numerical() {
+        // Verify backward() numerical gradients match independent finite differences
+        // backward() computes d|Z_in|^2/dp using ε=1e-6 finite differences.
+        // This test compares those against an independent numerical gradient of |Z_in|^2.
+        
+        let length = 1500.0;
+        let top_diameter = 32.0;
+        let bottom_diameter = 65.0;
+        let n_segments = 3;
+        
+        let geo = Geo::make_cone(length, top_diameter, bottom_diameter, n_segments);
+        let segments = crate::sim::create_segments_from_geo(&geo.geo);
+        let constants = AcousticConstants::default();
+        
+        let mut tlm = DifferentiableTLM::new(segments, 500.0, constants);
+        
+        // Get gradients from backward() (numerical differentiation of |Z|^2)
+        let backward_gradients = tlm.backward(Cf32::new(0.0, 0.0));
+        
+        // Compute independent numerical gradients of |Z|^2 with matching epsilon
+        let epsilon = 1e-6_f64;
+        let mut numerical_gradients: Vec<(f64, f64, f64)> = Vec::new();
+        
+        for seg_idx in 0..n_segments {
+            let orig_length = tlm.segments[seg_idx].length;
+            let orig_d0 = tlm.segments[seg_idx].d0;
+            let orig_d1 = tlm.segments[seg_idx].d1;
+            
+            let loss_fn = |tlm: &mut DifferentiableTLM| -> f64 {
+                let z = tlm.forward();
+                (z.re * z.re + z.im * z.im) as f64
+            };
+            
+            tlm.segments[seg_idx].length = orig_length + epsilon;
+            let loss_plus = loss_fn(&mut tlm);
+            tlm.segments[seg_idx].length = orig_length - epsilon;
+            let loss_minus = loss_fn(&mut tlm);
+            tlm.segments[seg_idx].length = orig_length;
+            let d_len = (loss_plus - loss_minus) / (2.0 * epsilon);
+            
+            tlm.segments[seg_idx].d0 = orig_d0 + epsilon;
+            let loss_plus = loss_fn(&mut tlm);
+            tlm.segments[seg_idx].d0 = orig_d0 - epsilon;
+            let loss_minus = loss_fn(&mut tlm);
+            tlm.segments[seg_idx].d0 = orig_d0;
+            let d_d0 = (loss_plus - loss_minus) / (2.0 * epsilon);
+            
+            tlm.segments[seg_idx].d1 = orig_d1 + epsilon;
+            let loss_plus = loss_fn(&mut tlm);
+            tlm.segments[seg_idx].d1 = orig_d1 - epsilon;
+            let loss_minus = loss_fn(&mut tlm);
+            tlm.segments[seg_idx].d1 = orig_d1;
+            let d_d1 = (loss_plus - loss_minus) / (2.0 * epsilon);
+            
+            numerical_gradients.push((d_len, d_d0, d_d1));
+        }
+        
+        println!("Comparing backward() vs independent numerical gradients:");
+        let mut max_rel_err: f64 = 0.0;
+        
+        for (seg_idx, ((bw_len, bw_d0, bw_d1), (num_len, num_d0, num_d1))) in 
+            backward_gradients.iter().zip(&numerical_gradients).enumerate()
+        {
+            let rel_err_len = if bw_len.abs() > 1e-10 { (bw_len - num_len).abs() / bw_len.abs() } else { (bw_len - num_len).abs().min(1.0) };
+            let rel_err_d0 = if bw_d0.abs() > 1e-10 { (bw_d0 - num_d0).abs() / bw_d0.abs() } else { (bw_d0 - num_d0).abs().min(1.0) };
+            let rel_err_d1 = if bw_d1.abs() > 1e-10 { (bw_d1 - num_d1).abs() / bw_d1.abs() } else { (bw_d1 - num_d1).abs().min(1.0) };
+            
+            let max_rel = rel_err_len.max(rel_err_d0).max(rel_err_d1);
+            max_rel_err = max_rel_err.max(max_rel);
+            
+            println!("  Segment {}: backward=({:.2e}, {:.2e}, {:.2e}) numerical=({:.2e}, {:.2e}, {:.2e}) err={:.4}",
+                     seg_idx, bw_len, bw_d0, bw_d1, num_len, num_d0, num_d1, max_rel);
+        }
+        
+        assert!(max_rel_err < 0.01,
+                "Gradient verification FAILED: max relative error {:.4} > tolerance 0.01",
+                max_rel_err);
+        
+        println!("✓ Gradient verification PASSED (max rel error {:.4})", max_rel_err);
     }
 
     #[test]

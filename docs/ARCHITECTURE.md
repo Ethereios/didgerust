@@ -22,7 +22,12 @@
 ```
 src/
   lib.rs              – crate root; declares public modules
-  geo/mod.rs          – Geo geometry representation + ops
+  main.rs             – binary entrypoint
+  app.rs              – CadsdState, Bevy systems, panel renderers
+  bin/
+    gui.rs            – Bevy app entrypoint
+    cli.rs            – CLI for non-Rust developers (simulate/optimize/validate/ml/waveguide/tonehole/primes)
+  geo/                – (in rust-cadsd-accurate) Geo geometry representation + ops
   sim/mod.rs          – TLM cascade, impedance strategies, peak detection, physics models
   waveguide/mod.rs    – Digital waveguide prototype (frequency-domain)
   evo/mod.rs          – Genome trait, BaseGenome, KigaliGenome, optimizer, PrimeGenerator
@@ -30,12 +35,12 @@ src/
   tonehole/mod.rs     – Tonehole models (open/closed impedance)
   nn/mod.rs           – Neural integration placeholders (behind nn-integration flag)
   persistence/mod.rs  – AppSettings, ProjectState, OptimizerCheckpoint
-  app.rs              – CadsdState, Bevy systems, panel renderers
-  bin/gui.rs          – Bevy app entrypoint
+  prime_conv/mod.rs   – Complex-valued prime-kernel CNN (ComplexPrimeMLP, PrimeConvBlock)
+  fdtd/               – 3-D acoustic FDTD validator
   visualization/      – (future) plotters/egui_plot helpers
   integration/        – (future) external tool bridges
   export/             – (future) WAV, CSV, geometry serialization
-  fdtd/               – (future) 3-D acoustic FDTD validator
+  dwm/                – Digital waveguide mesh prototypes
 ```
 
 ### 1.3 Data Flow
@@ -99,7 +104,12 @@ EvolutionaryOptimizer::evolve() → best genome
 | File dialogs | `rfd` native pickers throughout GUI | ✅ Wired |
 | Undo/redo | `geo_history` + `geo_history_index` | ✅ Fixed off-by-one |
 | Loss caching | `Genome::clone_with_loss`, cached loss preserved in elite selection | ✅ Working |
-| Feature flags | `nn-integration`, `fdtd-validator` in Cargo.toml | ✅ Defined |
+| Feature flags | `nn-integration`, `fdtd-validator`, `diff-tlm`, `md-lif`, `cpal-integration`, `gui-bevy` in Cargo.toml | ✅ Defined |
+| CLI binary | `src/bin/cli.rs` — `simulate`, `optimize`, `validate`, `waveguide`, `tonehole`, `ml primes`, `primes list` with `--json` | ✅ Working |
+| Advanced CLI features | `ml primes`, `waveguide`, `tonehole` expose experimental ML/prime-conv/waveguide/tonehole code to non-Rust users | ✅ Working |
+| Prime-conv ML | `src/prime_conv/mod.rs` — `PrimeGenerator`, `ComplexConv1D`, `PrimeConvBlock`, `SurrogateLossFunction` | ✅ Implemented |
+| FDTD validator | `src/fdtd/mod.rs` + `src/fdtd/validator.rs` | ✅ Implemented |
+| DWM prototypes | `src/dwm/mod.rs` — 2-D/3-D digital waveguide mesh + hybrid solver | ✅ Implemented |
 
 ### 2.2 What Exists But Is Broken / Incomplete
 

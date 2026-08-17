@@ -351,6 +351,46 @@ mod tests {
         let expected = PI * 1000.0 * (16.0 * 16.0 + 16.0 * 30.0 + 30.0 * 30.0) / 3.0;
         assert_abs_diff_eq!(volume, expected, epsilon = 1.0); // Allow some numerical error
     }
+
+    #[test]
+    fn test_scale_length() {
+        let mut geo = Geo::make_cone(1000.0, 32.0, 60.0, 10);
+        geo.scale_length(2000.0);
+        assert_abs_diff_eq!(geo.length(), 2000.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(geo.bellsize(), 60.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_scale_diameter() {
+        let mut geo = Geo::make_cone(1000.0, 32.0, 60.0, 10);
+        geo.scale_diameter(100.0);
+        assert_abs_diff_eq!(geo.get_max_d(), 100.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(geo.bellsize(), 100.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_get_max_d() {
+        let geo = Geo::make_cone(1000.0, 32.0, 60.0, 10);
+        assert_abs_diff_eq!(geo.get_max_d(), 60.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_make_bubble() {
+        let mut geo = Geo::make_cone(1000.0, 32.0, 60.0, 10);
+        geo.make_bubble(500.0, 100.0, 20.0);
+        assert!(geo.geo.len() > 10);
+    }
+
+    #[test]
+    fn test_diameter_at_x() {
+        let geo = Geo::make_cone(1000.0, 32.0, 60.0, 10);
+        let d_start = geo.diameter_at_x(0.0);
+        let d_middle = geo.diameter_at_x(500.0);
+        let d_end = geo.diameter_at_x(1000.0);
+        assert!(d_start > 0.0);
+        assert!(d_middle > d_start);
+        assert!(d_end > d_middle);
+    }
 }
 
 impl Geo {

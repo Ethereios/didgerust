@@ -705,6 +705,121 @@ mod tests {
     }
 
     #[test]
+    fn test_bent_effective_length_zero_curvature() {
+        let ds = 1.0;
+        let d_l = bent_effective_length(ds, 0.0, 0.02, 0.25);
+        assert!((d_l - ds).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_bent_effective_length_negative_curvature() {
+        let ds = 1.0;
+        let kappa = -0.01;
+        let radius = 0.02;
+        let alpha = 0.25;
+        let d_l = bent_effective_length(ds, kappa, radius, alpha);
+        let d_l_pos = bent_effective_length(ds, kappa.abs(), radius, alpha);
+        assert!((d_l - d_l_pos).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_bent_effective_length_large_curvature() {
+        let ds = 1.0;
+        let kappa = 0.1;
+        let radius = 0.02;
+        let alpha = 0.25;
+        let d_l = bent_effective_length(ds, kappa, radius, alpha);
+        assert!(d_l < ds);
+        assert!(d_l > 0.0);
+        let correction = 1.0 - alpha * kappa.powi(2) * radius.powi(2);
+        assert!((d_l / ds - correction.max(0.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_insert_toneholes_empty() {
+        let geo = Geo::make_cone(1500.0, 32.0, 65.0, 10);
+        let segments = create_segments_from_geo(&geo.geo);
+        let elements = insert_toneholes(&segments, &[]);
+        assert_eq!(elements.len(), segments.len());
+        for (elem, seg) in elements.iter().zip(segments.iter()) {
+            match elem {
+                TlmElement::Segment(s) => assert_eq!(s, seg),
+                _ => panic!("Expected segment"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_insert_toneholes_single() {
+        let geo = Geo::make_cone(1500.0, 32.0, 65.0, 10);
+        let segments = create_segments_from_geo(&geo.geo);
+        let toneholes = vec![Tonehole::new(750.0, 10.0, 5.0, true)];
+        let elements = insert_toneholes(&segments, &toneholes);
+        let tonehole_count = elements.iter().filter(|e| matches!(e, TlmElement::Tonehole(_))).count();
+        assert_eq!(tonehole_count, 1);
+        assert!(elements.len() >= segments.len());
+    }
+
+    #[test]
+    fn test_insert_toneholes_multiple_sorted() {
+        let geo = Geo::make_cone(1500.0, 32.0, 65.0, 10);
+        let segments = create_segments_from_geo(&geo.geo);
+        let toneholes = vec![
+            Tonehole::new(500.0, 10.0, 5.0, true),
+            Tonehole::new(250.0, 10.0, 5.0, true),
+            Tonehole::new(1000.0, 10.0, 5.0, true),
+        ];
+        let elements = insert_toneholes(&segments, &toneholes);
+        let mut prev_x = -1.0;
+        for elem in &elements {
+            if let TlmElement::Tonehole(th) = elem {
+                let pos = th.x / 1000.0;
+                assert!(pos > prev_x, "Toneholes should be sorted by position");
+                prev_x = pos;
+            }
+        }
+    }
+
+    #[test]
+    fn test_acoustic_constants_for_conditions() {
+        let constants = AcousticConstants::for_conditions(20.0, 101325.0, 0.0);
+        assert!(constants.rho > 0.0);
+        assert!(constants.c > 0.0);
+        assert!(constants.nu > 0.0);
+        assert_eq!(constants.temperature_c, 20.0);
+        assert_eq!(constants.pressure_pa, 101325.0);
+        assert_eq!(constants.relative_humidity, 0.0);
+    }
+
+    #[test]
+    fn test_acoustic_constants_for_conditions_extreme_temperature() {
+        let constants = AcousticConstants::for_conditions(-40.0, 101325.0, 0.0);
+        assert!(constants.rho > 0.0);
+        assert!(constants.c > 0.0);
+        assert!(constants.nu > 0.0);
+        
+        let constants = AcousticConstants::for_conditions(50.0, 101325.0, 0.0);
+        assert!(constants.rho > 0.0);
+        assert!(constants.c > 0.0);
+        assert!(constants.nu > 0.0);
+    }
+
+    #[test]
+    fn test_acoustic_constants_for_conditions_low_pressure() {
+        let constants = AcousticConstants::for_conditions(20.0, 1000.0, 0.0);
+        assert!(constants.rho > 0.0);
+        assert!(constants.pressure_pa >= 1000.0);
+    }
+
+    #[test]
+    fn test_acoustic_constants_for_conditions_humidity() {
+        let constants = AcousticConstants::for_conditions(20.0, 101325.0, 1.0);
+        assert!(constants.rho > 0.0);
+        assert!(constants.c > 0.0);
+        assert_eq!(constants.relative_humidity, 1.0);
+    }
+
+    #[test]
     fn test_za_geipel() {
         let z = za(440.0, 0.02, 1.225, 343.0, 1.51e-5);
         assert!(z.re > 0.0);

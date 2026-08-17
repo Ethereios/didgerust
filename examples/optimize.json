@@ -1,0 +1,15 @@
+{
+  "description": "Configuration for evolutionary optimization",
+  "generations": 20,
+  "population": 50,
+  "mutation_rate": 0.1,
+  "crossover_rate": 0.7,
+  "elite_size": 5,
+  "target_frequency": 100.0,
+  "loss_components": {
+    "integer_harmonic": { "weight": 5.0, "enabled": true },
+    "inharmonicity": { "weight": 1.0, "enabled": true },
+    "tonehole_tuning": { "weight": 0.0, "enabled": false },
+    "modal_density": { "weight": 0.0, "enabled": false }
+  }
+}

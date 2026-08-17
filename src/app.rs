@@ -23,8 +23,6 @@ use crate::persistence::{AppSettings, OptimizerCheckpoint, OptimizerGeoState};
 use std::sync::{Arc, atomic::{AtomicBool, Ordering as SyncOrdering}, mpsc};
 use std::thread;
 use rfd::FileDialog;
-// If using audio integration, it would be:
-// use crate::audio::AudioProcessor;
 
 /// Comparison data for strategy overlay
 #[derive(Clone)]
@@ -58,7 +56,7 @@ pub struct OptimizerChannels {
 }
 
 /// Comprehensive application state held as a Bevy resource
-#[derive(Resource, Clone)]
+#[derive(Resource)]
 pub struct CadsdState {
     // Geometry parameters
     pub length: f32,
@@ -92,13 +90,14 @@ pub struct CadsdState {
     pub best_loss: Option<f64>,
     pub generation_progress: f32,
     pub current_generation: usize,
+    pub optimizer_mode: String, // Added for optimizer selection: "Evolutionary" or "Gradient with Surrogate"
     pub optimizer_running: bool,
+    pub use_gradient_optimizer: bool,
     pub optimizer_paused: bool,
     pub optimizer_error: Option<String>,
     pub optimizer_n_toneholes: usize,
     pub use_surrogate_loss: bool,
     pub surrogate_trained: bool,
-    pub use_gradient_optimizer: bool,
     pub target_frequency: f64,
     pub temperature: f32,
     
@@ -160,6 +159,8 @@ pub struct CadsdState {
     pub audio_vibrato_freq: f32,
     pub audio_sample_rate: u32,
     pub audio_running: bool,
+    #[cfg(feature = "cpal-integration")]
+    pub audio_processor: Option<crate::audio::AudioProcessor>,
 }
 
 impl Default for CadsdState {
@@ -203,6 +204,7 @@ impl Default for CadsdState {
             best_loss: None,
             generation_progress: 0.0,
             current_generation: 0,
+            optimizer_mode: "Evolutionary".to_string(),
             optimizer_running: false,
             optimizer_paused: false,
             optimizer_error: None,
@@ -271,6 +273,8 @@ impl Default for CadsdState {
             audio_vibrato_freq: 5.0,
             audio_sample_rate: 44100,
             audio_running: false,
+            #[cfg(feature = "cpal-integration")]
+            audio_processor: None,
         }
     }
 }
@@ -336,7 +340,7 @@ pub fn draw_bore_gizmos(
             if is_selected { Color::srgb(0.9, 0.9, 0.0) } else { Color::srgb(0.5, 0.5, 0.5) }
         };
         
-        gizmos.sphere(Vec3::new(x, r, 0.0), r * 0.8, 8, color);
+        gizmos.sphere(Vec3::new(x, r, 0.0), r * 0.8, color);
     }
 }
 
@@ -382,7 +386,7 @@ fn run_gradient_optimization(
     top_diameter: f64,
     bottom_diameter: f64,
     n_segments: usize,
-    n_toneholes: usize,
+    _n_toneholes: usize,
     num_generations: usize,
     target_freq: f64,
     tx: &mpsc::Sender<OptimizerProgressMsg>,
@@ -392,44 +396,22 @@ fn run_gradient_optimization(
     let constants = crate::sim::AcousticConstants::default();
 
     let mut diff_tlm = crate::diff_tlm::DifferentiableTLM::new(segments, target_freq, constants);
-    let mut adam = crate::diff_tlm::AdamOptimizer::new(0.01);
+    let _adam = crate::diff_tlm::AdamOptimizer::new(0.01);
 
-    let num_params = diff_tlm.segments.len() * 3;
-    let mut params = vec![0.0; num_params];
-    let mut grads = vec![0.0; num_params];
-
-    for (i, seg) in diff_tlm.segments.iter().enumerate() {
-        params[i * 3] = seg.length;
-        params[i * 3 + 1] = seg.d0;
-        params[i * 3 + 2] = seg.d1;
-    }
+    let target_impedance = 100.0;
 
     let mut best_loss = f64::INFINITY;
     let mut patience_counter = 0;
     let patience = 20;
-    let target_impedance = 100.0;
 
     for gen in 0..num_generations {
+        // Use the new optimize_step which internally uses analytical gradients + Adam
+        diff_tlm.optimize_step(0.01);
+
+        // Evaluate current loss
         let z_in = diff_tlm.forward();
         let predicted = z_in.re * z_in.re + z_in.im * z_in.im;
         let loss = (predicted - target_impedance).powi(2) as f64;
-        let loss_grad = num_complex::Complex64::new(loss, 0.0);
-
-        let seg_grads = diff_tlm.backward(num_complex::Complex64::new(loss_grad.re as f32, loss_grad.im as f32));
-
-        for (i, (dl, dd0, dd1)) in seg_grads.into_iter().enumerate() {
-            grads[i * 3] = dl;
-            grads[i * 3 + 1] = dd0;
-            grads[i * 3 + 2] = dd1;
-        }
-
-        adam.step(&mut params, &grads);
-
-        for (i, seg) in diff_tlm.segments.iter_mut().enumerate() {
-            seg.length = params[i * 3].max(1e-4);
-            seg.d0 = params[i * 3 + 1].max(1e-4);
-            seg.d1 = params[i * 3 + 2].max(1e-4);
-        }
 
         if loss < best_loss {
             best_loss = loss;
@@ -457,10 +439,10 @@ fn run_gradient_optimization(
         geo_points.push([x_acc, seg.d1 * 1000.0]);
     }
 
-    let genome_json = serde_json::json!({
+    let genome_json = serde_json::to_string(&serde_json::json!({
         "segments": geo_points,
         "loss": best_loss,
-    });
+    })).unwrap_or_default();
 
     OptimizerProgressMsg::Complete {
         best_loss,
@@ -501,6 +483,7 @@ pub fn start_optimization(state: &mut CadsdState, mut channels: ResMut<Optimizer
     let n_toneholes = state.optimizer_n_toneholes;
     let use_surrogate = state.use_surrogate_loss && state.surrogate_trained;
     let use_gradient = state.use_gradient_optimizer;
+    let target_frequency = state.target_frequency;
     let trained_surrogate = state.surrogate_model.take();
 
     thread::spawn(move || {
@@ -513,7 +496,7 @@ pub fn start_optimization(state: &mut CadsdState, mut channels: ResMut<Optimizer
                     segments,
                     n_toneholes,
                     num_generations,
-                    state.target_frequency,
+                    target_frequency,
                     &tx,
                 );
             }
@@ -556,7 +539,7 @@ pub fn start_optimization(state: &mut CadsdState, mut channels: ResMut<Optimizer
             };
 
             let mut optimizer = EvolutionaryOptimizer::with_random_population(
-                Box::new(loss_function),
+                loss_function,
                 &genome_template,
                 population_size,
                 params,
@@ -895,6 +878,57 @@ fn show_simulation_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
             validate_tlm(state);
         }
     });
+    
+    ui.separator();
+    ui.label("🔊 Audio Playback:");
+    ui.horizontal(|ui| {
+        if ui.button("▶️ Play Note").clicked() && !state.audio_running {
+            let geo = current_geo(state);
+            #[cfg(feature = "cpal-integration")]
+            {
+                match crate::audio::AudioProcessor::new(&geo, crate::audio::AudioConfig {
+                    sample_rate: state.audio_sample_rate,
+                    ..Default::default()
+                }) {
+                    Ok(processor) => {
+                        let _ = processor.start();
+                        state.audio_processor = Some(processor);
+                        state.audio_running = true;
+                        state.audio_enabled = true;
+                    }
+                    Err(e) => {
+                        log::error!("Failed to start audio: {}", e);
+                    }
+                }
+            }
+            #[cfg(not(feature = "cpal-integration"))]
+            {
+                log::info!("Audio playback requires cpal-integration feature");
+            }
+        }
+        if ui.button("⏹️ Stop").clicked() && state.audio_running {
+            #[cfg(feature = "cpal-integration")]
+            {
+                if let Some(ref processor) = state.audio_processor {
+                    processor.stop();
+                }
+            }
+            state.audio_running = false;
+            state.audio_enabled = false;
+        }
+    });
+    if state.audio_running {
+        ui.horizontal(|ui| {
+            ui.label("Frequency (Hz):");
+            let mut freq = state.fundamental_freq.unwrap_or(100.0);
+            ui.add(egui::Slider::new(&mut freq, 20.0..=2000.0).text(""));
+            state.fundamental_freq = Some(freq);
+        });
+        ui.horizontal(|ui| {
+            ui.label("Gain:");
+            ui.add(egui::Slider::new(&mut state.audio_gain, 0.0..=1.0).text(""));
+        });
+    }
     
     if !state.validation_report.is_empty() {
         ui.separator();
@@ -1240,7 +1274,7 @@ fn show_optimizer_panel(ui: &mut egui::Ui, state: &mut CadsdState, channels: Res
     if state.use_surrogate_loss {
     if ui.button("Train Surrogate on Current Geometry").clicked() {
         let geo = current_geo(state);
-        let segments = crate::sim::create_segments_from_geo(&geo.geo);
+        let _segments = crate::sim::create_segments_from_geo(&geo.geo);
         let constants = crate::sim::AcousticConstants::for_conditions(
             state.temperature as f64,
             state.pressure_pa,
@@ -1257,7 +1291,7 @@ fn show_optimizer_panel(ui: &mut egui::Ui, state: &mut CadsdState, channels: Res
             let mut x_acc = 0.0;
             for chunk in genome.chunks(3) {
                 let l = chunk.get(0).copied().unwrap_or(0.1).max(0.01);
-                let d0 = chunk.get(1).copied().unwrap_or(0.03).max(0.005);
+                let _d0 = chunk.get(1).copied().unwrap_or(0.03).max(0.005);
                 let d1 = chunk.get(2).copied().unwrap_or(0.05).max(0.005);
                 x_acc += l * 1000.0;
                 geo_points.push([x_acc, d1 * 1000.0]);
@@ -1283,7 +1317,15 @@ fn show_optimizer_panel(ui: &mut egui::Ui, state: &mut CadsdState, channels: Res
     
     ui.separator();
     ui.heading("Optimization Mode");
-    ui.checkbox(&mut state.use_gradient_optimizer, "Use gradient-based optimizer (Adam + DiffTLM)");
+    ui.label("📈 Optimizer Mode:");
+    egui::ComboBox::from_label("optimizer_mode").selected_text(&state.optimizer_mode).show_ui(ui, |ui| {
+        ui.selectable_value(&mut state.optimizer_mode, "Evolutionary".to_string(), "Evolutionary optimizer");
+        ui.selectable_value(&mut state.optimizer_mode, "Gradient with Surrogate".to_string(), "Gradient optimizer with surrogate model");
+    });
+
+            if state.optimizer_mode == "Gradient with Surrogate" {
+                ui.label("📊 Gradient mode uses DiffTLM + Adam");
+            }
     
     if state.use_gradient_optimizer {
         ui.separator();
@@ -1684,7 +1726,13 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
     ui.separator();
     ui.heading("Toneholes");
     
-    let toneholes_to_remove: Vec<(usize, Option<bool>)> = state.toneholes.iter().enumerate().filter_map(|(i, th)| {
+    let toneholes_enabled = state.simulation_strategy == SimulationStrategy::Tlm;
+    if !toneholes_enabled {
+        ui.colored_label(egui::Color32::YELLOW, "⚠️ Tonehole editing is only available for TLM strategy");
+    }
+    
+    if toneholes_enabled {
+        let toneholes_to_remove: Vec<(usize, Option<bool>)> = state.toneholes.iter().enumerate().filter_map(|(i, th)| {
         let mut remove = false;
         let mut duplicate = false;
         ui.horizontal(|ui| {
@@ -1699,7 +1747,7 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
             }
         });
         if remove { Some((i, None)) } else if duplicate { Some((i, Some(true))) } else { None }
-    }).collect();
+        }).collect();
     
     for (i, action) in toneholes_to_remove.iter().rev() {
         if let Some(true) = action {
@@ -1869,7 +1917,10 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
             }
         }
     }
+    }
 }
+
+/// Settings Panel - application configuration
 
 /// Settings Panel - application configuration
 fn show_settings_panel(ui: &mut egui::Ui, state: &mut CadsdState) {

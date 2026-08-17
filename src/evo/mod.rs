@@ -1010,4 +1010,23 @@ mod tests {
             assert_eq!(child.genome().len(), 8);
         }
     }
+
+    #[test]
+    fn test_evolutionary_optimizer_pause_flag() {
+        let loss_fn = TestLossFunction::new();
+        let genome_template = BaseGenome::random(4);
+        let params = EvolutionParameters {
+            num_generations: 1,
+            ..Default::default()
+        };
+        let mut optimizer = EvolutionaryOptimizer::new(
+            Box::new(loss_fn),
+            vec![genome_template.clone_with_new_id()],
+            params,
+        );
+        assert!(optimizer.pause_flag.is_none());
+        let flag = Arc::new(AtomicBool::new(false));
+        optimizer.set_pause_flag(flag.clone());
+        assert!(optimizer.pause_flag.is_some());
+    }
 }

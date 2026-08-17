@@ -99,6 +99,7 @@ pub struct CadsdState {
     pub use_surrogate_loss: bool,
     pub surrogate_trained: bool,
     pub use_gradient_optimizer: bool,
+    pub target_frequency: f64,
     pub temperature: f32,
     
     // Frequency grid config
@@ -140,6 +141,8 @@ pub struct CadsdState {
     pub tonehole_impedance_freqs: Vec<f64>,
     pub tonehole_impedances: Vec<f64>,
     pub surrogate_model: Option<crate::prime_conv::SurrogateLossFunction>,
+    pub target_impedance_freqs: Vec<f64>,
+    pub target_impedances: Vec<f64>,
     
     // ---- Phase B: Settings Panel ----
     pub theme: String,
@@ -207,6 +210,7 @@ impl Default for CadsdState {
             use_surrogate_loss: false,
             surrogate_trained: false,
             use_gradient_optimizer: false,
+            target_frequency: 100.0,
             temperature: settings.temperature,
             freq_min: 20.0,
             freq_max: 2000.0,
@@ -252,6 +256,8 @@ impl Default for CadsdState {
             tonehole_impedance_freqs: Vec::new(),
             tonehole_impedances: Vec::new(),
             surrogate_model: None,
+            target_impedance_freqs: Vec::new(),
+            target_impedances: Vec::new(),
             // Phase B: Settings
             theme: settings.theme.clone(),
             log_verbosity: settings.log_verbosity,
@@ -378,12 +384,12 @@ fn run_gradient_optimization(
     n_segments: usize,
     n_toneholes: usize,
     num_generations: usize,
+    target_freq: f64,
     tx: &mpsc::Sender<OptimizerProgressMsg>,
 ) -> OptimizerProgressMsg {
     let geo = Geo::make_cone(length, top_diameter, bottom_diameter, n_segments);
     let segments = crate::sim::create_segments_from_geo(&geo.geo);
     let constants = crate::sim::AcousticConstants::default();
-    let target_freq = 50.0;
 
     let mut diff_tlm = crate::diff_tlm::DifferentiableTLM::new(segments, target_freq, constants);
     let mut adam = crate::diff_tlm::AdamOptimizer::new(0.01);
@@ -399,10 +405,14 @@ fn run_gradient_optimization(
     }
 
     let mut best_loss = f64::INFINITY;
+    let mut patience_counter = 0;
+    let patience = 20;
+    let target_impedance = 100.0;
 
     for gen in 0..num_generations {
         let z_in = diff_tlm.forward();
-        let loss = (z_in.re * z_in.re + z_in.im * z_in.im) as f64;
+        let predicted = z_in.re * z_in.re + z_in.im * z_in.im;
+        let loss = (predicted - target_impedance).powi(2) as f64;
         let loss_grad = num_complex::Complex64::new(loss, 0.0);
 
         let seg_grads = diff_tlm.backward(num_complex::Complex64::new(loss_grad.re as f32, loss_grad.im as f32));
@@ -423,6 +433,9 @@ fn run_gradient_optimization(
 
         if loss < best_loss {
             best_loss = loss;
+            patience_counter = 0;
+        } else {
+            patience_counter += 1;
         }
 
         let _ = tx.send(OptimizerProgressMsg::GenerationUpdate {
@@ -430,6 +443,10 @@ fn run_gradient_optimization(
             total: num_generations,
             best_loss,
         });
+
+        if patience_counter >= patience {
+            break;
+        }
     }
 
     let final_segs = diff_tlm.get_segments();
@@ -496,6 +513,7 @@ pub fn start_optimization(state: &mut CadsdState, mut channels: ResMut<Optimizer
                     segments,
                     n_toneholes,
                     num_generations,
+                    state.target_frequency,
                     &tx,
                 );
             }
@@ -1266,6 +1284,24 @@ fn show_optimizer_panel(ui: &mut egui::Ui, state: &mut CadsdState, channels: Res
     ui.separator();
     ui.heading("Optimization Mode");
     ui.checkbox(&mut state.use_gradient_optimizer, "Use gradient-based optimizer (Adam + DiffTLM)");
+    
+    if state.use_gradient_optimizer {
+        ui.separator();
+        ui.heading("Target Spectrum");
+        ui.label("Target frequency for gradient optimization:");
+        ui.add(egui::Slider::new(&mut state.target_frequency, 20.0..=2000.0).text("Target Freq (Hz)"));
+        
+        if ui.button("Use Current Spectrum as Target").clicked() {
+            if !state.frequencies.is_empty() && !state.impedances.is_empty() {
+                state.target_impedance_freqs = state.frequencies.clone();
+                state.target_impedances = state.impedances.clone();
+            }
+        }
+        
+        if !state.target_impedance_freqs.is_empty() {
+            ui.label(format!("Target: {} frequency points loaded", state.target_impedance_freqs.len()));
+        }
+    }
     
     ui.separator();
     ui.label("Loss Function Components:");

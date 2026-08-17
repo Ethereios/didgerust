@@ -30,6 +30,8 @@ pub struct DWMMesh2D {
     /// Boundary conditions: 0=rigid, 1=pressure-release, 2=absorbing
     pub boundary: Vec<u8>,
     pub t: usize,
+    /// Pressure history for frequency response computation
+    pub pressure_history: Vec<f64>,
 }
 
 impl DWMMesh2D {
@@ -47,6 +49,7 @@ impl DWMMesh2D {
             waves_w: vec![0.0; size],
             boundary: vec![0; size],
             t: 0,
+            pressure_history: Vec::new(),
         }
     }
 
@@ -125,6 +128,7 @@ impl DWMMesh2D {
         self.waves_e = new_waves_e;
         self.waves_w = new_waves_w;
         self.t += 1;
+        self.pressure_history.push(self.pressure[self.idx(self.width / 2, self.height / 2)]);
     }
 
     pub fn run(&mut self, n_steps: usize) {
@@ -141,15 +145,17 @@ impl DWMMesh2D {
         }).collect()
     }
 
-    /// Get frequency response at a point using FFT of time-domain signal
-    pub fn frequency_response(&self, x: usize, y: usize) -> Vec<f64> {
-        let mut signal = Vec::new();
-        let idx = self.idx(x, y);
-        for _t in 0..self.t {
-            signal.push(self.pressure[idx]);
-        }
+    /// Get frequency response at a point using DFT of time-domain signal.
+    ///
+    /// Note: This uses a naive O(n²) DFT. For long signals, use an FFT library.
+    pub fn frequency_response(&self, _x: usize, _y: usize) -> Vec<f64> {
+        let signal = self.pressure_history.clone();
         
         let n = signal.len();
+        if n == 0 {
+            return vec![];
+        }
+        
         let mut spectrum = vec![0.0; n / 2];
         for (k, spec) in spectrum.iter_mut().enumerate() {
             let mut re = 0.0;
@@ -178,6 +184,7 @@ pub struct DWMMesh3D {
     pub waves: [Vec<f64>; 6],
     pub boundary: Vec<u8>,
     pub t: usize,
+    pub pressure_history: Vec<f64>,
 }
 
 impl DWMMesh3D {
@@ -200,6 +207,7 @@ impl DWMMesh3D {
             ],
             boundary: vec![0; size],
             t: 0,
+            pressure_history: Vec::new(),
         }
     }
 
@@ -271,6 +279,7 @@ impl DWMMesh3D {
         self.pressure = new_pressure;
         self.waves = new_waves;
         self.t += 1;
+        self.pressure_history.push(self.pressure[self.idx(self.nx / 2, self.ny / 2, self.nz / 2)]);
     }
 
     pub fn run(&mut self, n_steps: usize) {
@@ -279,7 +288,8 @@ impl DWMMesh3D {
         }
     }
 
-    /// Extract pressure along a line (for bore axis)
+    /// Extract pressure along a line (for bore axis).
+    /// `axis` must be "x", "y", or "z". `pos` is the fixed coordinate for the other axes.
     pub fn extract_line(&self, axis: &str, pos: usize) -> Vec<f64> {
         match axis {
             "x" => (0..self.nx).map(|x| {

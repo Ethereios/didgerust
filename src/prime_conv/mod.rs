@@ -151,11 +151,11 @@ impl ComplexConv1D {
     }
 
     pub fn step(&mut self, lr: f64) {
-        for w in &mut self.weights {
-            *w -= num_complex::Complex64::new(lr, 0.0) * self.grad_weights.iter().sum::<num_complex::Complex64>();
+        for (w, g) in self.weights.iter_mut().zip(self.grad_weights.iter()) {
+            *w -= num_complex::Complex64::new(lr, 0.0) * *g;
         }
-        for b in &mut self.bias {
-            *b -= num_complex::Complex64::new(lr, 0.0) * self.grad_bias.iter().sum::<num_complex::Complex64>();
+        for (b, g) in self.bias.iter_mut().zip(self.grad_bias.iter()) {
+            *b -= num_complex::Complex64::new(lr, 0.0) * *g;
         }
         self.grad_weights.fill(num_complex::Complex64::new(0.0, 0.0));
         self.grad_bias.fill(num_complex::Complex64::new(0.0, 0.0));
@@ -346,11 +346,11 @@ impl ComplexLinear {
     }
 
     pub fn step(&mut self, lr: f64) {
-        for w in &mut self.weights {
-            *w -= num_complex::Complex64::new(lr, 0.0) * self.grad_weights.iter().sum::<num_complex::Complex64>();
+        for (w, g) in self.weights.iter_mut().zip(self.grad_weights.iter()) {
+            *w -= num_complex::Complex64::new(lr, 0.0) * *g;
         }
-        for b in &mut self.bias {
-            *b -= num_complex::Complex64::new(lr, 0.0) * self.grad_bias.iter().sum::<num_complex::Complex64>();
+        for (b, g) in self.bias.iter_mut().zip(self.grad_bias.iter()) {
+            *b -= num_complex::Complex64::new(lr, 0.0) * *g;
         }
         self.grad_weights.fill(num_complex::Complex64::new(0.0, 0.0));
         self.grad_bias.fill(num_complex::Complex64::new(0.0, 0.0));
@@ -360,6 +360,7 @@ impl ComplexLinear {
 /// Complex-valued MLP with prime conv frontend
 #[derive(Debug, Clone)]
 pub struct ComplexPrimeMLP {
+    pub input_len: usize,
     pub conv_block: PrimeConvBlock,
     pub layers: Vec<ComplexLinear>,
     pub activation: fn(num_complex::Complex64) -> num_complex::Complex64,
@@ -367,7 +368,7 @@ pub struct ComplexPrimeMLP {
 
 impl ComplexPrimeMLP {
     pub fn new(
-        _input_len: usize,
+        input_len: usize,
         max_prime: usize,
         in_channels: usize,
         hidden_dims: &[usize],
@@ -385,6 +386,7 @@ impl ComplexPrimeMLP {
         layers.push(ComplexLinear::new(prev_dim, output_dim));
         
         Self {
+            input_len,
             conv_block,
             layers,
             activation: complex_activations::crelu,
@@ -509,7 +511,7 @@ impl SurrogateLossFunction {
         lr: f64,
         epochs: usize,
     ) {
-        let input_len = self.model.layers.first().map(|l| l.in_features).unwrap_or(20);
+        let input_len = self.model.input_len;
         let _output_dim = self.model.layers.last().map(|l| l.out_features).unwrap_or(50);
 
         let mut inputs = Vec::with_capacity(num_samples);

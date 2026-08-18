@@ -10,6 +10,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, atomic::{AtomicBool, Ordering as SyncOrdering}};
 use std::f64::consts::PI;
+use rand::SeedableRng;
+use rand::rngs::StdRng;
 use rand_distr::Distribution;
 
 /// Crossover strategy for evolutionary optimization
@@ -624,6 +626,33 @@ impl EvolutionaryOptimizer {
         Self::new(loss_function, population, parameters)
     }
     
+    /// Create optimizer with prime-indexed quasi-random initial population.
+    ///
+    /// Uses prime numbers as seeds for deterministic RNGs, providing better
+    /// space-filling coverage than purely random initialization.
+    pub fn with_prime_population<G: Genome + 'static>(
+        loss_function: Box<dyn LossFunction>,
+        genome_template: &G,
+        population_size: usize,
+        parameters: EvolutionParameters,
+    ) -> Self {
+        let prime_gen = crate::prime_conv::PrimeGenerator::new(10000);
+        let primes = prime_gen.prime_list();
+        let population: Vec<Box<dyn Genome>> = (0..population_size)
+            .map(|i| {
+                let prime = primes[i % primes.len()] as u64;
+                let mut rng = StdRng::seed_from_u64(prime);
+                let mut genome = genome_template.clone_with_new_id();
+                for gene in genome.genome_mut() {
+                    *gene = rand::Rng::gen(&mut rng);
+                }
+                genome
+            })
+            .collect();
+        
+        Self::new(loss_function, population, parameters)
+    }
+    
     /// Evolve the population for specified number of generations
     pub fn evolve(&mut self) -> Result<Box<dyn Genome>, Box<dyn std::error::Error>> {
         self.evolve_with_progress(|_, _| {})
@@ -946,6 +975,38 @@ mod tests {
         // This is a basic test - in practice, you'd want to test with actual loss functions
         let result = optimizer.evolve();
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_prime_population_initialization() {
+        let loss_function = Box::new(TestLossFunction::new());
+        let genome_template = KigaliGenome::new(10, 32.0, 50.0, 80.0, 1800.0, 1500.0, 0, 0.3, 0.0, 300.0, 0);
+        
+        let optimizer = EvolutionaryOptimizer::with_prime_population(
+            loss_function,
+            &genome_template,
+            10,
+            EvolutionParameters {
+                population_size: 10,
+                generation_size: 5,
+                num_generations: 3,
+                mutation_rate: 0.1,
+                crossover_rate: 0.7,
+                elite_size: 2,
+                mutation_strategy: MutationStrategy::Gaussian,
+                crossover_strategy: CrossoverStrategy::SinglePoint,
+                convergence_patience: 10,
+                convergence_threshold: 1e-6,
+            },
+        );
+        
+        assert_eq!(optimizer.population.len(), 10);
+        // Verify all genomes have valid values
+        for genome in &optimizer.population {
+            for &gene in genome.genome() {
+                assert!(gene >= 0.0 && gene <= 1.0, "Gene value {} out of range", gene);
+            }
+        }
     }
 
     #[test]

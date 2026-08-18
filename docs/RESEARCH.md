@@ -1136,20 +1136,21 @@ After cloning and studying the highest-value external repositories, here is the 
    - **Mesh/Entry-Points** → plugin architecture for simulation strategies (new strategies register via a `MeshRegistry`-like trait system; GUI discovers them automatically)
    - **A2UI** → data-driven UI generation (Bevy egui already does this; formalize with `DataSchema` → UI mapping)
 
-#### Concrete recommendation
+#### Current implementation state
 
-**Integrate two crates with feature flags:**
+| Crate | Feature Flag | Cargo.toml | Imported in Source | Wired Into App |
+|-------|-------------|------------|-------------------|----------------|
+| **conservation-law-rs** | `conservation-law` | ✅ `Cargo.toml:32` | ✅ `src/conservation_law/symplectic.rs` | ❌ Wrapper exists; not called from simulator/optimizer |
+| **lau-signal-processing** | `dsp` | ✅ `Cargo.toml:33-34` | ❌ Not imported anywhere | ❌ Not wired into any pipeline |
+| **iir-filter** | `dsp` | ❌ Not in Cargo.toml | ❌ No | ❌ No |
+| **constraint-theory-core** | `constraint-theory` | ❌ Not in Cargo.toml | ❌ No | ❌ No |
+| **sheaf-spectral** | `sheaf-spectral` | ❌ Not in Cargo.toml | ❌ No | ❌ No |
 
-1. **`conservation-law-rs`** behind feature `conservation-law`:
-   - Use `SymplecticIntegrator` for energy-conserving long-time integration of discretized wave equations
-   - Use `MechanicalLagrangian` + `total_energy()` to verify energy budgets in simulation loops
-   - Low risk: zero heavy dependencies, clean generic API, well-tested
-
-2. **`lau-signal-processing`** behind feature `dsp`:
-   - Use self-contained FFT for spectral analysis of impedance/frequency responses
-   - Use `IirFilter` for bore-wall absorption modeling and mouthpiece impedance
-   - Use STFT for time-frequency analysis of didgeridoo sound output
-   - Low risk: depends on `nalgebra` and `num-complex` which DidgeRust already uses
+**SuperInstance app-architecture patterns** (PLATO Room, Tile, Deadband, Conservation Fence, Mesh/Entry-Points, A2UI):
+- **Status:** Design inspiration only. No concrete code implements these patterns.
+- `budget_ops` exists but is not framed as a `DeadbandConfig` or `ConservationFence`.
+- No `MeshRegistry`-like plugin system for simulation strategies.
+- No immutable tile-based state snapshots.
 
 **Adopt architectural patterns (no external dependency needed):**
 - **Room pattern** → structure each major subsystem (simulation, optimizer, audio) as a bounded context with its own state, history, and alarm thresholds

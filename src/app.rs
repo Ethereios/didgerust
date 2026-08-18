@@ -81,6 +81,10 @@ pub struct CadsdState {
     pub mutation_strategy: MutationStrategy,
     pub budget_ops: f64,
     
+    // Conservation tracking (γ + η = C)
+    pub gamma_ops: u64,
+    pub eta_ops: u64,
+    
     // Optimizer parameters
     pub population_size: usize,
     pub num_generations: usize,
@@ -154,6 +158,13 @@ pub struct CadsdState {
     pub curvature: f32,
     pub taper_coeff: f32,
     
+    // Advanced config
+    pub gamma_weight: f64,
+    pub eta_weight: f64,
+    pub prime_sieve_size: usize,
+    pub waveguide_delay_resolution: f64,
+    pub phase_unwrap: bool,
+    
     // Audio controls
     pub audio_enabled: bool,
     pub audio_gain: f32,
@@ -198,6 +209,8 @@ impl Default for CadsdState {
             simulation_strategy: default_strat,
             mutation_strategy: default_mut,
             budget_ops: 100000.0,
+            gamma_ops: 0,
+            eta_ops: 0,
             population_size: 50,
             num_generations: 100,
             mutation_rate: 0.1,
@@ -239,12 +252,18 @@ impl Default for CadsdState {
                 ("peak_quantity".to_string(), true, 2.0),
                 ("peak_amplitude".to_string(), true, 2.0),
                 ("scale_tuning".to_string(), true, 5.0),
+                ("bent_effective_length".to_string(), true, 2.0),
             ],
             loss_history: Vec::new(),
             validation_report: String::new(),
             bore_style: "cone".to_string(),
             curvature: 0.0,
             taper_coeff: 0.25,
+            gamma_weight: 1.0,
+            eta_weight: 0.1,
+            prime_sieve_size: 1000,
+            waveguide_delay_resolution: 1.0,
+            phase_unwrap: false,
             // Phase B: Geometry
             geo_history: Vec::new(),
             geo_history_index: 0,
@@ -511,6 +530,9 @@ pub fn start_optimization(state: &mut CadsdState, mut channels: ResMut<Optimizer
     let use_gradient = state.use_gradient_optimizer;
     let target_frequency = state.target_frequency;
     let trained_surrogate = state.surrogate_model.take();
+    let curvature = state.curvature as f64;
+    let taper_coeff = state.taper_coeff as f64;
+    let loss_component_toggles = state.loss_component_toggles.clone();
 
     thread::spawn(move || {
         let result = (|| {
@@ -527,7 +549,11 @@ pub fn start_optimization(state: &mut CadsdState, mut channels: ResMut<Optimizer
                 );
             }
 
-            let base_loss = crate::loss::CompositeTairuaLoss::with_default_components(50.0);
+            let base_loss = crate::loss::CompositeTairuaLoss::from_toggles(
+                &loss_component_toggles,
+                curvature,
+                taper_coeff,
+            );
             let loss_function: Box<dyn crate::evo::LossFunction> = if use_surrogate {
                 if let Some(surrogate) = trained_surrogate {
                     Box::new(surrogate)
@@ -899,6 +925,9 @@ fn show_simulation_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
         }
         if ui.button("Export CSV").clicked() {
             export_spectrum_csv(state);
+        }
+        if ui.button("Export JSON").clicked() {
+            export_spectrum_json(state);
         }
         if ui.button("Validate TLM").clicked() {
             validate_tlm(state);
@@ -1403,9 +1432,25 @@ fn show_optimizer_panel(ui: &mut egui::Ui, state: &mut CadsdState, channels: Res
             .text(format!(
                 "Generation {}/{}",
                 state.current_generation,
-                state.num_generations
+                state.num_generations,
             ))
     );
+    
+    // Conservation dashboard (γ + η = C)
+    ui.separator();
+    ui.label("🔋 Conservation Dashboard (γ + η = C)");
+    let gamma_ops = state.current_generation as f64 * state.population_size as f64;
+    let eta_ops = state.current_generation as f64 * 2.0;
+    let total_ops = gamma_ops + eta_ops;
+    let remaining = state.budget_ops - total_ops;
+    ui.label(format!(
+        "C (budget): **{:.0}** | γ (sim): **{:.0}** | η (overhead): **{:.0}** | remaining: **{:.0}**",
+        state.budget_ops, gamma_ops, eta_ops, remaining.max(0.0),
+    ));
+    ui.add(
+        egui::ProgressBar::new((total_ops / state.budget_ops.max(1.0)).min(1.0) as f32)
+            .text(format!("{:.1}% of budget used", 100.0 * total_ops / state.budget_ops.max(1.0)),
+    ));
     
     if !state.loss_history.is_empty() {
         ui.separator();
@@ -2010,6 +2055,18 @@ fn show_settings_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
     ui.separator();
     ui.label("Conservation Settings:");
     ui.add(egui::Slider::new(&mut state.budget_ops, 1000.0..=1_000_000.0).text("Max Operations"));
+    ui.horizontal(|ui| {
+        ui.label("γ weight:");
+        ui.add(egui::Slider::new(&mut state.gamma_weight, 0.1..=10.0).text(""));
+        ui.label("η weight:");
+        ui.add(egui::Slider::new(&mut state.eta_weight, 0.01..=1.0).text(""));
+    });
+    
+    ui.separator();
+    ui.label("Advanced Config:");
+    ui.add(egui::Slider::new(&mut state.prime_sieve_size, 100..=10000).text("Prime Sieve Size"));
+    ui.add(egui::Slider::new(&mut state.waveguide_delay_resolution, 0.1..=10.0).text("Waveguide Delay Resolution (samples/mm)"));
+    ui.checkbox(&mut state.phase_unwrap, "Phase Unwrap");
     
     ui.separator();
     ui.label("Display:");
@@ -2208,6 +2265,51 @@ fn export_spectrum_csv(state: &CadsdState) {
             log::error!("Failed to export CSV: {}", e);
         } else {
             log::info!("Spectrum CSV exported to {} ({} lines)", path.display(), csv.lines().count());
+        }
+    }
+}
+
+/// Export spectrum data as JSON
+fn export_spectrum_json(state: &CadsdState) {
+    if state.frequencies.is_empty() || state.impedances.is_empty() {
+        log::warn!("No spectrum data to export");
+        return;
+    }
+
+    let data: Vec<serde_json::Value> = state.frequencies
+        .iter()
+        .zip(state.impedances.iter())
+        .zip(state.phases.iter())
+        .map(|((&f, &z), &p)| {
+            serde_json::json!({
+                "frequency_hz": f,
+                "impedance_magnitude": z,
+                "impedance_phase_deg": p,
+            })
+        })
+        .collect();
+
+    let output = serde_json::json!({
+        "strategy": format!("{:?}", state.simulation_strategy),
+        "fundamental_freq_hz": state.fundamental_freq,
+        "frequency_points": state.frequencies.len(),
+        "data": data,
+    });
+
+    let default_name = format!("spectrum_export_{}.json",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0));
+
+    if let Some(path) = FileDialog::new()
+        .add_filter("JSON", &["json"])
+        .set_file_name(&default_name)
+        .save_file() {
+        if let Err(e) = std::fs::write(&path, serde_json::to_string_pretty(&output).unwrap_or_default()) {
+            log::error!("Failed to export JSON: {}", e);
+        } else {
+            log::info!("Spectrum JSON exported to {} ({} points)", path.display(), data.len());
         }
     }
 }

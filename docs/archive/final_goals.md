@@ -95,27 +95,34 @@
 | Switch strategy at runtime | Change radio → recompute spectrum | ✅ |
 | Budget enforcement | Set 10k ops → evaluation returns error | ✅ |
 | Mutation strategy | Toggle Prime → observe exploration | ✅ |
-| All tests pass | `cargo test` → 17 passed | ✅ |
-| Benchmarks run | `cargo bench` → ~182µs each | ✅ |
+| All tests pass | `cargo test` → 102 lib + 30 integration = 132 total | ✅ |
+| Benchmarks run | `cargo bench` → ~1.2ms loss, ~0.7µs segment creation | ✅ |
 | GUI launches | `cargo run --bin cadsd-gui --features gui-bevy` | ✅ |
+| Bent-shape correction | Curvature/taper sliders wired into optimizer + GUI | ✅ |
+| Loss component toggles | GUI toggles build CompositeTairuaLoss dynamically | ✅ |
+| Conservation dashboard | Real-time γ/η = C visualization | ✅ |
+| Export JSON | Spectrum export as JSON with magnitude+phase | ✅ |
+| Prime population init | `with_prime_population()` for quasi-random seeding | ✅ |
 
 ---
 
 ## Next Development Steps (Priority Order)
 
-1. **Add missing UI buttons** (export, compare, checkpoint)
-2. **Implement persistence** (save/load optimizer state, geometry)
-3. **Neural network integration** — add crates behind feature flag `nn-integration`:
-   - `dfdx` — differentiable TLM prototype (compile-time graph optimisation, custom `num-complex` backward passes)
-   - `tch-rs` — production training (PyTorch ecosystem, GPU, complex tensors via `Tensor::of_complex()`)
-   - `burn` — pure-Rust research alternative (modern modular framework)
-   - Define:
-     - `LearnedReflectionCoefficients` in waveguide (tch-rs custom op or dfdx module)
-     - `NeuralFitnessPredictor` in evo (MLP surrogate for top-5 resonance peaks)
-     - Audio tensor representation: spectra as `[batch, freq, 2]` tensors (magnitude + phase)
-4. **Prime-based quasi-random sampling** - replace Gaussian in initialization
-5. **Conservation dashboard** - real-time γ/η visualization in GUI
-6. **Phase-based resonance finder** — replace strict local-maxima `find_peaks` with unwrapped-phase detector (Ernoult et al. 2020) for robust optimisation
+1. **Add segment editor** — table view of `[x, d]` points in geometry panel
+2. **Add true 3-D bore preview** — Bevy gizmos conical frustum with orbit controls
+3. **Add tonehole drag-and-drop** — interactive placement on bore preview
+4. **Add compute thread count** — slider in Settings wired to rayon thread pool
+5. **Wire conservation-law crate** — use `SymplecticIntegrator` in long-time simulation loops
+6. **Wire lau-signal-processing crate** — use FFT/IirFilter for bore-wall absorption modeling
+7. **Fix radiation impedance docs** — rename "Geipel" comments to "Levine-Schwinger IIR"
+8. **Standardise frequency grid** — cents-based log spacing as default everywhere
+9. **Add UI tests** — manual + automated tests for panel interactions
+10. **Expand unit tests** — target 150+ from current 132
+11. **Neural network integration** — add crates behind feature flag `nn-integration`:
+    - `dfdx` — differentiable TLM prototype
+    - `tch-rs` — production training
+    - `burn` — pure-Rust research alternative
+12. **Complex impedance validation** — validate against TLM with published data
 
 ---
 

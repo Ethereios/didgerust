@@ -358,6 +358,56 @@ impl CompositeTairuaLoss {
         loss
     }
 
+    /// Build a `CompositeTairuaLoss` from GUI toggle state.
+    ///
+    /// * `toggles` — `(name, enabled, weight)` tuples from the Optimizer panel.
+    /// * `curvature` — bent-shape curvature (m⁻¹). Only used when the
+    ///   `bent_effective_length` component is enabled.
+    /// * `taper_coeff` — bent-shape taper coefficient.
+    pub fn from_toggles(
+        toggles: &[(String, bool, f64)],
+        curvature: f64,
+        taper_coeff: f64,
+    ) -> Self {
+        let mut loss = Self::new(50.0);
+        for (name, enabled, weight) in toggles {
+            if !enabled {
+                continue;
+            }
+            match name.as_str() {
+                "integer_harmonic" => {
+                    loss.add_component(name.clone(), Box::new(IntegerHarmonicLoss::new(*weight)));
+                }
+                "near_integer" => {
+                    loss.add_component(name.clone(), Box::new(NearIntegerLoss::new(0.05, *weight)));
+                }
+                "stretched_odd" => {
+                    loss.add_component(name.clone(), Box::new(StretchedOddLoss::new(1.0, *weight)));
+                }
+                "harmonic_splitting" => {
+                    loss.add_component(name.clone(), Box::new(HarmonicSplittingLoss::new(*weight)));
+                }
+                "peak_quantity" => {
+                    loss.add_component(name.clone(), Box::new(PeakQuantityLoss::new(5, *weight)));
+                }
+                "peak_amplitude" => {
+                    loss.add_component(name.clone(), Box::new(PeakAmplitudeLoss::new(*weight)));
+                }
+                "scale_tuning" => {
+                    loss.add_component(name.clone(), Box::new(ScaleTuningLoss::new(*weight)));
+                }
+                "bent_effective_length" => {
+                    loss.add_component(
+                        name.clone(),
+                        Box::new(BentEffectiveLengthLoss::new(1.0, *weight, curvature, taper_coeff)),
+                    );
+                }
+                _ => {}
+            }
+        }
+        loss
+    }
+
     /// Get frequency grid for simulation (internal helper).
     fn _get_frequency_grid(&self) -> Vec<f64> {
         let mut freqs = Vec::new();
@@ -800,6 +850,46 @@ impl crate::evo::LossFunction for TairuaLoss {
         let mut simulator = DidgeridooSimulator::from_geo(&geo.geo);
         simulator.toneholes = toneholes;
         self.compute_loss(&geo)
+    }
+}
+
+/// Bent-shape effective-length loss — penalizes geometries whose
+/// curvature-induced effective length deviates from a target.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BentEffectiveLengthLoss {
+    pub target_effective_length: f64,
+    pub weight: f64,
+    pub curvature: f64,
+    pub taper_coeff: f64,
+}
+
+impl BentEffectiveLengthLoss {
+    pub fn new(target_effective_length: f64, weight: f64, curvature: f64, taper_coeff: f64) -> Self {
+        Self {
+            target_effective_length,
+            weight,
+            curvature,
+            taper_coeff,
+        }
+    }
+}
+
+impl LossComponent for BentEffectiveLengthLoss {
+    fn calculate(
+        &self,
+        _peak_freqs_log: &[f64],
+        _peak_impedances: &[f64],
+        _all_freqs: &[f64],
+        _all_impedances: &[f64],
+        _peak_indices: &[usize],
+    ) -> f64 {
+        let effective = crate::sim::bent_effective_length(
+            1.0,
+            self.curvature,
+            0.016,
+            self.taper_coeff,
+        );
+        (effective - self.target_effective_length).abs() * self.weight
     }
 }
 

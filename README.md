@@ -53,29 +53,28 @@ See the `examples/` directory for sample JSON configurations:
 ## Planned Future Work
 
 ## 1. Radiation Impedance Model
-- Currently implemented: Geipel approximation (Equation 4 verified)
-- Validation: Matches published data within 0.5% error
+- Currently implemented: Levine-Schwinger IIR approximation (unflanged pipe)
+- Validation: Matches Geipel approximation within expected tolerance
+- Future: Add Silva et al. rational approximation for flanged pipes
 
 ## 2. Viscothermal Loss Model
-- Implemented: Full Tw/Zcw complex wavenumber system
-- Alignment: Matches DidgeLab formulation assumptions
-- Validation: Reproduced published efficiency curves
+- Implemented: Full Tw/Zcw complex wavenumber system (DidgeLab formulation)
+- Validation: Reproduces published efficiency curves
+- Future: Add frequency-dependent boundary-layer thickness validation
 
 ## 3. Bent Geometry Correction
-- Planned: α·κ²·a² effective-length correction
-- Implementation: Will modify Segment::new to apply curvature correction
-- Expected impact: Reduce frequency error from 41 cents to <5 cents
+- Status: IMPLEMENTED — α·κ²·a² effective-length correction wired into simulator, optimizer, and GUI
+- `src/sim/mod.rs::bent_effective_length` + `Segment::new_with_curvature` + GUI sliders
+- Future: Extend to non-uniform curvature along bore length
 
 ## 4. Mutation Operator Expansion
-- Adding: SingleMutation, AverageCrossover, PartSwapCrossover, PartAverageCrossover
-- Goal: Increase evolutionary diversity by 37%
+- Status: IMPLEMENTED — SingleMutation, AverageCrossover, PartSwapCrossover, PartAverageCrossover
+- All four operators are unit-tested and available in optimizer
 
 ## 5. Peak Detection Enhancement
-- Adding prominence parameter [0.05 default]
-- Phase-based resonance detection (Ernoult Eq 6)
-- Expected benefit: Improve peak tracking during mode transitions
+- Status: IMPLEMENTED — prominence parameter + phase-based resonance detection (Ernoult et al. 2020)
+- All three modes available: local maxima, prominence, phase-based
 
 ## 6. Loss Caching Mechanism
-- Adding: `cached_loss` field to Genome trait
-- Purpose: New cache optimization eliminating redundant work
-- Benchmark: Expected speedup of 2-3× in optimizer phase
+- Status: IMPLEMENTED — `loss: Option<f64>` on Genome trait; `evaluate_genomes` skips cached evaluations
+- Note: Field is named `loss`, not `cached_loss` as originally planned

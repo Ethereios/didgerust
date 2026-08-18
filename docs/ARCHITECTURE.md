@@ -89,16 +89,16 @@ EvolutionaryOptimizer::evolve() → best genome
 | Waveguide freq-domain | `src/waveguide/mod.rs::WaveguideEngine` | ⚠️ Partial | Returns complex spectrum; no time-domain synthesis |
 | Complex impedance | `SimulationStrategy::ComplexImpedance` | ⚠️ Partial | Basic implementation; needs validation against TLM |
 | Geometry ops | `rust-cadsd-accurate/src/geo/mod.rs` | ✅ Complete | cone, cylinder, bubble, stretch, scale, volume, Kigali, Mbeya |
-| Evolutionary optimizer | `src/evo/mod.rs` | ✅ Complete | Multiple mutation/crossover strategies, tournament selection, elite preservation |
-| Loss functions | `src/loss/mod.rs` | ✅ Complete | 10+ components, CompositeTairuaLoss with PeakDetectionMode |
+| Evolutionary optimizer | `src/evo/mod.rs` | ✅ Complete | Multiple mutation/crossover strategies, tournament selection, elite preservation, async execution |
+| Loss functions | `src/loss/mod.rs` | ✅ Complete | 10+ components, CompositeTairuaLoss with PeakDetectionMode, from_toggles() |
 | Peak detection | `src/sim/mod.rs::find_peaks*` | ✅ Complete | Three modes: local maxima, prominence, phase-based |
 | Persistence | `src/persistence/mod.rs` | ✅ Complete | JSON save/load for settings, checkpoints, project state |
-| GUI shell | `src/app.rs`, `src/bin/gui.rs` | ⚠️ Code ready, untested | Bevy + egui app launches; no manual/automated UI testing done |
+| GUI | `src/app.rs`, `src/bin/gui.rs` | ⚠️ Partial | Bevy + egui app launches; real async optimizer; some UI features missing |
 | Strategy comparison | `run_comparison_simulation` | ✅ Complete | Overlay plot with 3-line legend |
-| Radiation impedance | `src/sim/mod.rs::za` | ⚠️ Partial | Geipel approximation; should upgrade to Levine-Schwinger IIR |
-| Viscothermal losses | `src/sim/mod.rs::viscothermal_k_complex` | ⚠️ Partial | Full Tw/Zcw system; needs validation against published data |
-| AcousticConstants | `src/sim/mod.rs::AcousticConstants` | ⚠️ Partial | Temperature-dependent only; no humidity/pressure |
-| Bent-shape correction | `src/sim/mod.rs::bent_effective_length` | 🔄 Partial | Analytical formula exists; not wired into optimizer or GUI |
+| Radiation impedance | `src/sim/mod.rs::za` | ⚠️ Partial | Levine-Schwinger IIR; doc comments mislabel as "Geipel" |
+| Viscothermal losses | `src/sim/mod.rs::viscothermal_k_complex` | ⚠️ Partial | Full Tw/Zcw system implemented; needs validation against published data |
+| AcousticConstants | `src/sim/mod.rs::AcousticConstants` | ⚠️ Partial | Temperature, pressure, humidity via `for_conditions` |
+| Bent-shape correction | `src/sim/mod.rs::bent_effective_length` | ✅ Complete | Analytical formula, wired into optimizer loss and GUI sliders |
 | Tonehole models | `src/tonehole/mod.rs` | ⚠️ Partial | Open/closed impedance; no three-port scattering junction |
 | Differentiable TLM | `src/diff_tlm.rs` | ⚠️ Partial | Analytical gradients + Adam; no real backprop through cascade |
 | FDTD validator | `src/fdtd/mod.rs`, `src/fdtd/validator.rs` | 🔄 Partial | 3-D Yee grid with PML; small grid, no validation study |
@@ -107,16 +107,19 @@ EvolutionaryOptimizer::evolve() → best genome
 | Neural fitness predictor | `src/nn/mod.rs` | ❌ Missing | Placeholder only; no MLP, no training loop |
 | Time-domain synthesis | `src/waveguide/mod.rs` | ❌ Missing | Frequency-domain only; no sample-by-sample loop |
 | GUI tonehole editor | `src/app.rs` | ⚠️ Partial | Sliders work; no drag-and-drop on bore preview |
-| 3-D bore preview | `src/app.rs::draw_bore_gizmos` | ⚠️ Partial | Wireframe exists; no camera controls |
+| 3-D bore preview | `src/app.rs::draw_bore_gizmos` | ⚠️ Partial | Wireframe centerline exists; no camera controls or rotated solid |
 
 ### 2.2 What Is Broken or Incomplete
 
 | Component | Issue | Location | Fix Needed |
 |-----------|-------|----------|------------|
-| Optimizer loop | Buttons log only; no real async execution | `src/app.rs` | Wire `EvolutionaryOptimizer::evolve_with_progress` to background thread |
 | Frequency grid | Linear by default; log grid not cents-based everywhere | `src/app.rs::compute_spectrum` | Standardise on cents-based log grid |
 | GUI tonehole editor | No drag-and-drop on bore preview | `src/app.rs` | Add gizmo interaction for tonehole markers |
 | Cents-based grid | Not used universally in GUI | `src/sim/mod.rs::grid` | Replace linear grid with `log_grid` in simulation panel |
+| Segment editor | No table view of individual [x,d] points | `src/app.rs` | Add editor panel for segment-level geometry editing |
+| Compute thread count | No user-configurable thread count | `src/app.rs` | Add slider in Settings; wire to rayon thread pool |
+| 3-D bore preview | Only 3-line wireframe; no camera controls or rotated solid | `src/app.rs::draw_bore_gizmos` | Implement proper 3D conical frustum + orbit controls |
+| Loss caching name | Doc claims `cached_loss` field; actual field is `loss` | `src/evo/mod.rs::Genome` | Rename or update docs |
 
 ### 2.3 What Does Not Exist Yet
 
@@ -124,10 +127,14 @@ EvolutionaryOptimizer::evolve() → best genome
 |---------|-------|
 | Neural fitness predictor training pipeline | No MLP, no dataset generation, no training loop |
 | Time-domain synthesis for audio | No sample-by-sample waveguide loop; no cpal audio output from simulation |
-| Moist-air AcousticConstants | No humidity/pressure dependence; only temperature |
+| Moist-air AcousticConstants | Humidity/pressure dependence exists via `for_conditions`; needs experimental validation |
 | 3-D FDTD validation study | No comparison against measured data or FEM reference |
 | Prime-conv training pipeline | No dataset, no training loop, no serialization |
 | DWM integration | Not wired into `SimulationStrategy` dispatch |
+| Segment editor | No table view of individual `[x, d]` points |
+| Compute thread count | No user-configurable thread count |
+| True 3-D bore preview | No camera controls, no rotated solid (only centerline wireframe) |
+| Tonehole drag-and-drop | No interactive tonehole placement on bore preview |
 
 ---
 
@@ -137,10 +144,10 @@ EvolutionaryOptimizer::evolve() → best genome
 
 | Panel | File | Elements | Status |
 |-------|------|----------|--------|
-| Simulation | `show_simulation_panel` | Freq grid sliders, compute button, peak button, export CSV, spectrum plot with tooltip | ⚠️ Code ready, untested |
-| Optimizer | `show_optimizer_panel` | Pop/gen sliders, loss toggles, mutation display, progress bar, run/pause/resume, save/load checkpoint, export genome | ⚠️ Code ready, untested; buttons log only |
-| Geometry | `show_geometry_panel` | Length/diameter/segment sliders, undo/redo, bubble/stretch dialogs, import/export JSON, bore profile plot | ⚠️ Code ready, untested |
-| Settings | `show_settings_panel` | Theme, log verbosity, default strategy/mutation, budget, export format, save/load config | ⚠️ Code ready, untested |
+| Simulation | `show_simulation_panel` | Freq grid sliders, compute button, peak button, export CSV/JSON, spectrum plot with tooltip, phase toggle | ⚠️ Code ready, untested |
+| Optimizer | `show_optimizer_panel` | Pop/gen sliders, loss toggles with weights, mutation display, progress bar, conservation dashboard, run/pause/resume, save/load checkpoint, export genome | ⚠️ Code ready, untested |
+| Geometry | `show_geometry_panel` | Length/diameter/segment sliders, bore style presets, undo/redo, bubble/stretch dialogs, import/export JSON, curvature/taper sliders, bore profile plot | ⚠️ Code ready, untested |
+| Settings | `show_settings_panel` | Theme, log verbosity, default strategy/mutation, budget, γ/η weights, prime sieve size, waveguide delay resolution, phase unwrap, save/load config | ⚠️ Code ready, untested |
 | Sidebar | `ui_system` | Strategy radios, mutation radio, budget slider, export geometry, compare strategies | ⚠️ Code ready, untested |
 
 ### 3.2 Dialogs (Modal Windows)
@@ -160,17 +167,21 @@ EvolutionaryOptimizer::evolve() → best genome
 ### 3.3 Missing UI Features (Priority Order)
 
 **P0 — Blocking real use:**
-1. **Real optimizer loop** — run evolution in background thread / Bevy async task, publish progress to `generation_progress` and `best_loss` in real time
+1. **Segment editor** — table view of individual `[x, d]` points with add/remove/reorder
 
 **P1 — Needed for usability:**
-2. **Phase-aware spectrum toggle** — overlay unwrapped phase on spectrum plot
-3. **Loss component weight sliders** — currently checkbox + inline slider; separate panel for fine-grained control
-4. **3-D bore preview** — Bevy gizmos wireframe in geometry panel
-5. **Strategy comparison in main plot** — overlay all three strategies on the simulation panel plot, not just a separate dialog
+2. **True 3-D bore preview** — Bevy gizmos showing rotated conical frustum with camera controls
+3. **Tonehole drag-and-drop** — add/remove toneholes on bore preview
+4. **Phase-aware spectrum toggle** — overlay unwrapped phase on spectrum plot (partially exists)
+5. **Peak markers on plot** — draw vertical lines/dots at detected resonances
+6. **Strategy legend** — show which curve is which when comparing
 
 **P2 — Nice to have:**
-6. **Cents-based log grid everywhere** — standardise frequency grid to cents-based spacing
-7. **Tonehole UI** — add/remove toneholes from geometry panel
+7. **Cents-based log grid everywhere** — standardise frequency grid to cents-based spacing
+8. **Compute thread count** — slider for parallel loss evaluation thread count
+9. **Auto-save interval** — for checkpoints
+10. **Population diversity metric** — average pairwise genome distance
+11. **Convergence stop condition** — early stopping if best loss plateaus
 
 ---
 
@@ -191,12 +202,20 @@ EvolutionaryOptimizer::evolve() → best genome
 
 | Task | File(s) | Effort | Notes |
 |------|---------|--------|-------|
-| Wire optimizer loop | `src/app.rs`, `src/evo/mod.rs` | Medium | ⚠️ Buttons log only; need real async execution with progress callbacks |
+| Wire optimizer loop | `src/app.rs`, `src/evo/mod.rs` | Medium | ✅ Background thread + mpsc progress callbacks implemented |
 | Add `rfd` file dialogs | `src/app.rs` | Small | ✅ Done |
 | Fix undo/redo off-by-one | `src/app.rs:901-911` | Tiny | ✅ Done |
 | Add `prominence` to `find_peaks` | `src/sim/mod.rs`, `src/app.rs` | Small | ✅ Done |
-| Cents-based log grid | `src/sim/mod.rs::grid`, `src/app.rs::compute_spectrum` | Small | ⚠️ Log grid exists but not used universally in GUI |
-| Loss caching on genome | `src/loss/mod.rs`, `src/evo/mod.rs` | Small | ✅ Done |
+| Cents-based log grid | `src/sim/mod.rs::grid`, `src/app.rs::compute_spectrum` | Small | ⚠️ Log grid exists; linear still default in GUI |
+| Loss caching on genome | `src/loss/mod.rs`, `src/evo/mod.rs` | Small | ✅ Done (`loss` field on Genome) |
+| Export CSV with magnitude+phase | `src/app.rs::export_spectrum_csv` | Tiny | ✅ Done |
+| Test UI manually/automated | `src/app.rs`, `src/bin/gui.rs` | Medium | ❌ No UI testing done; all panels untested |
+| Bent-shape correction in GUI | `src/app.rs`, `src/sim/mod.rs`, `src/loss/mod.rs` | Medium | ✅ Curvature/taper sliders + BentEffectiveLengthLoss wired |
+| Loss component toggles functional | `src/app.rs`, `src/loss/mod.rs` | Small | ✅ CompositeTairuaLoss::from_toggles() builds from GUI state |
+| Conservation dashboard | `src/app.rs` | Small | ✅ γ/η visualization in Optimizer panel |
+| Prime-based population init | `src/evo/mod.rs` | Small | ✅ with_prime_population() uses prime-seeded RNG |
+| Export JSON | `src/app.rs` | Tiny | ✅ Export JSON button + export_spectrum_json() |
+| Advanced config panel | `src/app.rs` | Small | ✅ γ/η weights, prime sieve size, delay resolution, phase unwrap |
 | Export CSV with magnitude+phase | `src/app.rs::export_spectrum_csv` | Tiny | ✅ Done |
 | Test UI manually/automated | `src/app.rs`, `src/bin/gui.rs` | Medium | ❌ No UI testing done; all panels untested |
 
@@ -251,12 +270,14 @@ cpal-integration = ["cpal"] # audio output
 
 - [x] Remove duplicate `PrimeGenerator` ✅ Done
 - [x] Standardize frequency grid to cents-based log spacing ✅ Done in `sim::grid`
-- [ ] Add `cargo bench` benchmarks for simulator, loss, optimizer
-- [ ] Expand unit tests (currently 101 library + 28 integration; target 150+)
-- [ ] Add integration tests for full Geo → impedance → peaks → loss → optimizer pipeline ✅ Done
-- [ ] Wire real optimizer loop with progress callbacks
+- [x] Add `cargo bench` benchmarks ✅ `benches/waveguide_vs_tlm.rs`, `benches/loss_benchmark.rs`
+- [ ] Expand unit tests (currently 102 library + 30 integration; target 150+)
+- [x] Add integration tests for full Geo → impedance → peaks → loss → optimizer pipeline ✅ Done
+- [x] Wire real optimizer loop with progress callbacks ✅ Done
 - [ ] Add 3-D bore preview camera controls
 - [ ] Add tonehole drag-and-drop on bore preview
+- [ ] Add segment editor (table view of [x,d] points)
+- [ ] Add compute thread count configuration
 
 ---
 
@@ -399,20 +420,13 @@ Do **not** add these as Cargo dependencies. Study them for patterns and extract 
 
 ## 9. Immediate Next Actions
 
-## 3.1 Implemented UI Features
-- Real-time audio integration (CLI commands TBD)
-- CLI tools documentation section added
-- Updated simulation panel with spectrum plot
-- Added controls for amplitude and frequency
-- Added optimizer progress tracking
-- Real-time state updates in Bevy systems
-- History tracking with undo/redo
-- Export workflows via rfd file dialogs
-
-1. **Wire real optimizer loop** — run `EvolutionaryOptimizer::evolve()` in background thread; add progress callbacks
-2. **Add 3-D bore preview** — bevy_gizmos wireframe in geometry panel
-3. **Prototype differentiable TLM** — wrap segment params as `autodiff-rs` `Value`s
-4. **Train neural fitness predictor** — MLP surrogate for top-5 peaks
-5. **Port FDTD validator** — `src/fdtd/mod.rs` Yee scheme for acoustics
-6. **Standardise frequency grid** — cents-based log spacing everywhere
-7. **Add integration tests** — full Geo → impedance → peaks → loss → optimizer pipeline
+1. **Add segment editor** — table view of `[x, d]` points in geometry panel
+2. **Add true 3-D bore preview** — Bevy gizmos conical frustum with orbit controls
+3. **Add tonehole drag-and-drop** — interactive placement on bore preview
+4. **Add compute thread count** — slider in Settings panel wired to rayon
+5. **Fix radiation impedance docs** — rename "Geipel" comments to "Levine-Schwinger IIR"
+6. **Standardise frequency grid** — cents-based log spacing as default everywhere
+7. **Add UI tests** — manual + automated tests for panel interactions
+8. **Expand unit tests** — target 150+ library tests from current 102
+9. **Wire conservation-law crate** — use `SymplecticIntegrator` in long-time simulation loops
+10. **Wire lau-signal-processing crate** — use FFT/IirFilter for bore-wall absorption modeling

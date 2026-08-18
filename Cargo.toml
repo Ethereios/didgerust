@@ -28,6 +28,9 @@ cpal = { version = "0.18", optional = true }
 # Research tools
 autodiff-rs = { git = "https://github.com/ArunBabu98/autodiff-rs", optional = true }
 dfdx = { version = "0.13", optional = true }
+# SuperInstance-derived math/signal crates (optional)
+conservation-law = { git = "https://github.com/SuperInstance/conservation-law-rs", optional = true }
+lau-signal-processing = { git = "https://github.com/SuperInstance/lau-signal-processing", optional = true }
 
 [dev-dependencies]
 approx = "0.5"
@@ -41,7 +44,13 @@ cpal-integration = ["cpal"]
 nn-integration = ["dfdx"]
 diff-tlm = ["autodiff-rs"]
 md-lif = []
+conservation-law = ["dep:conservation-law"]
+dsp = ["dep:lau-signal-processing"]
 
 [[bench]]
 name = "waveguide_vs_tlm"
+harness = false
+
+[[bench]]
+name = "loss_benchmark"
 harness = false

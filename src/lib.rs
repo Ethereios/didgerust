@@ -39,9 +39,14 @@ pub mod diff_tlm;
 // MD LIF module (always available)
 pub mod md_lif;
 
+// Conservation-law integration (feature-gated)
+#[cfg(feature = "conservation-law")]
+pub mod conservation_law;
+
 // Re-export local simulation functions
 pub use crate::sim::{
     create_segments_from_geo,
+    create_segments_from_geo_with_curvature,
     find_peaks,
     find_peaks_with_prominence,
     find_peaks_phase_based,

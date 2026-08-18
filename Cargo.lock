@@ -2287,14 +2287,16 @@ dependencies = [
  "bevy_egui",
  "bevy_gizmos",
  "cadsd-accurate",
+ "conservation-law",
  "cpal 0.18.1",
  "criterion",
  "dfdx",
  "egui_plot",
  "env_logger 0.11.11",
+ "lau-signal-processing",
  "lazy_static",
  "log",
- "nalgebra",
+ "nalgebra 0.32.6",
  "ndarray 0.16.1",
  "num-complex",
  "plotters",
@@ -2315,7 +2317,7 @@ dependencies = [
  "clap",
  "env_logger 0.9.3",
  "log",
- "nalgebra",
+ "nalgebra 0.32.6",
  "ndarray 0.15.6",
  "num-complex",
  "plotters",
@@ -2573,6 +2575,15 @@ checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
 dependencies = [
  "crossbeam-utils",
  "portable-atomic",
+]
+
+[[package]]
+name = "conservation-law"
+version = "0.1.0"
+source = "git+https://github.com/SuperInstance/conservation-law-rs#6c4a50b779cdefacca386daa9c6ea931facf37fb"
+dependencies = [
+ "num-traits",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -4825,6 +4836,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "lau-signal-processing"
+version = "0.1.0"
+source = "git+https://github.com/SuperInstance/lau-signal-processing#d80ec7a65a92041c42949555d8726d04a4d1a7f7"
+dependencies = [
+ "nalgebra 0.33.3",
+ "num-complex",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5115,7 +5137,23 @@ dependencies = [
  "num-rational",
  "num-traits",
  "serde",
- "simba",
+ "simba 0.8.1",
+ "typenum",
+]
+
+[[package]]
+name = "nalgebra"
+version = "0.33.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d43ddcacf343185dfd6de2ee786d9e8b1c2301622afab66b6c73baf9882abfd"
+dependencies = [
+ "approx",
+ "matrixmultiply",
+ "nalgebra-macros",
+ "num-complex",
+ "num-rational",
+ "num-traits",
+ "simba 0.9.1",
  "typenum",
 ]
 
@@ -6684,6 +6722,19 @@ name = "simba"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "061507c94fc6ab4ba1c9a0305018408e312e17c041eb63bef8aa726fa33aceae"
+dependencies = [
+ "approx",
+ "num-complex",
+ "num-traits",
+ "paste",
+ "wide",
+]
+
+[[package]]
+name = "simba"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c99284beb21666094ba2b75bbceda012e610f5479dfcc2d6e2426f53197ffd95"
 dependencies = [
  "approx",
  "num-complex",

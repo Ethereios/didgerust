@@ -1128,7 +1128,13 @@ After cloning and studying the highest-value external repositories, here is the 
 
 3. **No didgeridoo-specific code exists in SuperInstance.** The ecosystem is agent/music-cognition focused. The closest repos (`lau-audio`, `forge-audio`, `fleet-audio`) are procedural audio generation and tile-based audio decomposition, not acoustic simulation.
 
-4. **The "12V Boat" / "Hermit Crab" principles map to DidgeRust's existing architecture.** Additive modules, compute budgets, and feature flags are already implemented. No external dependency is needed to enforce these patterns.
+4. **The agent/fleet infrastructure contains useful app-architecture patterns.** While the full FLUX VM, PLATO server, and fleet mesh are overkill for a single-user desktop app, the underlying patterns map directly to DidgeRust's needs:
+   - **PLATO Room** → bounded contexts for simulation/optimizer/audio subsystems, each with sensors (inputs), actuators (outputs), history ring buffer, and alarm thresholds
+   - **Tile** → immutable state snapshots for undo/redo, persistence, and audit trails (384-byte atomic units with provenance)
+   - **Deadband** → threshold-based simulation/UI updates (already partially in `budget_ops`); formalize as `DeadbandConfig` with PERCENTAGE/ABSOLUTE/THRESHOLD modes
+   - **Conservation Fence** → per-subsystem compute budget enforcement (`budget_ops` already exists; extend to `γ + η = C` where γ = simulation ops, η = overhead)
+   - **Mesh/Entry-Points** → plugin architecture for simulation strategies (new strategies register via a `MeshRegistry`-like trait system; GUI discovers them automatically)
+   - **A2UI** → data-driven UI generation (Bevy egui already does this; formalize with `DataSchema` → UI mapping)
 
 #### Concrete recommendation
 
@@ -1145,15 +1151,23 @@ After cloning and studying the highest-value external repositories, here is the 
    - Use STFT for time-frequency analysis of didgeridoo sound output
    - Low risk: depends on `nalgebra` and `num-complex` which DidgeRust already uses
 
-**Do not integrate:**
-- Agent orchestration infrastructure (FLUX, PLATO, t-minus, cns-bridge) — irrelevant to single-user desktop simulation
+**Adopt architectural patterns (no external dependency needed):**
+- **Room pattern** → structure each major subsystem (simulation, optimizer, audio) as a bounded context with its own state, history, and alarm thresholds
+- **Tile pattern** → make all geometry changes, simulation results, and optimizer states immutable tiles with provenance chains; enables undo/redo and audit trails
+- **Deadband pattern** → formalize `budget_ops` into a full deadband system with configurable thresholds and periodic heartbeats
+- **Conservation fence pattern** → enforce `γ + η = C` at the subsystem level, not just globally
+- **Mesh pattern** → replace hardcoded strategy matching with a registry where strategies self-register on load
+
+**Do not integrate as dependencies:**
+- Full FLUX VM or PLATO server — overkill for single-user desktop; extract patterns instead
+- Fleet coordination (t-minus, cns-bridge, gossip-ping) — irrelevant without multi-node deployment
 - Underwater acoustics (`sonar-vision-c`) — wrong physics domain
 - AI embedding systems (`resonance-engine`, `collective-unconscious`) — wrong domain
 - Solid mechanics (`solid-mechanics`) — stress/strain, not wave propagation
 - `constraint-theory-core` / `sheaf-spectral` — interesting math but weak mapping to 1D acoustics
 
 **Future revisit triggers:**
-- DidgeRust expands to distributed sensor arrays → evaluate `gossip-ping`/`cns-bridge`
+- DidgeRust expands to multi-sensor/multi-user → evaluate `gossip-ping`/`cns-bridge` for coordination
 - DidgeRust needs GPU-accelerated simulation → evaluate `cuda-constraint-engine`
 - DidgeRust needs topological data analysis of resonance modes → evaluate `sheaf-spectral` or `mapper-graph`
 

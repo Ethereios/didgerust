@@ -13,15 +13,27 @@
 - **PrimeSequence** - Prime-indexed mutation scaling
 - **UI**: Radio buttons in Optimizer panel, config saved with parameters
 
-### 3. SuperInstance Integration (PHILOSOPHY ONLY — NO CODE INTEGRATED)
-| Principle | Implementation |
-|-----------|----------------|
-| **Hermit Crab** | New methods ADDED as shells, never replaced old code |
-| **12V Boat** | All new paths wrapped in `budget_ops` constraint checks |
-| **γ + η = C** | Waveguide/Prime/Complex paths track compute ops, enforce budget |
-| **7-Layer** | Substrate → VM → Engines → Policy → Orchestration → Agents → Artifacts |
+### 3. SuperInstance Integration (TWO CATEGORIES)
+#### 3a. Math/Signal Crates (code integration via feature flags)
+| Crate | Feature Flag | Purpose | Status |
+|-------|-------------|---------|--------|
+| **conservation-law-rs** | `conservation-law` | `SymplecticIntegrator<f64, N>` (Störmer–Verlet), `MechanicalLagrangian`, `total_energy()`, Noether's theorem | Target: integrate |
+| **lau-signal-processing** | `dsp` | FIR/IIR design, self-contained FFT, STFT, LMS/RLS adaptive filters, Levinson-Durbin LPC | Target: integrate |
+| **iir-filter** | `dsp` | Focused Butterworth/Chebyshev biquad filters, `freqz()` | Reference (pick one IIR crate) |
+| **constraint-theory-core** | `constraint-theory` | Pythagorean manifold snapping, KD-tree, holonomy checking | Reference |
+| **sheaf-spectral** | `sheaf-spectral` | Sheaf Laplacian, graph diffusion, Hodge decomposition | Reference |
 
-> **Note:** SuperInstance (https://github.com/SuperInstance/SuperInstance) is a 500+ repo ecosystem for AI agents, fleet orchestration, and edge computing. It is **NOT** integrated into DidgeRust. The principles above were extracted as design guidelines. See `docs/RESEARCH.md §17.6` for full assessment.
+#### 3b. App Architecture Patterns (design inspiration, no external dependency)
+| SuperInstance Pattern | DidgeRust Application | Implementation |
+|-----------------------|----------------------|----------------|
+| **PLATO Room** | Bounded contexts for simulation/optimizer/audio subsystems | Each subsystem is a "room" with sensors (inputs), actuators (outputs), history ring buffer, alarm thresholds |
+| **Tile** | Immutable state snapshots for undo/redo, persistence, and audit trails | 384-byte atomic units; each simulation result or geometry change is a tile |
+| **Deadband** | Threshold-based simulation/UI updates | Already partially in `budget_ops`; formalize as `DeadbandConfig` with PERCENTAGE/ABSOLUTE/THRESHOLD modes |
+| **Conservation Fence** | Per-subsystem compute budget enforcement | `budget_ops` already exists; extend to `γ + η = C` where γ = simulation ops, η = overhead |
+| **Mesh/Entry-Points** | Plugin architecture for simulation strategies | New strategies register themselves via a `MeshRegistry`-like trait system; GUI discovers them automatically |
+| **A2UI** | Data-driven UI generation | Bevy egui already does this; formalize with `DataSchema` → UI mapping |
+
+> **Note:** SuperInstance (https://github.com/SuperInstance/SuperInstance) is a ~2,000-repo ecosystem. The agent/fleet infrastructure (FLUX VM, PLATO server, t-minus dispatcher, cns-bridge mesh) is **overkill for a single-user desktop app** and should NOT be integrated as a whole. The patterns above are extracted as lightweight design guidelines. See `docs/RESEARCH.md §17.6` for full assessment.
 
 ### 4. Complex & Prime Neural Networks Integration (READY FOR EXTENSION)
 - **Complex Numbers**: `num_complex::Complex64` already used throughout waveguide & impedance

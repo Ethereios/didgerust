@@ -61,6 +61,7 @@ struct ValidateConfig {
     bottom_diameter: f64,
     segments: usize,
     freqs: Vec<f64>,
+    fdtd: bool,
     json: bool,
 }
 
@@ -226,6 +227,7 @@ fn parse_validate_config(args: &[String]) -> ValidateConfig {
         bottom_diameter: 65.0,
         segments: 30,
         freqs: vec![200.0, 400.0, 600.0, 800.0],
+        fdtd: false,
         json: false,
     };
 
@@ -254,6 +256,10 @@ fn parse_validate_config(args: &[String]) -> ValidateConfig {
             }
             "--json" => {
                 config.json = true;
+                i += 1;
+            }
+            "--fdtd" => {
+                config.fdtd = true;
                 i += 1;
             }
             _ => {
@@ -401,59 +407,72 @@ fn run_validate(config: ValidateConfig) {
         json: config.json,
     });
 
-    println!("Running TLM vs analytical validation...");
+    if config.fdtd {
+        println!("Running TLM vs FDTD validation...");
+    } else {
+        println!("Running TLM vs analytical validation...");
+    }
     let start = Instant::now();
 
-    let segments = cadsd::sim::create_segments_from_geo(&geo.geo);
     let constants = AcousticConstants::default();
     let tlm_results: Vec<(f64, num_complex::Complex<f64>)> = config.freqs.iter()
         .map(|&f| {
-            let z = cadsd::sim::cadsd_ze_with_losses(&segments, f, &constants, true, &[]);
+            let z = cadsd::sim::cadsd_ze_with_losses(&cadsd::sim::create_segments_from_geo(&geo.geo), f, &constants, true, &[]);
             (f, z)
         })
         .collect();
 
-    let analytical_results: Vec<(f64, num_complex::Complex<f64>)> = config.freqs.iter()
-        .map(|&f| {
-            let z = cadsd::validation::analytical_impedance_cylinder(config.length / 1000.0, config.top_diameter / 2000.0, f, &constants);
-            (f, z)
-        })
-        .collect();
+    let comparison_results: Vec<(f64, num_complex::Complex<f64>, f64)> = if config.fdtd {
+        config.freqs.iter()
+            .map(|&f| {
+                let (fdtd_z, _tlm_z, err) = cadsd::fdtd::validate_fdtd_vs_tlm(&geo, f, &constants);
+                (f, fdtd_z, err)
+            })
+            .collect()
+    } else {
+        config.freqs.iter()
+            .map(|&f| {
+                let z = cadsd::validation::analytical_impedance_cylinder(config.length / 1000.0, config.top_diameter / 2000.0, f, &constants);
+                (f, z, 0.0)
+            })
+            .collect()
+    };
 
     let elapsed = start.elapsed();
 
     if config.json {
-        let comparisons: Vec<serde_json::Value> = tlm_results.iter().zip(analytical_results.iter())
-            .map(|((f_tlm, z_tlm), (_f_ana, z_ana))| {
-                let rel_error = if z_ana.norm() > 1e-12 {
-                    ((z_tlm - z_ana).norm() / z_ana.norm()) as f64
-                } else {
-                    0.0
-                };
+        let comparisons: Vec<serde_json::Value> = tlm_results.iter().zip(comparison_results.iter())
+            .map(|((f_tlm, z_tlm), (_f_cmp, z_cmp, rel_err))| {
+                let magnitude = if config.fdtd { "fdtd_magnitude" } else { "analytical_magnitude" };
                 serde_json::json!({
                     "frequency_hz": f_tlm,
                     "tlm_magnitude": z_tlm.norm(),
-                    "analytical_magnitude": z_ana.norm(),
-                    "relative_error": rel_error,
+                    magnitude: z_cmp.norm(),
+                    "relative_error": rel_err,
                 })
             })
             .collect();
         let output = serde_json::json!({
+            "mode": if config.fdtd { "fdtd" } else { "analytical" },
             "elapsed_ms": elapsed.as_secs_f64() * 1000.0,
             "comparisons": comparisons,
         });
         println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
     } else {
         println!("Validation completed in {:.2?}", elapsed);
-        println!("Frequency (Hz) | TLM | Analytical | Rel Error");
-        println!("--------------|-----|------------|----------");
-        for ((f_tlm, z_tlm), (_f_ana, z_ana)) in tlm_results.iter().zip(analytical_results.iter()) {
-            let rel_error = if z_ana.norm() > 1e-12 {
-                ((z_tlm - z_ana).norm() / z_ana.norm()) as f64
+        if config.fdtd {
+            println!("Frequency (Hz) | TLM | FDTD | Rel Error");
+            println!("--------------|-----|------|----------");
+        } else {
+            println!("Frequency (Hz) | TLM | Analytical | Rel Error");
+            println!("--------------|-----|------------|----------");
+        }
+        for ((f_tlm, z_tlm), (_f_cmp, z_cmp, rel_err)) in tlm_results.iter().zip(comparison_results.iter()) {
+            if config.fdtd {
+                println!("{:>13.2} | {:>5.3} | {:>6.3} | {:>8.4}", f_tlm, z_tlm.norm(), z_cmp.norm(), rel_err);
             } else {
-                0.0
-            };
-            println!("{:>13.2} | {:>5.3} | {:>10.3} | {:>8.4}", f_tlm, z_tlm.norm(), z_ana.norm(), rel_error);
+                println!("{:>13.2} | {:>5.3} | {:>10.3} | {:>8.4}", f_tlm, z_tlm.norm(), z_cmp.norm(), rel_err);
+            }
         }
     }
 }
@@ -856,6 +875,9 @@ fn print_help() {
     println!("    # Validate TLM vs analytical for a cone");
     println!("    cli validate cone --length 1500 --top 32 --bottom 65");
     println!();
+    println!("    # Validate TLM vs FDTD for a cone");
+    println!("    cli validate cone --length 1500 --top 32 --bottom 65 --fdtd");
+    println!();
     println!("    # Compare strategies (TLM vs Waveguide vs FDTD)");
     println!("    cli compare cone --length 1500 --top 32 --bottom 65 --json");
     println!();
@@ -870,9 +892,6 @@ fn print_help() {
     println!();
     println!("    # Compute tonehole impedance");
     println!("    cli tonehole --diameter 10 --depth 5 --freq 500");
-    println!();
-    println!("    # Compare strategies (TLM vs Waveguide vs FDTD)");
-    println!("    cli compare cone --length 1500 --top 32 --bottom 65 --json");
     println!();
     println!("OPTIONS:");
     println!("    --geo <TYPE>        Geometry type: cone, kigali, mbeya (default: cone)");
@@ -891,6 +910,7 @@ fn print_help() {
     println!("    --diameter <MM>     Tonehole diameter in mm (default: 10)");
     println!("    --depth <MM>        Tonehole depth in mm (default: 5)");
     println!("    --open / --closed   Tonehole type (default: open)");
+    println!("    --fdtd              Use FDTD comparison in validate command");
     println!("    --json              Output results as JSON");
     println!("    --help              Show this help message");
 }

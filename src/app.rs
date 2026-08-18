@@ -151,6 +151,8 @@ pub struct CadsdState {
     pub pressure_pa: f64,
     pub relative_humidity: f64,
     pub bore_style: String,
+    pub curvature: f32,
+    pub taper_coeff: f32,
     
     // Audio controls
     pub audio_enabled: bool,
@@ -241,6 +243,8 @@ impl Default for CadsdState {
             loss_history: Vec::new(),
             validation_report: String::new(),
             bore_style: "cone".to_string(),
+            curvature: 0.0,
+            taper_coeff: 0.25,
             // Phase B: Geometry
             geo_history: Vec::new(),
             geo_history_index: 0,
@@ -1575,6 +1579,14 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
     ui.add(egui::Slider::new(&mut state.bottom_diameter, 10.0..=200.0).text("Bottom Diameter (mm)"));
     ui.add(egui::Slider::new(&mut state.segments, 5..=100).text("Segments"));
     
+    ui.separator();
+    ui.label("Bent-Shape Correction:");
+    ui.add(egui::Slider::new(&mut state.curvature, 0.0..=0.1).text("Curvature (1/m)"));
+    ui.add(egui::Slider::new(&mut state.taper_coeff, 0.1..=1.0).text("Taper Coefficient"));
+    if state.curvature > 0.0 {
+        ui.label(format!("Effective length correction active (κ={:.4})", state.curvature));
+    }
+    
     // Boundary checks: ensure geometry remains physically plausible
     let geo_valid = state.length > 0.0 && 
                     state.top_diameter > 0.0 && 
@@ -2084,6 +2096,14 @@ fn compute_spectrum(state: &mut CadsdState) {
         state.relative_humidity,
     );
     simulator.toneholes = state.toneholes.clone();
+    
+    if state.curvature > 0.0 {
+        simulator.segments = crate::sim::create_segments_from_geo_with_curvature(
+            &geo.geo,
+            state.curvature as f64,
+            state.taper_coeff as f64,
+        );
+    }
     
     let spectrum = simulator.impedance(&freqs);
     state.impedances = spectrum.iter().map(|c| c.norm()).collect();

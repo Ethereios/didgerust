@@ -1086,30 +1086,77 @@ The experimental modules (`prime_conv`, `waveguide`, `fdtd`, `tonehole`, `diff_t
 
 All commands support `--json` for machine-readable output, enabling integration with Python/Matlab/R pipelines for further analysis.
 
-### 17.6 SuperInstance Assessment
+### 17.6 SuperInstance — Complete Assessment
 
-**SuperInstance** (https://github.com/SuperInstance/SuperInstance) is a large polyglot ecosystem (~500 repos) for AI agents, fleet orchestration, edge computing, and music cognition, built primarily in Rust and Python. It is **NOT currently integrated** into DidgeRust. The only references in this repo are philosophical design principles in `docs/archive/final_goals.md`:
+**SuperInstance** (https://github.com/SuperInstance/SuperInstance) is a ~2,000-repository polyglot ecosystem for AI agent orchestration, fleet coordination, edge computing, constraint-theory math, and music cognition. The project has been studied in depth (local clone at `SuperInstance/`, external repos cloned to `C:\Users\kapil\AppData\Local\Temp\kilo\`).
 
-| Principle | DidgeRust Equivalent | Status |
-|-----------|----------------------|--------|
-| Hermit Crab | Additive module design (new features as independent crates/modules) | ✅ Philosophy only |
-| 12V Boat | `budget_ops` compute-budget constraint | ✅ Implemented as internal constraint |
-| γ + η = C | Conservation budget tracking | ✅ Implemented |
-| 7-Layer | No canonical mapping; closest is our module layering (sim → evo → loss → GUI) | ⚠️ Philosophical only |
+#### What the local clone actually contains
 
-**Assessment: No code integration recommended at this time.**
+The `SuperInstance/` directory in this repo is a **meta-repo index**. It contains:
+- Architecture docs (`ARCHITECTURE.md`, `EDGE_FIRST_ARCHITECTURE.md`, `MESH-ARCHITECTURE.md`, `WORKING_ANIMAL_ARCHITECTURE.md`, `TECHNICAL-BRIEF.md`)
+- A Python SDK (`superinstance/`) for multi-agent memory/orchestration — **not relevant to acoustics**
+- TypeScript schemas (`schemas/`) for fleet management — **not relevant**
+- One broken Rust crate (`fleet-metrics/`) that depends on an absent `conservation-law-rs` package
+- ~25 empty `*-rs/` stub directories (`conservation-law-rs/`, `entropy-conservation-rs/`, `dial-theory-rs/`, etc.) with zero source code
+- `CATALOG.md` — an 8,000-line index of 2,000+ external repositories
 
-Reasons:
-1. **Scale mismatch.** SuperInstance is a 500-repo ecosystem for agent orchestration. DidgeRust is a focused acoustic simulator. The overhead of integrating SuperInstance's agent/fleet infrastructure would far exceed any benefit for a single-user desktop application.
-2. **No direct acoustic overlap.** SuperInstance's music-cognition components (`tensor-midi`, `songforge`) are creative generative tools, not acoustic simulation or optimization frameworks. They do not replace or enhance DidgeRust's TLM/waveguide/FDTD solvers.
-3. **Philosophy already extracted.** The useful design principles (additive modules, compute budgets, feature flags) are already implemented in DidgeRust's architecture. No external dependency needed.
-4. **Potential future use cases.** If DidgeRust ever needs:
-   - Distributed sensor arrays (multiple hydrophones), SuperInstance's `gossip-ping`/`cns-bridge` mesh patterns could be relevant
-   - Real-time audio event classification, SuperInstance's `plato-nervous` L0-L4 signal chain could provide a ready-made hierarchical detection pipeline
-   - GPU-accelerated tensor math, SuperInstance's `eisenstein`/`log-tensor` Rust crates might be useful
+**There is no didgeridoo-specific code, no waveguide/FDTD/TLM implementation, and no acoustic simulation code in this clone.**
 
-**Recommendation:** Keep SuperInstance as an external reference. Revisit only if DidgeRust expands into distributed acoustic sensing or real-time machine listening.
+#### What the external repos actually provide
+
+After cloning and studying the highest-value external repositories, here is the concrete assessment for DidgeRust:
+
+| External Repo | Language | What It Actually Does | Relevance to DidgeRust | Verdict |
+|---|---|---|---|---|
+| **conservation-law-rs** | Rust | Lagrangian mechanics, Störmer–Verlet symplectic integration, Hamiltonian integrator, Noether's theorem, fleet energy bookkeeping with circuit breaker | **High.** Symplectic integration bounds energy drift in long-time oscillatory simulations. `MechanicalLagrangian` + `total_energy()` directly model kinetic + potential energy. | **Integrate** |
+| **lau-signal-processing** | Rust | Comprehensive DSP: FIR (windowing), IIR (Butterworth/Chebyshev via bilinear transform + SOS), FFT (self-contained Cooley-Tukey), STFT, LMS/RLS adaptive filters, Levinson-Durbin LPC, auto/cross-correlation, resampling | **High.** Directly applicable to didgeridoo sound analysis, mouthpiece impedance modeling, formant extraction, and spectral post-processing. | **Integrate** |
+| **iir-filter** | Rust | Focused IIR design: Butterworth, Chebyshev I/II, biquad cascade, `freqz()` frequency response, group delay | **Medium.** Overlaps with `lau-signal-processing`. Use one or the other, not both. Cleaner API, fewer deps. | **Reference** (pick one IIR crate) |
+| **constraint-theory-core** | Rust | Pythagorean manifold snapping (2D only), KD-tree, holonomy checking, Laman rigidity, Ricci flow, ternary quantization, CSP solvers | **Low-Medium.** Zero-drift exact arithmetic is elegant, but `PythagoreanManifold` is 2D-only. Not directly applicable to 1D bore acoustics or 3D wave propagation. | **Reference** |
+| **sheaf-spectral** | Rust | Sheaf Laplacian, Hodge decomposition, graph diffusion (`dx/dt = -Lx`), connection Laplacian, sheaf neural nets, persistent cohomology | **Low.** Graph abstraction is overkill for 1D bore acoustics. `SheafDiffusion` is conceptually related to wave damping but requires discretizing the bore as a path graph. | **Reference** |
+| **harmonic-analysis** | Rust | Fourier series, DFT/FFT, wavelets, spectral estimation | **Medium-High.** Could complement `lau-signal-processing` if DidgeRust needs specialized spectral analysis beyond basic FFT. | **Evaluate** (clone and inspect) |
+| **spectral-mechanics** | Rust | Hamiltonian mechanics + spectral graph theory (nodes as masses, edges as springs) | **Medium.** Interesting for modeling coupled acoustic resonators as mass-spring systems, but the spectral graph framework is complex. | **Reference** |
+| **flux-core** | Rust | Deterministic register-based bytecode VM (FLUX), 16 GP + 16 FP registers, A2A opcodes | **Low.** Relevant only if DidgeRust needs deterministic agent policy execution. Not needed for acoustic simulation. | **Ignore** |
+| **sonar-vision-c** | C99+CUDA | Underwater acoustics: Mackenzie sound speed, Francois-Garrison absorption, ray tracing, sonar equation | **Ignore.** Physics is specific to seawater (salinity, pH, magnesium sulfate relaxation). Formulas do not transfer to air-column acoustics. |
+| **resonance-engine** | Rust | AI embedding cosine-similarity resonance, knowledge transfer between agents | **Ignore.** "Resonance" here means embedding similarity in multi-agent AI, not physical acoustic resonance. |
+| **solid-mechanics** | Rust | Stress/strain tensors, Hooke's law, Euler-Bernoulli beam theory, 1D structural FEM | **Ignore.** Structural elasticity, not fluid acoustics. |
+
+#### Key technical findings
+
+1. **The conservation-law philosophy is real code.** `conservation-law-rs` implements `SymplecticIntegrator<f64, N>` with Störmer–Verlet (leapfrog) integration. The `energy_conservation_symplectic` test verifies that total mechanical energy remains bounded (ε < 1e-4) over 10,000 steps — exactly what long-duration acoustic simulation needs. The `verify_noether()` function checks symmetry-to-conservation mappings.
+
+2. **The DSP toolkit is production-ready.** `lau-signal-processing` has a self-contained radix-2 Cooley-Tukey FFT, STFT with overlap-add/save, LMS/RLS adaptive filters, and Levinson-Durbin linear prediction. All use `nalgebra` and `num-complex` — same dependencies DidgeRust already uses.
+
+3. **No didgeridoo-specific code exists in SuperInstance.** The ecosystem is agent/music-cognition focused. The closest repos (`lau-audio`, `forge-audio`, `fleet-audio`) are procedural audio generation and tile-based audio decomposition, not acoustic simulation.
+
+4. **The "12V Boat" / "Hermit Crab" principles map to DidgeRust's existing architecture.** Additive modules, compute budgets, and feature flags are already implemented. No external dependency is needed to enforce these patterns.
+
+#### Concrete recommendation
+
+**Integrate two crates with feature flags:**
+
+1. **`conservation-law-rs`** behind feature `conservation-law`:
+   - Use `SymplecticIntegrator` for energy-conserving long-time integration of discretized wave equations
+   - Use `MechanicalLagrangian` + `total_energy()` to verify energy budgets in simulation loops
+   - Low risk: zero heavy dependencies, clean generic API, well-tested
+
+2. **`lau-signal-processing`** behind feature `dsp`:
+   - Use self-contained FFT for spectral analysis of impedance/frequency responses
+   - Use `IirFilter` for bore-wall absorption modeling and mouthpiece impedance
+   - Use STFT for time-frequency analysis of didgeridoo sound output
+   - Low risk: depends on `nalgebra` and `num-complex` which DidgeRust already uses
+
+**Do not integrate:**
+- Agent orchestration infrastructure (FLUX, PLATO, t-minus, cns-bridge) — irrelevant to single-user desktop simulation
+- Underwater acoustics (`sonar-vision-c`) — wrong physics domain
+- AI embedding systems (`resonance-engine`, `collective-unconscious`) — wrong domain
+- Solid mechanics (`solid-mechanics`) — stress/strain, not wave propagation
+- `constraint-theory-core` / `sheaf-spectral` — interesting math but weak mapping to 1D acoustics
+
+**Future revisit triggers:**
+- DidgeRust expands to distributed sensor arrays → evaluate `gossip-ping`/`cns-bridge`
+- DidgeRust needs GPU-accelerated simulation → evaluate `cuda-constraint-engine`
+- DidgeRust needs topological data analysis of resonance modes → evaluate `sheaf-spectral` or `mapper-graph`
 
 ---
 
-*Document generated 2026-08-13. Updated 2026-08-18 to include SuperInstance assessment.*
+*Document generated 2026-08-13. Updated 2026-08-18 to include complete SuperInstance deep-study assessment.*

@@ -16,6 +16,7 @@ Thumbs.db
 /autodiff-rs/
 /renplex/
 /fdtd-waveguide/
+/SuperInstance/
 
 # Cargo lock (optional – you may keep it if you want reproducible builds)
 # Cargo.lock

@@ -219,6 +219,18 @@ fn insert_toneholes<'a>(segments: &[Segment], toneholes: &'a [Tonehole]) -> Vec<
 
 /// into a vector of `Segment`s in metres.
 pub fn create_segments_from_geo(geo: &[[f64; 2]]) -> Vec<Segment> {
+    create_segments_from_geo_with_curvature(geo, 0.0, 0.25)
+}
+
+/// Create segments with bent-shape effective-length correction.
+///
+/// * `curvature` κ in m⁻¹
+/// * `taper_coeff` α coefficient (typically 1/4 for circular arc)
+pub fn create_segments_from_geo_with_curvature(
+    geo: &[[f64; 2]],
+    curvature: f64,
+    taper_coeff: f64,
+) -> Vec<Segment> {
     let mut segs = Vec::new();
     for window in geo.windows(2) {
         let x0_mm = window[0][0];
@@ -229,7 +241,7 @@ pub fn create_segments_from_geo(geo: &[[f64; 2]]) -> Vec<Segment> {
         let x1 = x1_mm / 1000.0;
         let d0 = d0_mm / 1000.0;
         let d1 = d1_mm / 1000.0;
-        segs.push(Segment::new(x0, x1, d0, d1));
+        segs.push(Segment::new_with_curvature(x0, x1, d0, d1, curvature, taper_coeff));
     }
     segs
 }

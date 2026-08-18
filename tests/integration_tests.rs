@@ -433,6 +433,33 @@ fn test_geometry_exporter() {
 }
 
 #[test]
+fn test_compare_strategies_tlm_vs_waveguide() {
+    use cadsd::{sim::DidgeridooSimulator, waveguide::WaveguideSimulator};
+    let geo = Geo::make_cone(1500.0, 32.0, 65.0, 20);
+    let freqs: Vec<f64> = vec![200.0, 400.0, 600.0, 800.0];
+
+    let tlm_spec = DidgeridooSimulator::from_geo(&geo.geo).impedance(&freqs);
+    let wg_spec = WaveguideSimulator::new(&geo).compute_impedance(&freqs);
+
+    assert_eq!(tlm_spec.len(), freqs.len());
+    assert_eq!(wg_spec.len(), freqs.len());
+    for (z_tlm, z_wg) in tlm_spec.iter().zip(wg_spec.iter()) {
+        assert!(z_tlm.norm() > 0.0, "TLM impedance should be positive");
+        assert!(z_wg.norm() > 0.0, "Waveguide impedance should be positive");
+    }
+}
+
+#[test]
+fn test_validate_fdtd_vs_tlm() {
+    use cadsd::fdtd::validate_fdtd_vs_tlm;
+    let geo = Geo::make_cone(1500.0, 32.0, 65.0, 10);
+    let (fdtd_z, tlm_z, rel_err) = validate_fdtd_vs_tlm(&geo, 200.0, &cadsd::sim::AcousticConstants::default());
+    assert!(fdtd_z.re.is_finite());
+    assert!(tlm_z.re.is_finite());
+    assert!(rel_err >= 0.0);
+}
+
+#[test]
 fn test_data_exporter() {
     use cadsd::export::DataExporter;
     let freqs = vec![100.0, 200.0, 440.0];

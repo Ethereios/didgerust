@@ -1086,6 +1086,30 @@ The experimental modules (`prime_conv`, `waveguide`, `fdtd`, `tonehole`, `diff_t
 
 All commands support `--json` for machine-readable output, enabling integration with Python/Matlab/R pipelines for further analysis.
 
+### 17.6 SuperInstance Assessment
+
+**SuperInstance** (https://github.com/SuperInstance/SuperInstance) is a large polyglot ecosystem (~500 repos) for AI agents, fleet orchestration, edge computing, and music cognition, built primarily in Rust and Python. It is **NOT currently integrated** into DidgeRust. The only references in this repo are philosophical design principles in `docs/archive/final_goals.md`:
+
+| Principle | DidgeRust Equivalent | Status |
+|-----------|----------------------|--------|
+| Hermit Crab | Additive module design (new features as independent crates/modules) | ✅ Philosophy only |
+| 12V Boat | `budget_ops` compute-budget constraint | ✅ Implemented as internal constraint |
+| γ + η = C | Conservation budget tracking | ✅ Implemented |
+| 7-Layer | No canonical mapping; closest is our module layering (sim → evo → loss → GUI) | ⚠️ Philosophical only |
+
+**Assessment: No code integration recommended at this time.**
+
+Reasons:
+1. **Scale mismatch.** SuperInstance is a 500-repo ecosystem for agent orchestration. DidgeRust is a focused acoustic simulator. The overhead of integrating SuperInstance's agent/fleet infrastructure would far exceed any benefit for a single-user desktop application.
+2. **No direct acoustic overlap.** SuperInstance's music-cognition components (`tensor-midi`, `songforge`) are creative generative tools, not acoustic simulation or optimization frameworks. They do not replace or enhance DidgeRust's TLM/waveguide/FDTD solvers.
+3. **Philosophy already extracted.** The useful design principles (additive modules, compute budgets, feature flags) are already implemented in DidgeRust's architecture. No external dependency needed.
+4. **Potential future use cases.** If DidgeRust ever needs:
+   - Distributed sensor arrays (multiple hydrophones), SuperInstance's `gossip-ping`/`cns-bridge` mesh patterns could be relevant
+   - Real-time audio event classification, SuperInstance's `plato-nervous` L0-L4 signal chain could provide a ready-made hierarchical detection pipeline
+   - GPU-accelerated tensor math, SuperInstance's `eisenstein`/`log-tensor` Rust crates might be useful
+
+**Recommendation:** Keep SuperInstance as an external reference. Revisit only if DidgeRust expands into distributed acoustic sensing or real-time machine listening.
+
 ---
 
-*Document generated 2026-08-13. Updated 2026-08-17 to include session work summary and long-term goals.*
+*Document generated 2026-08-13. Updated 2026-08-18 to include SuperInstance assessment.*

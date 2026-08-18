@@ -13,13 +13,15 @@
 - **PrimeSequence** - Prime-indexed mutation scaling
 - **UI**: Radio buttons in Optimizer panel, config saved with parameters
 
-### 3. SuperInstance Integration (PHILOSOPHY ENFORCED)
+### 3. SuperInstance Integration (PHILOSOPHY ONLY — NO CODE INTEGRATED)
 | Principle | Implementation |
 |-----------|----------------|
 | **Hermit Crab** | New methods ADDED as shells, never replaced old code |
-| **12V Boat** | All new paths wrapped in `conservation_enforcer` budget checks |
+| **12V Boat** | All new paths wrapped in `budget_ops` constraint checks |
 | **γ + η = C** | Waveguide/Prime/Complex paths track compute ops, enforce budget |
 | **7-Layer** | Substrate → VM → Engines → Policy → Orchestration → Agents → Artifacts |
+
+> **Note:** SuperInstance (https://github.com/SuperInstance/SuperInstance) is a 500+ repo ecosystem for AI agents, fleet orchestration, and edge computing. It is **NOT** integrated into DidgeRust. The principles above were extracted as design guidelines. See `docs/RESEARCH.md §17.6` for full assessment.
 
 ### 4. Complex & Prime Neural Networks Integration (READY FOR EXTENSION)
 - **Complex Numbers**: `num_complex::Complex64` already used throughout waveguide & impedance
@@ -115,7 +117,7 @@ All new code follows the **Shell** principle:
 All paths respect **12V constraint**:
 ```rust
 // In each strategy impl:
-conservation_enforcer.check_budget(ops_estimate)?;
+budget_ops.check_budget(ops_estimate)?;
 ```
 
 The project is ready for production use with clear extension points for ML integration.

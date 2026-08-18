@@ -389,8 +389,8 @@ Do **not** add these as Cargo dependencies. Study them for patterns and extract 
 ## 8. Key Decisions & Constraints
 
 1. **Shell principle** — new simulation strategies, loss components, and mutation operators are additive. Never break existing TLM path.
-2. **12V constraint** — all new computation paths must respect `budget_ops` limit.
-3. **Conservation budget** — `γ + η = C` where γ = simulation ops, η = evolution overhead.
+2. **12V constraint** — all new computation paths must respect `budget_ops` limit. This is an internal design constraint, NOT an external SuperInstance dependency.
+3. **Conservation budget** — `γ + η = C` where γ = simulation ops, η = evolution overhead. Implemented as `CadsdState::budget_ops` slider.
 4. **Feature flags** — ML integrations behind `nn-integration`, `diff-tlm`, `fdtd-validator`. Default build stays lightweight.
 5. **Units** — geometry in mm internally; convert to m at `Segment::new`. Frequency in Hz. Impedance in Pa·s/m³ (characteristic).
 6. **Complex arithmetic** — use `num_complex::Complex64` everywhere; do not introduce `Cf32` unless extracting from `renplex`.

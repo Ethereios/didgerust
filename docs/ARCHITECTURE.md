@@ -93,7 +93,7 @@ EvolutionaryOptimizer::evolve() → best genome
 | Loss functions | `src/loss/mod.rs` | ✅ Complete | 10+ components, CompositeTairuaLoss with PeakDetectionMode |
 | Peak detection | `src/sim/mod.rs::find_peaks*` | ✅ Complete | Three modes: local maxima, prominence, phase-based |
 | Persistence | `src/persistence/mod.rs` | ✅ Complete | JSON save/load for settings, checkpoints, project state |
-| GUI shell | `src/app.rs`, `src/bin/gui.rs` | ⚠️ Partial | Launchable; optimizer loop needs real async wiring |
+| GUI shell | `src/app.rs`, `src/bin/gui.rs` | ⚠️ Code ready, untested | Bevy + egui app launches; no manual/automated UI testing done |
 | Strategy comparison | `run_comparison_simulation` | ✅ Complete | Overlay plot with 3-line legend |
 | Radiation impedance | `src/sim/mod.rs::za` | ⚠️ Partial | Geipel approximation; should upgrade to Levine-Schwinger IIR |
 | Viscothermal losses | `src/sim/mod.rs::viscothermal_k_complex` | ⚠️ Partial | Full Tw/Zcw system; needs validation against published data |
@@ -135,13 +135,13 @@ EvolutionaryOptimizer::evolve() → best genome
 
 ### 3.1 Existing Panels
 
-| Panel | File | Elements | Wired? |
+| Panel | File | Elements | Status |
 |-------|------|----------|--------|
-| Simulation | `show_simulation_panel` | Freq grid sliders, compute button, peak button, export CSV, spectrum plot with tooltip | ✅ Mostly wired |
-| Optimizer | `show_optimizer_panel` | Pop/gen sliders, loss toggles, mutation display, progress bar, run/pause/resume, save/load checkpoint, export genome | ⚠️ Buttons log only |
-| Geometry | `show_geometry_panel` | Length/diameter/segment sliders, undo/redo, bubble/stretch dialogs, import/export JSON, bore profile plot | ✅ Mostly wired |
-| Settings | `show_settings_panel` | Theme, log verbosity, default strategy/mutation, budget, export format, save/load config | ✅ Wired |
-| Sidebar | `ui_system` | Strategy radios, mutation radio, budget slider, export geometry, compare strategies | ✅ Wired |
+| Simulation | `show_simulation_panel` | Freq grid sliders, compute button, peak button, export CSV, spectrum plot with tooltip | ⚠️ Code ready, untested |
+| Optimizer | `show_optimizer_panel` | Pop/gen sliders, loss toggles, mutation display, progress bar, run/pause/resume, save/load checkpoint, export genome | ⚠️ Code ready, untested; buttons log only |
+| Geometry | `show_geometry_panel` | Length/diameter/segment sliders, undo/redo, bubble/stretch dialogs, import/export JSON, bore profile plot | ⚠️ Code ready, untested |
+| Settings | `show_settings_panel` | Theme, log verbosity, default strategy/mutation, budget, export format, save/load config | ⚠️ Code ready, untested |
+| Sidebar | `ui_system` | Strategy radios, mutation radio, budget slider, export geometry, compare strategies | ⚠️ Code ready, untested |
 
 ### 3.2 Dialogs (Modal Windows)
 
@@ -183,7 +183,7 @@ EvolutionaryOptimizer::evolve() → best genome
 - [x] Evolutionary optimizer (Gaussian + PrimeSequence)
 - [x] Loss functions (10+ components)
 - [x] Persistence (settings, checkpoints)
-- [x] GUI shell (Bevy + egui, 4 panels)
+- [x] GUI shell code (Bevy + egui, 4 panels) — ⚠️ untested
 
 ### 4.2 Phase B — UI Completion (Partial)
 **Owner:** Frontend / GUI  
@@ -198,6 +198,7 @@ EvolutionaryOptimizer::evolve() → best genome
 | Cents-based log grid | `src/sim/mod.rs::grid`, `src/app.rs::compute_spectrum` | Small | ⚠️ Log grid exists but not used universally in GUI |
 | Loss caching on genome | `src/loss/mod.rs`, `src/evo/mod.rs` | Small | ✅ Done |
 | Export CSV with magnitude+phase | `src/app.rs::export_spectrum_csv` | Tiny | ✅ Done |
+| Test UI manually/automated | `src/app.rs`, `src/bin/gui.rs` | Medium | ❌ No UI testing done; all panels untested |
 
 ### 4.3 Phase C — Physics Accuracy (Partial)
 **Owner:** Simulation / Physics  

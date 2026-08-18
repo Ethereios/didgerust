@@ -424,7 +424,7 @@ fn run_validate(config: ValidateConfig) {
 
     if config.json {
         let comparisons: Vec<serde_json::Value> = tlm_results.iter().zip(analytical_results.iter())
-            .map(|((_f_tlm, z_tlm), (_f_ana, z_ana))| {
+            .map(|((f_tlm, z_tlm), (_f_ana, z_ana))| {
                 let rel_error = if z_ana.norm() > 1e-12 {
                     ((z_tlm - z_ana).norm() / z_ana.norm()) as f64
                 } else {
@@ -447,13 +447,120 @@ fn run_validate(config: ValidateConfig) {
         println!("Validation completed in {:.2?}", elapsed);
         println!("Frequency (Hz) | TLM | Analytical | Rel Error");
         println!("--------------|-----|------------|----------");
-        for ((_f_tlm, z_tlm), (_f_ana, z_ana)) in tlm_results.iter().zip(analytical_results.iter()) {
+        for ((f_tlm, z_tlm), (_f_ana, z_ana)) in tlm_results.iter().zip(analytical_results.iter()) {
             let rel_error = if z_ana.norm() > 1e-12 {
                 ((z_tlm - z_ana).norm() / z_ana.norm()) as f64
             } else {
                 0.0
             };
             println!("{:>13.2} | {:>5.3} | {:>10.3} | {:>8.4}", f_tlm, z_tlm.norm(), z_ana.norm(), rel_error);
+        }
+    }
+}
+
+fn run_compare(args: &[String]) {
+    let mut geo_type = "cone".to_string();
+    let mut length = 1500.0;
+    let mut top_diameter = 32.0;
+    let mut bottom_diameter = 65.0;
+    let mut segments = 30;
+    let freqs: Vec<f64> = vec![200.0, 400.0, 600.0, 800.0];
+    let mut json = false;
+    let mut i = 2;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--geo" => {
+                geo_type = args.get(i + 1).unwrap_or(&"cone".to_string()).clone();
+                i += 2;
+            }
+            "--length" => {
+                length = args.get(i + 1).unwrap_or(&"1500".to_string()).parse().unwrap_or(1500.0);
+                i += 2;
+            }
+            "--top" => {
+                top_diameter = args.get(i + 1).unwrap_or(&"32".to_string()).parse().unwrap_or(32.0);
+                i += 2;
+            }
+            "--bottom" => {
+                bottom_diameter = args.get(i + 1).unwrap_or(&"65".to_string()).parse().unwrap_or(65.0);
+                i += 2;
+            }
+            "--segments" => {
+                segments = args.get(i + 1).unwrap_or(&"30".to_string()).parse().unwrap_or(30);
+                i += 2;
+            }
+            "--json" => {
+                json = true;
+                i += 1;
+            }
+            _ => i += 1,
+        }
+    }
+
+    let geo = match geo_type.as_str() {
+        "cone" => Geo::make_cone(length, top_diameter, bottom_diameter, segments),
+        "kigali" => Geo::make_kigali(length, top_diameter, bottom_diameter, 0.3, segments),
+        "mbeya" => Geo::make_mbeya(length, top_diameter, bottom_diameter, 0.3, segments),
+        _ => Geo::make_cone(length, top_diameter, bottom_diameter, segments),
+    };
+
+    println!("Running strategy comparison (TLM vs Waveguide vs FDTD)...");
+    let start = Instant::now();
+
+    let tlm_results: Vec<num_complex::Complex<f64>> = freqs.iter()
+        .map(|&f| {
+            let segments = cadsd::sim::create_segments_from_geo(&geo.geo);
+            let constants = AcousticConstants::default();
+            cadsd::sim::cadsd_ze_with_losses(&segments, f, &constants, true, &[])
+        })
+        .collect();
+
+    let wg_results: Vec<num_complex::Complex<f64>> = {
+        let _geo_points: Vec<[f64; 2]> = geo.geo.clone();
+        let sim = cadsd::waveguide::WaveguideSimulator::new(&geo);
+        sim.compute_impedance(&freqs)
+    };
+
+    let fdtd_results: Vec<(f64, num_complex::Complex<f64>, f64)> = freqs.iter()
+        .map(|&f| {
+            let constants = AcousticConstants::default();
+            let (fdtd_z, _tlm_z, err) = cadsd::fdtd::validate_fdtd_vs_tlm(&geo, f, &constants);
+            (f, fdtd_z, err)
+        })
+        .collect();
+
+    let elapsed = start.elapsed();
+
+    if json {
+        let comparisons: Vec<serde_json::Value> = freqs.iter().zip(tlm_results.iter().zip(wg_results.iter())).enumerate()
+            .map(|(i, (f, (z_tlm, z_wg)))| {
+                let (_f_fdtd, z_fdtd, rel_err) = fdtd_results[i];
+                serde_json::json!({
+                    "frequency_hz": f,
+                    "tlm_magnitude": z_tlm.norm(),
+                    "waveguide_magnitude": z_wg.norm(),
+                    "fdtd_magnitude": z_fdtd.norm(),
+                    "fdtd_tlm_relative_error": rel_err,
+                })
+            })
+            .collect();
+        let output = serde_json::json!({
+            "geo_type": geo_type,
+            "length": length,
+            "segments": segments,
+            "elapsed_ms": elapsed.as_secs_f64() * 1000.0,
+            "comparisons": comparisons,
+        });
+        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+    } else {
+        println!("Strategy comparison completed in {:.2?}", elapsed);
+        println!("Frequency (Hz) | TLM | Waveguide | FDTD | FDTD/TLM Error");
+        println!("--------------|-----|-----------|------|---------------");
+        for (i, &f) in freqs.iter().enumerate() {
+            let z_tlm = tlm_results[i];
+            let z_wg = wg_results[i];
+            let (_f_fdtd, z_fdtd, rel_err) = fdtd_results[i];
+            println!("{:>13.2} | {:>5.3} | {:>9.3} | {:>5.3} | {:>8.4}", f, z_tlm.norm(), z_wg.norm(), z_fdtd.norm(), rel_err);
         }
     }
 }
@@ -729,6 +836,7 @@ fn print_help() {
     println!("    simulate    Run acoustic impedance simulation");
     println!("    optimize    Run evolutionary optimization");
     println!("    validate    Validate TLM against analytical solution");
+    println!("    compare     Compare TLM vs Waveguide vs FDTD");
     println!("    ml          Run ML / prime-conv demo");
     println!("    primes      List prime numbers");
     println!("    waveguide   Run 3D waveguide simulation");
@@ -748,6 +856,9 @@ fn print_help() {
     println!("    # Validate TLM vs analytical for a cone");
     println!("    cli validate cone --length 1500 --top 32 --bottom 65");
     println!();
+    println!("    # Compare strategies (TLM vs Waveguide vs FDTD)");
+    println!("    cli compare cone --length 1500 --top 32 --bottom 65 --json");
+    println!();
     println!("    # Run ML prime-conv demo");
     println!("    cli ml primes --max-prime 17 --input 10");
     println!();
@@ -759,6 +870,9 @@ fn print_help() {
     println!();
     println!("    # Compute tonehole impedance");
     println!("    cli tonehole --diameter 10 --depth 5 --freq 500");
+    println!();
+    println!("    # Compare strategies (TLM vs Waveguide vs FDTD)");
+    println!("    cli compare cone --length 1500 --top 32 --bottom 65 --json");
     println!();
     println!("OPTIONS:");
     println!("    --geo <TYPE>        Geometry type: cone, kigali, mbeya (default: cone)");
@@ -801,6 +915,9 @@ fn main() {
         "validate" => {
             let config = parse_validate_config(&args);
             run_validate(config);
+        }
+        "compare" => {
+            run_compare(&args);
         }
         "ml" => {
             run_ml_primes(&args);

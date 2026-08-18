@@ -918,4 +918,30 @@ mod tests {
                 "Radiation impedance magnitude ratio for 4x frequency should be between 0.5 and 100, got {}", 
                 ratio);
     }
+
+    #[test]
+    fn test_full_pipeline_geo_to_optimizer() {
+        let geo = Geo::make_cone(1500.0, 32.0, 65.0, 20);
+        let segments = create_segments_from_geo(&geo.geo);
+        let constants = AcousticConstants::default();
+        let freqs = grid::log_grid(20.0, 2000.0, 50.0);
+
+        let spectrum: Vec<Complex<f64>> = freqs.iter()
+            .map(|&f| cadsd_ze_with_losses(&segments, f, &constants, true, &[]))
+            .collect();
+
+        let _peaks = find_peaks(&freqs, &spectrum);
+        let magnitudes: Vec<f64> = spectrum.iter().map(|c| c.norm()).collect();
+
+        let loss_fn = crate::loss::CompositeTairuaLoss::with_default_components(50.0);
+        let genome = crate::evo::KigaliGenome::new(
+            20, 32.0, 65.0, 80.0, 1500.0, 700.0, 0, 0.3, 0.0, 1000.0, 0,
+        );
+        let loss = crate::evo::LossFunction::calculate(&loss_fn, &genome);
+
+        assert!(spectrum.len() > 0);
+        assert!(magnitudes.len() > 0);
+        assert!(loss.is_finite());
+        assert!(magnitudes.iter().any(|&m| m > 0.0));
+    }
 }

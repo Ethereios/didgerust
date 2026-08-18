@@ -1062,6 +1062,7 @@ The experimental modules (`prime_conv`, `waveguide`, `fdtd`, `tonehole`, `diff_t
 | `cli waveguide cone --length 1500 --top 32 --bottom 65` | `waveguide` | Run 3D waveguide impedance simulation |
 | `cli tonehole --diameter 10 --depth 5 --open` | `tonehole` | Compute tonehole open/closed impedance spectrum |
 | `cli validate cone --length 1500 --top 32 --bottom 65` | `fdtd`/`validation` | Compare TLM vs analytical cylinder impedance |
+| `cli compare cone --length 1500 --top 32 --bottom 65 --json` | `fdtd`/`waveguide`/`sim` | Compare TLM vs Waveguide vs FDTD on same geometry |
 | `cli simulate cone --length 1500 --top 32 --bottom 65 --json` | `sim` | Standard TLM simulation with JSON output |
 
 All commands support `--json` for machine-readable output, enabling integration with Python/Matlab/R pipelines for further analysis.

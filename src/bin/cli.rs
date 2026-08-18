@@ -10,9 +10,10 @@
 //!   cargo run --bin cli -- primes list --max-prime 100
 //!   cargo run --bin cli -- waveguide cone --length 1500 --top 32 --bottom 65
 //!   cargo run --bin cli -- tonehole --diameter 10 --depth 5 --freq 500
+//!   cargo run --bin cli -- bent cone --length 1500 --top 32 --bottom 65 --curvature 0.01
 
 use cadsd::{
-    Geo, sim::{DidgeridooSimulator, SimulationStrategy, AcousticConstants},
+    Geo, sim::{DidgeridooSimulator, SimulationStrategy, AcousticConstants, bent_effective_length},
     evo::{EvolutionaryOptimizer, EvolutionParameters, MutationStrategy, CrossoverStrategy},
     loss::CompositeTairuaLoss,
     prime_conv::{PrimeGenerator, PrimeConvBlock},
@@ -844,6 +845,98 @@ fn run_tonehole(args: &[String]) {
     }
 }
 
+fn run_bent(args: &[String]) {
+    let mut geo_type = "cone".to_string();
+    let mut length = 1500.0;
+    let mut top_diameter = 32.0;
+    let mut bottom_diameter = 65.0;
+    let mut segments = 30;
+    let mut curvature = 0.01;
+    let mut radius = 16.0;
+    let mut alpha = 0.25;
+    let mut json = false;
+    let mut i = 2;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--geo" => {
+                geo_type = args.get(i + 1).unwrap_or(&"cone".to_string()).clone();
+                i += 2;
+            }
+            "--length" => {
+                length = args.get(i + 1).unwrap_or(&"1500".to_string()).parse().unwrap_or(1500.0);
+                i += 2;
+            }
+            "--top" => {
+                top_diameter = args.get(i + 1).unwrap_or(&"32".to_string()).parse().unwrap_or(32.0);
+                i += 2;
+            }
+            "--bottom" => {
+                bottom_diameter = args.get(i + 1).unwrap_or(&"65".to_string()).parse().unwrap_or(65.0);
+                i += 2;
+            }
+            "--segments" => {
+                segments = args.get(i + 1).unwrap_or(&"30".to_string()).parse().unwrap_or(30);
+                i += 2;
+            }
+            "--curvature" => {
+                curvature = args.get(i + 1).unwrap_or(&"0.01".to_string()).parse().unwrap_or(0.01);
+                i += 2;
+            }
+            "--radius" => {
+                radius = args.get(i + 1).unwrap_or(&"16".to_string()).parse().unwrap_or(16.0);
+                i += 2;
+            }
+            "--alpha" => {
+                alpha = args.get(i + 1).unwrap_or(&"0.25".to_string()).parse().unwrap_or(0.25);
+                i += 2;
+            }
+            "--json" => {
+                json = true;
+                i += 1;
+            }
+            _ => i += 1,
+        }
+    }
+
+    let _geo = match geo_type.as_str() {
+        "cone" => Geo::make_cone(length, top_diameter, bottom_diameter, segments),
+        "kigali" => Geo::make_kigali(length, top_diameter, bottom_diameter, 0.3, segments),
+        "mbeya" => Geo::make_mbeya(length, top_diameter, bottom_diameter, 0.3, segments),
+        _ => Geo::make_cone(length, top_diameter, bottom_diameter, segments),
+    };
+
+    let total_length_m = length / 1000.0;
+    let radius_m = radius / 1000.0;
+    let ds = total_length_m / segments.max(1) as f64;
+    let d_l = bent_effective_length(ds, curvature, radius_m, alpha);
+    let correction = (ds - d_l) * 1000.0;
+    let total_correction = correction * segments as f64;
+
+    if json {
+        let output = serde_json::json!({
+            "geo_type": geo_type,
+            "length_mm": length,
+            "segments": segments,
+            "curvature": curvature,
+            "radius_mm": radius,
+            "alpha": alpha,
+            "segment_length_m": ds,
+            "effective_length_m": d_l,
+            "correction_per_segment_mm": correction,
+            "total_correction_mm": total_correction,
+        });
+        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+    } else {
+        println!("Bent-shape effective length correction:");
+        println!("Geometry: {} ({} segments, {:.1} mm)", geo_type, segments, length);
+        println!("Curvature: {}, Radius: {} mm, Alpha: {}", curvature, radius, alpha);
+        println!("Segment length: {:.4} m", ds);
+        println!("Effective length per segment: {:.4} m", d_l);
+        println!("Correction per segment: {:.4} mm", correction);
+        println!("Total correction: {:.4} mm", total_correction);
+    }
+}
+
 fn print_help() {
     println!("DidgeRust CADSD CLI");
     println!("==================");
@@ -860,6 +953,7 @@ fn print_help() {
     println!("    primes      List prime numbers");
     println!("    waveguide   Run 3D waveguide simulation");
     println!("    tonehole    Compute tonehole impedance spectrum");
+    println!("    bent        Compute bent-shape effective length correction");
     println!("    help        Show this help message");
     println!();
     println!("EXAMPLES:");
@@ -893,6 +987,9 @@ fn print_help() {
     println!("    # Compute tonehole impedance");
     println!("    cli tonehole --diameter 10 --depth 5 --freq 500");
     println!();
+    println!("    # Compute bent-shape effective length correction");
+    println!("    cli bent cone --length 1500 --top 32 --bottom 65 --curvature 0.01");
+    println!();
     println!("OPTIONS:");
     println!("    --geo <TYPE>        Geometry type: cone, kigali, mbeya (default: cone)");
     println!("    --length <MM>       Bore length in mm (default: 1500)");
@@ -911,6 +1008,9 @@ fn print_help() {
     println!("    --depth <MM>        Tonehole depth in mm (default: 5)");
     println!("    --open / --closed   Tonehole type (default: open)");
     println!("    --fdtd              Use FDTD comparison in validate command");
+    println!("    --curvature <KAPPA> Curvature for bent-shape correction (default: 0.01)");
+    println!("    --radius <MM>       Bore radius in mm (default: 16)");
+    println!("    --alpha <FLOAT>     Correction coefficient (default: 0.25)");
     println!("    --json              Output results as JSON");
     println!("    --help              Show this help message");
 }
@@ -950,6 +1050,9 @@ fn main() {
         }
         "tonehole" => {
             run_tonehole(&args);
+        }
+        "bent" => {
+            run_bent(&args);
         }
         "help" | "--help" | "-h" => {
             print_help();

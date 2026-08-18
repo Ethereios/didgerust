@@ -471,3 +471,23 @@ fn test_data_exporter() {
     assert!(csv.contains("440"));
     assert!(csv.contains("30"));
 }
+
+#[test]
+fn test_bent_effective_length_cli() {
+    use cadsd::sim::bent_effective_length;
+    let ds = 0.05;
+    let curvature = 0.01;
+    let radius = 0.016;
+    let alpha = 0.25;
+    let d_l = bent_effective_length(ds, curvature, radius, alpha);
+    assert!(d_l < ds, "Bent effective length should be less than geometric length");
+    assert!(d_l > 0.0, "Bent effective length should be positive");
+}
+
+#[test]
+fn test_bent_effective_length_zero_curvature() {
+    use cadsd::sim::bent_effective_length;
+    let ds = 0.05;
+    let d_l = bent_effective_length(ds, 0.0, 0.016, 0.25);
+    assert!((d_l - ds).abs() < 1e-12, "Zero curvature should give same length");
+}

@@ -346,12 +346,34 @@ pub fn draw_bore_gizmos(
 
 /// Helper: get current geo from state
 pub fn current_geo(state: &CadsdState) -> Geo {
-    Geo::make_cone(
-        state.length as f64,
-        state.top_diameter as f64,
-        state.bottom_diameter as f64,
-        state.segments
-    )
+    match state.bore_style.as_str() {
+        "kigali" => Geo::make_kigali(
+            state.length as f64,
+            state.top_diameter as f64,
+            state.bottom_diameter as f64,
+            0.3,
+            state.segments,
+        ),
+        "mbeya" => Geo::make_mbeya(
+            state.length as f64,
+            state.top_diameter as f64,
+            state.bottom_diameter as f64,
+            0.3,
+            state.segments,
+        ),
+        "cylinder" => Geo::make_cone(
+            state.length as f64,
+            state.top_diameter as f64,
+            state.bottom_diameter as f64,
+            state.segments,
+        ),
+        _ => Geo::make_cone(
+            state.length as f64,
+            state.top_diameter as f64,
+            state.bottom_diameter as f64,
+            state.segments,
+        ),
+    }
 }
 
 /// Push current geometry state onto undo history with validation
@@ -1529,6 +1551,16 @@ fn show_geometry_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
             }
         }
         ui.label(format!("History: {}/{}", state.geo_history_index, state.geo_history.len()));
+    });
+    ui.separator();
+    
+    // Bore style preset
+    ui.label("Bore Style:");
+    egui::ComboBox::from_label("bore_style").selected_text(&state.bore_style).show_ui(ui, |ui| {
+        ui.selectable_value(&mut state.bore_style, "cone".to_string(), "Cone");
+        ui.selectable_value(&mut state.bore_style, "kigali".to_string(), "Kigali");
+        ui.selectable_value(&mut state.bore_style, "mbeya".to_string(), "Mbeya");
+        ui.selectable_value(&mut state.bore_style, "cylinder".to_string(), "Cylinder");
     });
     ui.separator();
     

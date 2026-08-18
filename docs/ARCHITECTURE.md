@@ -80,60 +80,54 @@ EvolutionaryOptimizer::evolve() → best genome
 
 ## 2. Current Codebase Reality
 
-### 2.1 What is Wired and Working
+### 2.1 Implementation Status
 
-| Component | Location | Status |
-|-----------|----------|--------|
-| TLM cascade | `src/sim/mod.rs::cadsd_ze_with_losses` | ✅ Working, viscothermal losses enabled |
-| Strategy dispatch | `SimulationStrategy` enum + `DidgeridooSimulator::impedance` | ✅ UI wired |
-| Waveguide freq-domain | `src/waveguide/mod.rs::WaveguideEngine` | ✅ Returns complex spectrum |
-| Complex impedance approx | `SimulationStrategy::ComplexImpedance` | ✅ Returns complex spectrum |
-| Geometry ops | `src/geo/mod.rs` — cone, cylinder, bubble, stretch, scale, volume | ✅ All working |
-| Evolutionary optimizer | `src/evo/mod.rs` — Gaussian, PrimeSequence, SingleMutation + Average/PartSwap/PartAverage crossover, tournament selection, elite preservation | ✅ Working |
-| Loss functions | `src/loss/mod.rs` — 10+ components, `CompositeTairuaLoss` with `PeakDetectionMode` | ✅ Modular |
-| Peak detection | `src/sim/mod.rs::find_peaks`, `find_peaks_with_prominence`, `find_peaks_phase_based` | ✅ Three modes available |
-| Persistence | `src/persistence/mod.rs` — settings, checkpoints | ✅ JSON save/load |
-| GUI shell | `src/app.rs`, `src/bin/gui.rs` — Bevy + egui | ✅ Launchable |
-| Strategy comparison | `run_comparison_simulation` + overlay plot | ✅ UI wired |
-| Conservation budget | `CadsdState::budget_ops` slider | ✅ UI present |
-| Radiation impedance | `src/sim/mod.rs::za` — Geipel unflanged-pipe approximation | ✅ Frequency-dependent, complex |
-| Viscothermal losses | `src/sim/mod.rs::viscothermal_k_complex`, `cadsd_ze_with_losses` | ✅ Integrated in TLM path |
-| AcousticConstants | `src/sim/mod.rs::AcousticConstants` | ✅ Temperature-dependent air properties |
-| Bent-shape correction | `src/sim/mod.rs::bent_effective_length` | ✅ Analytical formula available |
-| Tonehole models | `src/tonehole/mod.rs` — open/closed impedance | ✅ Implemented |
-| File dialogs | `rfd` native pickers throughout GUI | ✅ Wired |
-| Undo/redo | `geo_history` + `geo_history_index` | ✅ Fixed off-by-one |
-| Loss caching | `Genome::clone_with_loss`, cached loss preserved in elite selection | ✅ Working |
-| Feature flags | `nn-integration`, `fdtd-validator`, `diff-tlm`, `md-lif`, `cpal-integration`, `gui-bevy` in Cargo.toml | ✅ Defined |
-| CLI binary | `src/bin/cli.rs` — `simulate`, `optimize`, `validate`, `waveguide`, `tonehole`, `ml primes`, `primes list` with `--json` | ✅ Working |
-| Advanced CLI features | `ml primes`, `waveguide`, `tonehole` expose experimental ML/prime-conv/waveguide/tonehole code to non-Rust users | ✅ Working |
-| Prime-conv ML | `src/prime_conv/mod.rs` — `PrimeGenerator`, `ComplexConv1D`, `PrimeConvBlock`, `SurrogateLossFunction` | ✅ Implemented |
-| FDTD validator | `src/fdtd/mod.rs` + `src/fdtd/validator.rs` | ✅ Implemented |
-| DWM prototypes | `src/dwm/mod.rs` — 2-D/3-D digital waveguide mesh + hybrid solver | ✅ Implemented |
+| Component | Location | Status | Notes |
+|-----------|----------|--------|-------|
+| TLM cascade | `src/sim/mod.rs::cadsd_ze_with_losses` | ✅ Complete | Full transfer-matrix cascade with viscothermal losses |
+| Strategy dispatch | `SimulationStrategy` + `DidgeridooSimulator::impedance` | ✅ Complete | Tlm/Waveguide/ComplexImpedance dispatch |
+| Waveguide freq-domain | `src/waveguide/mod.rs::WaveguideEngine` | ⚠️ Partial | Returns complex spectrum; no time-domain synthesis |
+| Complex impedance | `SimulationStrategy::ComplexImpedance` | ⚠️ Partial | Basic implementation; needs validation against TLM |
+| Geometry ops | `rust-cadsd-accurate/src/geo/mod.rs` | ✅ Complete | cone, cylinder, bubble, stretch, scale, volume, Kigali, Mbeya |
+| Evolutionary optimizer | `src/evo/mod.rs` | ✅ Complete | Multiple mutation/crossover strategies, tournament selection, elite preservation |
+| Loss functions | `src/loss/mod.rs` | ✅ Complete | 10+ components, CompositeTairuaLoss with PeakDetectionMode |
+| Peak detection | `src/sim/mod.rs::find_peaks*` | ✅ Complete | Three modes: local maxima, prominence, phase-based |
+| Persistence | `src/persistence/mod.rs` | ✅ Complete | JSON save/load for settings, checkpoints, project state |
+| GUI shell | `src/app.rs`, `src/bin/gui.rs` | ⚠️ Partial | Launchable; optimizer loop needs real async wiring |
+| Strategy comparison | `run_comparison_simulation` | ✅ Complete | Overlay plot with 3-line legend |
+| Radiation impedance | `src/sim/mod.rs::za` | ⚠️ Partial | Geipel approximation; should upgrade to Levine-Schwinger IIR |
+| Viscothermal losses | `src/sim/mod.rs::viscothermal_k_complex` | ⚠️ Partial | Full Tw/Zcw system; needs validation against published data |
+| AcousticConstants | `src/sim/mod.rs::AcousticConstants` | ⚠️ Partial | Temperature-dependent only; no humidity/pressure |
+| Bent-shape correction | `src/sim/mod.rs::bent_effective_length` | 🔄 Partial | Analytical formula exists; not wired into optimizer or GUI |
+| Tonehole models | `src/tonehole/mod.rs` | ⚠️ Partial | Open/closed impedance; no three-port scattering junction |
+| Differentiable TLM | `src/diff_tlm.rs` | ⚠️ Partial | Analytical gradients + Adam; no real backprop through cascade |
+| FDTD validator | `src/fdtd/mod.rs`, `src/fdtd/validator.rs` | 🔄 Partial | 3-D Yee grid with PML; small grid, no validation study |
+| Prime-conv ML | `src/prime_conv/mod.rs` | 🔄 Partial | Forward pass demo; no training pipeline or dataset |
+| DWM prototypes | `src/dwm/mod.rs` | 🔄 Partial | 2-D/3-D mesh; not integrated with main simulator |
+| Neural fitness predictor | `src/nn/mod.rs` | ❌ Missing | Placeholder only; no MLP, no training loop |
+| Time-domain synthesis | `src/waveguide/mod.rs` | ❌ Missing | Frequency-domain only; no sample-by-sample loop |
+| GUI tonehole editor | `src/app.rs` | ⚠️ Partial | Sliders work; no drag-and-drop on bore preview |
+| 3-D bore preview | `src/app.rs::draw_bore_gizmos` | ⚠️ Partial | Wireframe exists; no camera controls |
 
-### 2.2 What Exists But Is Broken / Incomplete
+### 2.2 What Is Broken or Incomplete
 
-| Component | Issue | Location |
-|-----------|-------|----------|
-| Frequency grid | Linear by default; log grid uses step_ratio but not cents-based | `src/app.rs::compute_spectrum` |
-| Real-time waveguide synthesis | `WaveguideEngine` is frequency-domain only; no time-domain audio output | `src/waveguide/mod.rs` |
-| Neural fitness predictor | Placeholder struct only; no training pipeline | `src/nn/mod.rs` |
-| Moist-air `AcousticConstants` | Covers temperature only; no humidity/pressure dependence | `src/sim/mod.rs::AcousticConstants` |
+| Component | Issue | Location | Fix Needed |
+|-----------|-------|----------|------------|
+| Optimizer loop | Buttons log only; no real async execution | `src/app.rs` | Wire `EvolutionaryOptimizer::evolve_with_progress` to background thread |
+| Frequency grid | Linear by default; log grid not cents-based everywhere | `src/app.rs::compute_spectrum` | Standardise on cents-based log grid |
+| GUI tonehole editor | No drag-and-drop on bore preview | `src/app.rs` | Add gizmo interaction for tonehole markers |
+| Cents-based grid | Not used universally in GUI | `src/sim/mod.rs::grid` | Replace linear grid with `log_grid` in simulation panel |
 
-### 2.3 What Is Now Implemented (previously missing)
+### 2.3 What Does Not Exist Yet
 
-| Feature | Location | Notes |
-|---------|----------|-------|
-| Bent-shape effective-length correction | `src/sim/mod.rs::bent_effective_length` | Analytical formula with tests |
-| Tonehole models | `src/tonehole/mod.rs` | Open/closed impedance, wired into TLM and ComplexImpedance |
-| Differentiable TLM | `src/diff_tlm.rs` | Analytical gradients + Adam optimizer |
-| 3-D FDTD validator | `src/fdtd/mod.rs`, `src/fdtd/validator.rs` | PML boundaries, TLM vs FDTD comparison |
-| Prime-conv ML | `src/prime_conv/mod.rs` | `PrimeConvBlock`, `ComplexConv1D`, `SurrogateLossFunction` |
-| DWM prototypes | `src/dwm/mod.rs` | 2-D/3-D digital waveguide mesh + hybrid solver |
-| 3-D bore preview | `src/app.rs::draw_bore_gizmos` | Bevy gizmos wireframe with tonehole markers |
-| Optimizer progress callbacks | `src/app.rs::start_optimization` | Real async execution with `OptimizerChannels` |
-| CLI for experimental features | `src/bin/cli.rs` | `simulate`, `optimize`, `validate`, `compare`, `waveguide`, `tonehole`, `ml primes`, `primes` |
-| Cents-based frequency grid everywhere | Log grid exists in `sim::grid` but not used universally |
+| Feature | Notes |
+|---------|-------|
+| Neural fitness predictor training pipeline | No MLP, no dataset generation, no training loop |
+| Time-domain synthesis for audio | No sample-by-sample waveguide loop; no cpal audio output from simulation |
+| Moist-air AcousticConstants | No humidity/pressure dependence; only temperature |
+| 3-D FDTD validation study | No comparison against measured data or FEM reference |
+| Prime-conv training pipeline | No dataset, no training loop, no serialization |
+| DWM integration | Not wired into `SimulationStrategy` dispatch |
 
 ---
 
@@ -191,30 +185,30 @@ EvolutionaryOptimizer::evolve() → best genome
 - [x] Persistence (settings, checkpoints)
 - [x] GUI shell (Bevy + egui, 4 panels)
 
-### 4.2 Phase B — UI Completion (Complete)
+### 4.2 Phase B — UI Completion (Partial)
 **Owner:** Frontend / GUI  
 **Blocked by:** None
 
 | Task | File(s) | Effort | Notes |
 |------|---------|--------|-------|
-| Wire optimizer loop | `src/app.rs`, `src/evo/mod.rs` | Medium | Run `EvolutionaryOptimizer::evolve()` in `AsyncComputePool` or rayon thread; publish progress via callback |
-| Add `rfd` file dialogs | `src/app.rs` | Small | Replace `text_edit_singleline` paths with `rfd::FileDialog` ✅ Done |
-| Fix undo/redo off-by-one | `src/app.rs:901-911` | Tiny | Change `geo_history_index - 1` to `geo_history_index` ✅ Done |
-| Add `prominence` to `find_peaks` | `src/sim/mod.rs`, `src/app.rs` | Small | Default `0.05` matching DidgeLab/scipy ✅ Done |
-| Cents-based log grid | `src/sim/mod.rs::grid`, `src/app.rs::compute_spectrum` | Small | Use existing `grid::log_grid` ✅ Done |
-| Loss caching on genome | `src/loss/mod.rs`, `src/evo/mod.rs` | Small | Add `cached_loss: Option<f64>` to `Genome` trait or `BaseGenome` ✅ Done |
-| Export CSV with magnitude+phase | `src/app.rs::export_spectrum_csv` | Tiny | Add phase column ✅ Done |
+| Wire optimizer loop | `src/app.rs`, `src/evo/mod.rs` | Medium | ⚠️ Buttons log only; need real async execution with progress callbacks |
+| Add `rfd` file dialogs | `src/app.rs` | Small | ✅ Done |
+| Fix undo/redo off-by-one | `src/app.rs:901-911` | Tiny | ✅ Done |
+| Add `prominence` to `find_peaks` | `src/sim/mod.rs`, `src/app.rs` | Small | ✅ Done |
+| Cents-based log grid | `src/sim/mod.rs::grid`, `src/app.rs::compute_spectrum` | Small | ⚠️ Log grid exists but not used universally in GUI |
+| Loss caching on genome | `src/loss/mod.rs`, `src/evo/mod.rs` | Small | ✅ Done |
+| Export CSV with magnitude+phase | `src/app.rs::export_spectrum_csv` | Tiny | ✅ Done |
 
-### 4.3 Phase C — Physics Accuracy (Complete)
+### 4.3 Phase C — Physics Accuracy (Partial)
 **Owner:** Simulation / Physics  
 **Dependencies:** Phase B complete
 
 | Task | File(s) | Effort | Notes |
 |------|---------|--------|-------|
-| Replace radiation impedance | `src/sim/mod.rs::za` | Medium | ✅ Geipel unflanged-pipe approximation |
-| Add viscothermal `Tw`/`Zcw` | `src/sim/mod.rs::cadsd_ze_with_losses` | Medium | ✅ Integrated in TLM path via `viscothermal_k_complex` |
-| Add `AcousticConstants` | `src/sim/mod.rs::AcousticConstants` | Small | ✅ Temperature-dependent air properties |
-| Bent-shape effective-length correction | `src/sim/mod.rs::bent_effective_length` | Large | ✅ Analytical formula `dL_eff = ds * (1 - α·κ²·a²)` |
+| Radiation impedance | `src/sim/mod.rs::za` | Medium | ⚠️ Geipel approximation; upgrade to Levine-Schwinger IIR |
+| Viscothermal losses | `src/sim/mod.rs::cadsd_ze_with_losses` | Medium | ⚠️ Full Tw/Zcw system implemented; needs validation against published data |
+| AcousticConstants | `src/sim/mod.rs::AcousticConstants` | Small | ⚠️ Temperature-dependent only; add humidity/pressure |
+| Bent-shape correction | `src/sim/mod.rs::bent_effective_length` | Large | 🔄 Analytical formula exists; wire into optimizer and GUI |
 
 ### 4.4 Phase D — Evolution Engine Enhancements (Complete)
 **Owner:** Optimization  
@@ -222,41 +216,46 @@ EvolutionaryOptimizer::evolve() → best genome
 
 | Task | File(s) | Effort | Notes |
 |------|---------|--------|-------|
-| Add mutation operators | `src/evo/mod.rs` | Small | ✅ `SingleMutation`, `AverageCrossover`, `PartSwapCrossover`, `PartAverageCrossover` |
-| Phase-based resonance finder | `src/sim/mod.rs` | Medium | ✅ `find_peaks_phase_based` using unwrapped phase derivative |
-| Loss caching | `src/evo/mod.rs`, `src/loss/mod.rs` | Small | ✅ `clone_with_loss` preserves cached loss in elite selection |
-| Prominence-based peak detection | `src/sim/mod.rs` | Small | ✅ `find_peaks_with_prominence` with configurable thresholds |
-| Tonehole support | `src/tonehole/mod.rs` | Medium | ✅ Open/closed tonehole impedance models |
+| Add mutation operators | `src/evo/mod.rs` | Small | ✅ Done |
+| Phase-based resonance finder | `src/sim/mod.rs` | Medium | ✅ Done |
+| Loss caching | `src/evo/mod.rs`, `src/loss/mod.rs` | Small | ✅ Done |
+| Prominence-based peak detection | `src/sim/mod.rs` | Small | ✅ Done |
+| Tonehole support | `src/tonehole/mod.rs` | Medium | ⚠️ Open/closed impedance done; three-port junction missing |
 
-### 4.5 Phase E — Machine Learning Integration (In Progress)
+### 4.5 Phase E — Machine Learning Integration (Partial)
 **Owner:** ML / Research  
 **Dependencies:** Phase C (accurate simulator) for training data
 
 | Task | Crate | Effort | Notes |
 |------|-------|--------|-------|
-| Differentiable TLM prototype | `autodiff-rs` pattern or `dfdx` | Large | Wrap `Segment` params as differentiable `Value`s; backprop through cascade |
-| Complex-valued NN primitives | Custom `src/nn/mod.rs` | Large | ✅ Placeholder exists; extract `Cf32` arithmetic + Wirtinger derivatives from `renplex` |
-| Neural fitness predictor | `tch-rs` or `dfdx` | Large | MLP surrogate for top-5 resonance peaks; evaluate true TLM only on elite 5% |
-| 3-D FDTD validator | New `src/fdtd/mod.rs` | Large | Port `fdtd-waveguide` Yee scheme to acoustics (pressure/velocity); batch validator |
+| Differentiable TLM | `src/diff_tlm.rs` | Large | ⚠️ Analytical gradients + Adam exist; no real backprop through cascade |
+| Complex-valued NN primitives | Custom `src/nn/mod.rs` | Large | 🔄 Placeholder exists; no training pipeline |
+| Neural fitness predictor | `tch-rs` or `dfdx` | Large | ❌ No MLP, no dataset, no training loop |
+| FDTD validator | `src/fdtd/mod.rs` | Large | 🔄 3-D Yee grid implemented; needs validation study |
+| Prime-conv ML | `src/prime_conv/mod.rs` | Large | 🔄 Forward pass demo; no training, no dataset |
+| DWM prototypes | `src/dwm/mod.rs` | Large | 🔄 2-D/3-D mesh; not integrated with main simulator |
 
 **Feature flags:**
 ```toml
 [features]
 default = []
-gui-bevy = ["bevy", "bevy_egui", "egui_plot", "rfd"]
+gui-bevy = ["bevy", "bevy_egui", "bevy_gizmos", "egui_plot", "rfd"]
 nn-integration = []        # placeholder module exists; future: "tch-rs"
-diff-tlm = ["dfdx"]        # differentiable TLM prototype
+diff-tlm = ["autodiff-rs"] # differentiable TLM prototype
 fdtd-validator = []        # 3-D acoustic FDTD (no external dep)
+cpal-integration = ["cpal"] # audio output
 ```
 
 ### 4.6 Phase F — Polish & Performance (Ongoing)
+
 - [x] Remove duplicate `PrimeGenerator` ✅ Done
 - [x] Standardize frequency grid to cents-based log spacing ✅ Done in `sim::grid`
 - [ ] Add `cargo bench` benchmarks for simulator, loss, optimizer
-- [ ] Expand unit tests (currently 32; target 50+)
-- [ ] Add integration tests for full Geo → impedance → peaks → loss → optimizer pipeline
+- [ ] Expand unit tests (currently 101 library + 28 integration; target 150+)
+- [ ] Add integration tests for full Geo → impedance → peaks → loss → optimizer pipeline ✅ Done
 - [ ] Wire real optimizer loop with progress callbacks
-- [ ] Add 3-D bore preview with bevy_gizmos
+- [ ] Add 3-D bore preview camera controls
+- [ ] Add tonehole drag-and-drop on bore preview
 
 ---
 

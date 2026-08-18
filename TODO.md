@@ -1,62 +1,57 @@
 # DidgeRust Future Goals
 
-This file documents important features and improvements that are **not yet implemented**.
-These are intentional future goals — not placeholders or stubs.
+This file documents important features and improvements that are **not yet fully implemented**.
+Status levels: 🔄 partial, ❌ missing, ⚠️ needs improvement.
 
-## Completed (recently merged)
+## Partial Implementations (concrete improvements needed)
 
-- **CLI for non-Rust developers** — `src/bin/cli.rs` exposes `simulate`, `optimize`, `validate`, `waveguide`, `tonehole`, `ml primes`, and `primes list` commands with JSON output.
-- **Advanced feature CLI access** — experimental features (prime-conv ML, waveguide, tonehole impedance) are callable from the command line without writing Rust code.
-- **Strategy-aware tonehole editing in GUI** — tonehole controls are disabled with a warning when non-TLM strategy is selected.
-- **Tonehole drag-and-drop on 3-D bore gizmo** — existing `draw_bore_gizmos` supports `drag_tonehole_3d`.
-- **`insert_toneholes` direct tests** — empty, single, and multiple-sorted cases covered in `src/sim/mod.rs`.
-- **`bent_effective_length` parameterized tests** — zero, negative, and large curvature cases covered.
-- **`AcousticConstants::for_conditions` edge cases** — extreme temperatures, pressures, and humidities tested.
-- **`EvolutionaryOptimizer` pause/resume test** — `pause_flag` setter covered in `src/evo/mod.rs`.
-- **Geo utility method tests** — `scale_length`, `scale_diameter`, `get_max_d`, `make_bubble`, `diameter_at_x` edge cases covered in `rust-cadsd-accurate`.
+### Acoustics / Simulation
 
-## Acoustics / Simulation
+- **Radiation impedance** — ⚠️ Geipel approximation in `src/sim/mod.rs::za`. Replace with Levine-Schwinger IIR; validate against published unflanged-pipe data.
+- **Viscothermal losses** — ⚠️ Full Tw/Zcw system in `cadsd_ze_with_losses`. Validate against Scavone 1997 data in 100 Hz–2 kHz range.
+- **Bent-shape correction** — 🔄 `bent_effective_length()` exists with tests. Wire into `Segment::effective_length`; integrate into optimizer loss; show in GUI bore preview.
+- **Tonehole models** — ⚠️ Open/closed impedance in `src/tonehole/mod.rs`. Add three-port scattering junction (Scavone & Smith 1997) for chromatic design.
+- **ComplexImpedance strategy** — ⚠️ Basic implementation exists. Add full viscothermal model; validate against TLM for non-cylindrical geometries.
+- **Differentiable TLM** — ⚠️ Analytical gradients + Adam in `src/diff_tlm.rs`. Implement real backprop through cascade using Wirtinger calculus; test against numerical gradients.
+- **FDTD validator** — 🔄 3-D Yee grid with PML in `src/fdtd/`. Increase grid resolution; validate against analytical cylinder; add bent-geometry study.
+- **Prime-conv ML** — 🔄 `PrimeConvBlock` forward pass in `src/prime_conv/`. Build training pipeline; generate dataset from TLM; train surrogate for top-5 peaks.
+- **DWM prototypes** — 🔄 2-D/3-D mesh in `src/dwm/`. Integrate with `DidgeridooSimulator` as alternative strategy; validate against TLM.
 
-- **Webster Horn Equation solver** — explicit standalone solver for varying cross-section tubes, complementing the current TLM approach.
-- **Real-time waveguide synthesis** — true time-domain digital waveguide audio output, replacing the current single-frequency tone generator.
-- **ComplexImpedance strategy completion** — bring it to feature parity with TLM and Waveguide: tonehole support, proper `AcousticConstants`, and Levine-Schwinger radiation impedance.
-- **Analytical validation for non-cylindrical geometries** — reference solutions for conical and exponential bores to cross-check TLM accuracy.
-- **Edge-tone physics refinement** — more accurate tonehole edge-tone resistance models based on published aeroacoustic data.
+### GUI / UX
 
-## Geometry
+- **GUI tonehole editor** — ⚠️ Sliders work; no drag-and-drop on bore preview.
+- **3-D bore preview** — ⚠️ Wireframe exists in `src/app.rs::draw_bore_gizmos`. Add camera controls, zoom, rotation.
+- **Optimizer loop** — ⚠️ Buttons log only; no real async execution with progress callbacks.
+- **Frequency grid** — ⚠️ Linear by default; log grid not cents-based everywhere.
 
-- **Expose `make_mbeya` and `make_kigali`** — parametric didgeridoo shape generators exist in the accurate crate but are not yet exposed through the wrapper API.
-- **RBF constraint systems** — radial-basis-function constraints for smooth geometry deformation during optimization.
-- **Bent-shape correction integration** — wire `bent_effective_length` into optimizer loss and GUI bore display.
+## Missing Implementations
 
-## Audio
+### Neural / Differentiable
 
-- **WAV export from waveguide synthesis** — current WAV export uses a simple sine wave; future version should render from the actual waveguide time-domain simulation.
-- **cpal real-time audio tests** — test actual audio stream creation and callback pipeline on supported platforms.
+- **Neural fitness predictor** — ❌ Placeholder struct only in `src/nn/mod.rs`. No MLP, no training loop, no dataset.
+- **Time-domain synthesis** — ❌ Frequency-domain only. No sample-by-sample waveguide loop; no cpal audio output from simulation.
+- **PINN surrogate for bent geometries** — ❌ No physics-informed neural network for bent-bore correction.
 
-## Neural / Differentiable
+### Audio
 
-- **Consolidate `diff_tlm` and `nn-integration`** — merge `DiffSegment` / `NeuralFitnessPredictor` into a single, correct differentiable TLM with real backpropagation (Wirtinger calculus through the full cascade).
-- **Neural fitness predictor training** — replace the current mean-predictor stub with a real MLP trained on simulation data.
-- **PINN surrogate for bent-geometry correction** — physics-informed neural network to correct TLM predictions for bent bores.
+- **Real-time audio backend** — ❌ No time-domain synthesis → no cpal audio output from actual simulation.
+- **WAV export from waveguide** — ❌ Current export uses simple sine wave; not from time-domain simulation.
 
-## Visualization
+### Geometry
 
-- **3D mesh rendering** — replace wireframe gizmos with proper 3D meshes (Bevy mesh rendering).
-- **Offline PNG/SVG report generation** — automated bore geometry and impedance spectrum plots for documentation.
+- **RBF constraint systems** — ❌ No radial-basis-function constraints for smooth geometry deformation during optimization.
 
-## GUI / UX
+### Testing
 
-- **Settings Panel full wiring** — remaining buttons need backend connections.
-- **3D bore gizmo interaction polish** — camera controls, zoom, rotation.
+- **File I/O tests for persistence** — ❌ No tests for `AppSettings`, `ProjectState`, `OptimizerCheckpoint` save/load with real files.
+- **CLI command tests** — ❌ No automated tests for `src/bin/cli.rs` commands.
 
-## Performance
+## Completed (fully working)
 
-- **SIMD optimization** — vectorized acoustic calculations for spectrum evaluation.
-- **Parallel Rayon evaluation** — parallelize genome fitness evaluation in the evolutionary optimizer.
-- **Geometry caching** — cache segment computations for unchanged bore geometries.
-- **`acoustical_simulation` backend unification** — the accurate crate still has `tlm_python` / `tlm_cython` backends; the wrapper should eventually replace these entirely.
-
-## Testing
-
-- **File I/O tests for persistence** — test `AppSettings`, `ProjectState`, and `OptimizerCheckpoint` save/load with real files.
+- **TLM cascade** — `src/sim/mod.rs::cadsd_ze_with_losses` with full viscothermal losses.
+- **Evolutionary optimizer** — `src/evo/mod.rs` with multiple mutation/crossover strategies.
+- **Loss functions** — `src/loss/mod.rs` with 10+ components.
+- **Peak detection** — Three modes: local maxima, prominence, phase-based.
+- **CLI for experimental features** — `src/bin/cli.rs` exposes all experimental modules to non-Rust users.
+- **Persistence** — JSON save/load for settings, checkpoints, project state.
+- **Geometry ops** — cone, cylinder, bubble, stretch, scale, volume, Kigali, Mbeya.

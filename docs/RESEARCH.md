@@ -477,47 +477,64 @@ This formulation enables gradient-based optimisation (sequential quadratic progr
 
 ## 7. Mapping Research to the Current Codebase
 
-| Research Concept | Codebase Location | Current Status |
-|------------------|-------------------|----------------|
-| TLM cascade (transfer matrices) | `src/sim/mod.rs::cadsd_ze_with_losses` | Implemented; viscothermal losses enabled |
-| Waveguide frequency response | `src/waveguide/mod.rs::WaveguideEngine` + `WaveguideSimulator` | Implemented; frequency-domain spectrum |
-| Radiation impedance | `src/sim/mod.rs::za` | Geipel unflanged-pipe approximation; frequency-dependent, complex |
-| Viscothermal losses | `src/sim/mod.rs::viscothermal_k_complex`, `cadsd_ze_with_losses` | Full Tw/Zcw complex wavenumber system; validated against DidgeLab |
-| Bent-shape correction | `src/sim/mod.rs::bent_effective_length` | Implemented; analytical formula `dL_eff = ds * (1 - α·κ²·a²)` with tests |
-| Tonehole scattering | `src/tonehole/mod.rs` | Implemented; open/closed impedance models wired into TLM and ComplexImpedance strategies |
-| Evolutionary optimisation | `src/evo/mod.rs` | Implemented (genetic algorithm with multiple mutation/crossover strategies) |
-| Loss functions | `src/loss/mod.rs` | Implemented (multi-objective composite with 10+ components) |
-| Peak detection | `src/sim/mod.rs::find_peaks`, `find_peaks_with_prominence`, `find_peaks_phase_based` | Three modes available |
-| Complex impedance strategy | `src/sim/mod.rs::SimulationStrategy::ComplexImpedance` | Implemented; supports toneholes and viscothermal losses |
-| Differentiable TLM | `src/diff_tlm.rs` | Implemented; analytical gradients + Adam optimizer |
-| FDTD validator | `src/fdtd/mod.rs`, `src/fdtd/validator.rs` | Implemented; 3-D acoustic FDTD with PML boundaries |
-| Prime-conv ML | `src/prime_conv/mod.rs` | Implemented; `PrimeConvBlock`, `ComplexConv1D`, `SurrogateLossFunction` |
-| DWM prototypes | `src/dwm/mod.rs` | Implemented; 2-D/3-D digital waveguide mesh + hybrid solver |
+| Research Concept | Codebase Location | Current Status | Notes |
+|------------------|-------------------|----------------|-------|
+| TLM cascade | `src/sim/mod.rs::cadsd_ze_with_losses` | ✅ Implemented | Full transfer-matrix cascade with viscothermal losses |
+| Waveguide frequency response | `src/waveguide/mod.rs::WaveguideEngine` + `WaveguideSimulator` | ⚠️ Implemented | Frequency-domain only; no time-domain synthesis for audio |
+| Radiation impedance | `src/sim/mod.rs::za` | ⚠️ Partial | Uses Geipel approximation, not full Levine-Schwinger IIR; needs validation against measured data |
+| Viscothermal losses | `src/sim/mod.rs::viscothermal_k_complex`, `cadsd_ze_with_losses` | ⚠️ Partial | Full Tw/Zcw system implemented but not validated against published data (Scavone 1997) |
+| Bent-shape correction | `src/sim/mod.rs::bent_effective_length` | 🔄 Partial | Analytical formula exists with tests; not wired into optimizer or GUI bore display |
+| Tonehole models | `src/tonehole/mod.rs` | ⚠️ Partial | Open/closed impedance implemented; three-port scattering junction not implemented |
+| Evolutionary optimizer | `src/evo/mod.rs` | ✅ Implemented | Gaussian, PrimeSequence, SingleMutation + Average/PartSwap/PartAverage crossover |
+| Loss functions | `src/loss/mod.rs` | ✅ Implemented | 10+ components, CompositeTairuaLoss with PeakDetectionMode |
+| Peak detection | `src/sim/mod.rs::find_peaks`, `find_peaks_with_prominence`, `find_peaks_phase_based` | ✅ Implemented | Three modes available |
+| Complex impedance strategy | `src/sim/mod.rs::SimulationStrategy::ComplexImpedance` | ⚠️ Partial | Implemented with toneholes; needs validation against FEM |
+| Differentiable TLM | `src/diff_tlm.rs` | ⚠️ Partial | Analytical gradients + Adam exist; no real backprop through full cascade |
+| FDTD validator | `src/fdtd/mod.rs`, `src/fdtd/validator.rs` | 🔄 Partial | 3-D Yee grid with PML; small grid (16³), needs validation study |
+| Prime-conv ML | `src/prime_conv/mod.rs` | 🔄 Partial | Forward pass demo only; no training pipeline, no dataset |
+| DWM prototypes | `src/dwm/mod.rs` | 🔄 Partial | 2-D/3-D mesh implemented; not integrated with main simulator |
+| Neural fitness predictor | `src/nn/mod.rs` | ❌ Missing | Placeholder struct only; no MLP, no training loop |
+| Time-domain synthesis | `src/waveguide/mod.rs` | ❌ Missing | Frequency-domain only; no sample-by-sample loop for cpal |
+| GUI tonehole editor | `src/app.rs` | ❌ Missing | Toneholes configurable via sliders but no drag-and-drop on bore preview |
+| 3-D bore preview | `src/app.rs::draw_bore_gizmos` | ⚠️ Partial | Wireframe exists; no camera controls, zoom, rotation |
+| Moist-air constants | `src/sim/mod.rs::AcousticConstants` | ⚠️ Partial | Temperature-dependent only; no humidity/pressure dependence |
 
 ---
 
 ## 8. Recommendations for Development
 
-### 8.1 Completed Items
+### 8.1 Completed Items (fully implemented)
 
-1. **Radiation impedance** — Geipel unflanged-pipe approximation implemented and validated in `src/sim/mod.rs::za`. Frequency-dependent, complex-valued.
-2. **Bent-shape effective-length correction** — Implemented in `src/sim/mod.rs::bent_effective_length` with analytical formula `dL_eff = ds * (1 - α·κ²·a²)` and parameterized tests.
-3. **Viscothermal loss model** — Full Tw/Zcw complex wavenumber system integrated in `cadsd_ze_with_losses`; validated against DidgeLab formulation.
-4. **Phase-based resonance finder** — `find_peaks_phase_based` implemented using unwrapped phase derivative (Ernoult Eq 6).
-5. **Tonehole models** — Open/closed impedance models implemented in `src/tonehole/mod.rs` and wired into TLM and ComplexImpedance strategies.
-6. **Differentiable TLM** — `src/diff_tlm.rs` implements `DifferentiableTLM` with analytical gradients and `AdamOptimizer`.
+1. **TLM cascade with viscothermal losses** — `src/sim/mod.rs::cadsd_ze_with_losses` implements full transfer-matrix cascade with Tw/Zcw complex wavenumber.
+2. **Evolutionary optimizer** — `src/evo/mod.rs` implements Gaussian, PrimeSequence, SingleMutation + Average/PartSwap/PartAverage crossover, tournament selection, elite preservation.
+3. **Loss functions** — `src/loss/mod.rs` implements `CompositeTairuaLoss` with 10+ components.
+4. **Peak detection** — Three modes: strict local maxima, prominence-based, phase-based (Ernoult et al. 2020).
+5. **CLI for experimental features** — `src/bin/cli.rs` exposes simulate/optimize/validate/compare/waveguide/tonehole/ml primes/primes/bent with `--json`.
 
-### 8.2 Immediate Priorities
+### 8.2 Partial Implementations (concrete improvements needed)
 
-7. **Complex impedance strategy validation** — Validate `SimulationStrategy::ComplexImpedance` against TLM and analytical solutions for non-cylindrical geometries.
-8. **Real-time waveguide synthesis** — Extend `WaveguideEngine` from frequency-domain to time-domain for audio output via `cpal`.
-9. **Neural fitness predictor training** — Replace `NeuralFitnessPredictor` stub with real MLP trained on TLM simulation data; use as surrogate in evolutionary loop.
+| Feature | Current State | What's Needed |
+|---------|---------------|---------------|
+| Radiation impedance | Geipel approximation in `za()` | Replace with Levine-Schwinger IIR; validate against published unflanged-pipe data |
+| Viscothermal losses | Tw/Zcw system implemented | Validate against Scavone 1997 data in 100 Hz–2 kHz range |
+| Bent-shape correction | `bent_effective_length()` exists | Wire into `Segment::effective_length`; integrate into optimizer loss; show in GUI bore preview |
+| Tonehole models | Open/closed impedance | Add three-port scattering junction (Scavone & Smith 1997) for chromatic design |
+| Differentiable TLM | Analytical gradients + Adam | Implement real backprop through cascade using Wirtinger calculus; test against numerical gradients |
+| FDTD validator | 3-D Yee grid with PML | Increase grid resolution; validate against analytical cylinder; add bent-geometry study |
+| Prime-conv ML | `PrimeConvBlock` forward pass | Build training pipeline; generate dataset from TLM; train surrogate for top-5 peaks |
+| DWM prototypes | 2-D/3-D mesh code | Integrate with `DidgeridooSimulator` as alternative strategy; validate against TLM |
+| Complex impedance strategy | Basic implementation | Add full viscothermal model; validate against TLM for non-cylindrical geometries |
+| GUI bore preview | Wireframe gizmos | Add camera controls, zoom, rotation; wire tonehole drag-and-drop |
 
-### 8.3 Medium-Term Research
+### 8.3 Missing Implementations
 
-10. **PINN surrogate for bent geometries** — Train physics-informed neural network on FDTD/validated TLM data for bent bores; predict complex impedance in <1 ms.
-11. **Lip-valve nonlinear excitation** — Time-domain synthesis with lip mass/tension, breath pressure input, and reflection/transmission coefficients (Fletcher & Rossing 1996).
-12. **Multi-objective optimisation with constraints** — Add manufacturing constraints (hole spacing, monotonic bore profile) to evolutionary algorithm (Ernoult et al. 2020).
+| Feature | Effort | Complexity | Notes |
+|---------|--------|------------|-------|
+| Neural fitness predictor | 3 days | High | MLP trained on TLM data; replace mean-predictor stub |
+| Time-domain synthesis | 3 days | High | Lip-valve model + waveguide delay lines + cpal audio output |
+| Moist-air AcousticConstants | 2 days | Medium | Add humidity/pressure dependence to speed of sound and viscosity |
+| GUI tonehole editor | 2 days | Medium | Drag-and-drop on bore preview; parametric presets |
+| 3-D bore preview polish | 1 day | Low | Camera controls for existing wireframe |
 
 ---
 

@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use cadsd::geo::Geo;
+use cadsd::Geo;
 use cadsd::sim::{DidgeridooSimulator, SimulationStrategy};
 
 fn benchmark_tlm(c: &mut Criterion) {

@@ -116,23 +116,23 @@ EvolutionaryOptimizer::evolve() → best genome
 | Component | Issue | Location |
 |-----------|-------|----------|
 | Frequency grid | Linear by default; log grid uses step_ratio but not cents-based | `src/app.rs::compute_spectrum` |
-| Optimizer wiring | Buttons log messages; no real parallel evaluation or progress callbacks | `src/app.rs` optimizer panel |
-| 3-D bore preview | Not implemented | `src/app.rs` geometry panel |
-| Time-domain synthesis | `WaveguideEngine` is frequency-domain only | `src/waveguide/mod.rs` |
-| Differentiable TLM | No autodiff integration yet | `src/nn/mod.rs` placeholder only |
+| Real-time waveguide synthesis | `WaveguideEngine` is frequency-domain only; no time-domain audio output | `src/waveguide/mod.rs` |
 | Neural fitness predictor | Placeholder struct only; no training pipeline | `src/nn/mod.rs` |
-| 3-D FDTD validator | Not started | `docs/RESEARCH.md` references only |
+| Moist-air `AcousticConstants` | Covers temperature only; no humidity/pressure dependence | `src/sim/mod.rs::AcousticConstants` |
 
-### 2.3 What Does Not Exist Yet
+### 2.3 What Is Now Implemented (previously missing)
 
-| Feature | Notes |
-|---------|-------|
-| Moist-air `AcousticConstants` with humidity/pressure | Current implementation covers temperature only |
-| Differentiable TLM | No autodiff integration; `Value`-based gradient computation not prototyped |
-| Neural fitness predictor training pipeline | Placeholder struct exists; no training loop |
-| 3-D FDTD module | No acoustic FDTD; `fdtd-waveguide` is EM-only reference |
-| Time-domain synthesis | `WaveguideEngine` is frequency-domain only |
-| 3-D bore preview | Bevy gizmos wireframe mentioned in TODO but not implemented |
+| Feature | Location | Notes |
+|---------|----------|-------|
+| Bent-shape effective-length correction | `src/sim/mod.rs::bent_effective_length` | Analytical formula with tests |
+| Tonehole models | `src/tonehole/mod.rs` | Open/closed impedance, wired into TLM and ComplexImpedance |
+| Differentiable TLM | `src/diff_tlm.rs` | Analytical gradients + Adam optimizer |
+| 3-D FDTD validator | `src/fdtd/mod.rs`, `src/fdtd/validator.rs` | PML boundaries, TLM vs FDTD comparison |
+| Prime-conv ML | `src/prime_conv/mod.rs` | `PrimeConvBlock`, `ComplexConv1D`, `SurrogateLossFunction` |
+| DWM prototypes | `src/dwm/mod.rs` | 2-D/3-D digital waveguide mesh + hybrid solver |
+| 3-D bore preview | `src/app.rs::draw_bore_gizmos` | Bevy gizmos wireframe with tonehole markers |
+| Optimizer progress callbacks | `src/app.rs::start_optimization` | Real async execution with `OptimizerChannels` |
+| CLI for experimental features | `src/bin/cli.rs` | `simulate`, `optimize`, `validate`, `compare`, `waveguide`, `tonehole`, `ml primes`, `primes` |
 | Cents-based frequency grid everywhere | Log grid exists in `sim::grid` but not used universally |
 
 ---

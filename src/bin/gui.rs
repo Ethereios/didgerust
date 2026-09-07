@@ -141,14 +141,21 @@ script_mod! {
                                 padding: 10
                                 draw_bg +: {color: #x171d24}
 
-                                section_title := Label{
-                                    width: Fill
-                                    height: 24
-                                    text: "Geometry"
-                                    draw_text +: {color: #dfe7ee, font_size: 14}
-                                }
+section_title := Label{
+                                     width: Fill
+                                     height: 24
+                                     text: "Geometry"
+                                     draw_text +: {color: #xdfe7ee, font_size: 14}
+                                 }
 
-                                bore_style_label := Label{
+                                 mouthpiece_toggle := Toggle{
+                                     width: Fill
+                                     height: 24
+                                     text: "Mouthpiece"
+                                     selected: false
+                                 }
+
+                                 bore_style_label := Label{
                                     width: Fill
                                     height: 18
                                     text: "Bore style"

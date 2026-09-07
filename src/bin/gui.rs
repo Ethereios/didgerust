@@ -148,13 +148,6 @@ section_title := Label{
                                      draw_text +: {color: #xdfe7ee, font_size: 14}
                                  }
 
-mouthpiece_toggle := Toggle{
-                                      width: Fill
-                                      height: 24
-                                      text: "Mouthpiece"
-                                      value: false
-                                  }
-
                                  bore_style_label := Label{
                                     width: Fill
                                     height: 18
@@ -165,63 +158,8 @@ mouthpiece_toggle := Toggle{
                                 bore_style_dropdown := DropDown{
                                     width: Fill
                                     height: 28
-                                    labels: ["Cone", "Cylinder", "Exponential", "Kigali", "Mbeya"]
+                                    labels: ["Cone", "Cylinder", "Exponential"]
                                     selected_item: 0
-                                }
-
-                                mouthpiece_type_label := Label{
-                                    width: Fill
-                                    height: 18
-                                    text: "Mouthpiece type"
-                                    draw_text +: {color: #xa0a0a0}
-                                }
-                                mouthpiece_type_dropdown := DropDown{
-                                    width: Fill
-                                    height: 28
-                                    labels: ["None", "Reed", "Embouchure hole", "Fipple", "Cup"]
-                                    selected_item: 0
-                                }
-
-                                mouthpiece_length_label := Label{
-                                    width: Fill
-                                    height: 18
-                                    text: "Mouthpiece length (mm)"
-                                    draw_text +: {color: #xa0a0a0}
-                                }
-                                mouthpiece_length_value := Label{
-                                    width: Fill
-                                    height: 18
-                                    text: "0.0"
-                                    draw_text +: {color: #xaaaaff}
-                                }
-                                mouthpiece_length_slider := Slider{
-                                    width: Fill
-                                    height: 18
-                                    min: 0.0
-                                    max: 100.0
-                                    step: 0.5
-                                    default: 0.0
-                                }
-
-                                mouthpiece_diameter_label := Label{
-                                    width: Fill
-                                    height: 18
-                                    text: "Mouthpiece diameter (mm)"
-                                    draw_text +: {color: #xa0a0a0}
-                                }
-                                mouthpiece_diameter_value := Label{
-                                    width: Fill
-                                    height: 18
-                                    text: "0.0"
-                                    draw_text +: {color: #xaaaaff}
-                                }
-                                mouthpiece_diameter_slider := Slider{
-                                    width: Fill
-                                    height: 18
-                                    min: 0.0
-                                    max: 50.0
-                                    step: 0.5
-                                    default: 0.0
                                 }
 
                                 length_label := Label{
@@ -431,16 +369,13 @@ fn build_bore_geometry(segments: &[(f32, f32)]) -> (Vec<u32>, Vec<f32>) {
 }
 
 fn make_segments(length: f32, top: f32, bell: f32, style: u32, bore_curve: f32, n: usize) -> Vec<(f32, f32)> {
-    (0..n).map(|i| {
-        let t = if n > 1 { i as f32 / (n - 1) as f32 } else { 0.0 };
-        let x = length * t;
-        let d = match style {
-            0 => top + (bell - top) * t,
-            1 => top,
-            _ => top * (bell / top).powf(t + bore_curve),
-        };
-        (x, d)
-    }).collect()
+    let geo = match style {
+        0 => Geo::make_cone(length as f64, top as f64, bell as f64, n),
+        1 => Geo::make_kigali(length as f64, top as f64, bell as f64, bore_curve as f64, n),
+        2 => Geo::make_mbeya(length as f64, top as f64, bell as f64, bore_curve as f64, n),
+        _ => Geo::make_cone(length as f64, top as f64, bell as f64, n),
+    };
+    geo.geo.iter().map(|pt| (pt[0] as f32, pt[1] as f32)).collect()
 }
 
 #[derive(Script, ScriptHook, WidgetRef, WidgetRegister)]
@@ -583,9 +518,6 @@ impl MatchEvent for App {
         let mut style = 0u32;
         let mut bore_curve = 0.0f32;
         let mut segments = 50usize;
-        let mut mouthpiece_type = 0u32;
-        let mut mouthpiece_length = 0.0f32;
-        let mut mouthpiece_diameter = 0.0f32;
 
         if let Some(v) = self.ui.slider(cx, ids!(length_slider)).slided(actions) {
             length = v;
@@ -614,20 +546,6 @@ impl MatchEvent for App {
         }
         if let Some(v) = self.ui.drop_down(cx, ids!(bore_style_dropdown)).selected(actions) {
             style = v as u32;
-            needs_viewport_update = true;
-        }
-        if let Some(v) = self.ui.drop_down(cx, ids!(mouthpiece_type_dropdown)).selected(actions) {
-            mouthpiece_type = v as u32;
-            needs_viewport_update = true;
-        }
-        if let Some(v) = self.ui.slider(cx, ids!(mouthpiece_length_slider)).slided(actions) {
-            mouthpiece_length = v as f32;
-            self.ui.label(cx, ids!(mouthpiece_length_value)).set_text(cx, &format!("{:.1}", v));
-            needs_viewport_update = true;
-        }
-        if let Some(v) = self.ui.slider(cx, ids!(mouthpiece_diameter_slider)).slided(actions) {
-            mouthpiece_diameter = v as f32;
-            self.ui.label(cx, ids!(mouthpiece_diameter_value)).set_text(cx, &format!("{:.1}", v));
             needs_viewport_update = true;
         }
 

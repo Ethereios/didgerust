@@ -231,11 +231,11 @@ script_mod! {
                                     text: "Segments"
                                     draw_text +: {color: #xa0a0a0}
                                 }
-                                segments_value := Label{
+segments_value := Label{
                                     width: Fill
                                     height: 18
                                     text: "50"
-                                    draw_text +: {color: #aaaaff}
+                                    draw_text +: {color: #xaaaaff}
                                 }
                                 segments_slider := Slider{
                                     width: Fill
@@ -244,6 +244,27 @@ script_mod! {
                                     max: 200.0
                                     step: 1.0
                                     default: 50.0
+                                }
+
+                                bore_curve_label := Label{
+                                    width: Fill
+                                    height: 18
+                                    text: "Bore curve"
+                                    draw_text +: {color: #xa0a0a0}
+                                }
+                                bore_curve_value := Label{
+                                    width: Fill
+                                    height: 18
+                                    text: "0.0"
+                                    draw_text +: {color: #xaaaaff}
+                                }
+                                bore_curve_slider := Slider{
+                                    width: Fill
+                                    height: 18
+                                    min: -2.0
+                                    max: 2.0
+                                    step: 0.1
+                                    default: 0.0
                                 }
 
                                 run_button := Button{
@@ -347,14 +368,14 @@ fn build_bore_geometry(segments: &[(f32, f32)]) -> (Vec<u32>, Vec<f32>) {
     (indices, vertices)
 }
 
-fn make_segments(length: f32, top: f32, bell: f32, style: u32, n: usize) -> Vec<(f32, f32)> {
+fn make_segments(length: f32, top: f32, bell: f32, style: u32, bore_curve: f32, n: usize) -> Vec<(f32, f32)> {
     (0..n).map(|i| {
         let t = if n > 1 { i as f32 / (n - 1) as f32 } else { 0.0 };
         let x = length * t;
         let d = match style {
             0 => top + (bell - top) * t,
             1 => top,
-            _ => top * (bell / top).powf(t),
+            _ => top * (bell / top).powf(t + bore_curve),
         };
         (x, d)
     }).collect()
@@ -406,7 +427,7 @@ impl BoreViewport {
         self.pass.set_depth_texture(cx, &self.depth_texture, DrawPassClearDepth::ClearWith(1.0));
         cx.passes[self.pass.draw_pass_id()].keep_camera_matrix = true;
 
-        let segs = make_segments(950.0, 35.0, 85.0, 0, 50);
+        let segs = make_segments(950.0, 35.0, 85.0, 0, 0.0, 50);
         let (indices, vertices) = build_bore_geometry(&segs);
         let geometry = Geometry::new(cx);
         geometry.update(cx, indices, vertices);
@@ -414,13 +435,13 @@ impl BoreViewport {
         self.last_hash = 0;
     }
 
-    pub fn update_bore(&mut self, cx: &mut Cx, length: f32, top: f32, bell: f32, style: u32, n: usize) {
-        let hash = (length.to_bits() as u64 ^ ((top.to_bits() as u64) << 1) ^ ((bell.to_bits() as u64) << 2) ^ ((style as u64) << 3) ^ ((n as u64) << 4))
+    pub fn update_bore(&mut self, cx: &mut Cx, length: f32, top: f32, bell: f32, style: u32, bore_curve: f32, n: usize) {
+        let hash = (length.to_bits() as u64 ^ ((top.to_bits() as u64) << 1) ^ ((bell.to_bits() as u64) << 2) ^ ((style as u64) << 3) ^ ((bore_curve.to_bits() as u64) << 4) ^ ((n as u64) << 5))
             .wrapping_mul(0x517cc1b727265a95);
         if hash == self.last_hash { return; }
         self.last_hash = hash;
 
-        let segs = make_segments(length, top, bell, style, n);
+        let segs = make_segments(length, top, bell, style, bore_curve, n);
         let (indices, vertices) = build_bore_geometry(&segs);
         if let Some(ref mut geom) = self.geometry {
             geom.update(cx, indices, vertices);
@@ -498,6 +519,7 @@ impl MatchEvent for App {
         let mut top = 35.0;
         let mut bell = 85.0;
         let mut style = 0u32;
+        let mut bore_curve = 0.0f32;
         let mut segments = 50usize;
 
         if let Some(v) = self.ui.slider(cx, ids!(length_slider)).slided(actions) {
@@ -520,6 +542,11 @@ impl MatchEvent for App {
             self.ui.label(cx, ids!(segments_value)).set_text(cx, &format!("{}", segments));
             needs_viewport_update = true;
         }
+        if let Some(v) = self.ui.slider(cx, ids!(bore_curve_slider)).slided(actions) {
+            bore_curve = v as f32;
+            self.ui.label(cx, ids!(bore_curve_value)).set_text(cx, &format!("{:.1}", v));
+            needs_viewport_update = true;
+        }
         if let Some(v) = self.ui.drop_down(cx, ids!(bore_style_dropdown)).selected(actions) {
             style = v as u32;
             needs_viewport_update = true;
@@ -527,7 +554,7 @@ impl MatchEvent for App {
 
         if needs_viewport_update {
             if let Some(mut vp) = self.ui.widget(cx, ids!(viewport)).borrow_mut::<BoreViewport>() {
-                vp.update_bore(cx, length as f32, top as f32, bell as f32, style, segments);
+                vp.update_bore(cx, length as f32, top as f32, bell as f32, style, bore_curve, segments);
             }
         }
 
@@ -536,7 +563,7 @@ impl MatchEvent for App {
             std::thread::spawn(move || {
                 let geo = Geo::make_cone(950.0, 35.0, 85.0, 50);
                 let freqs: Vec<f64> = (20..=5000).map(|f| f as f64 * 0.1).collect();
-                if let Ok(impedances) = acoustical_simulation(&geo, &freqs, "tlm_python") {
+                if let Ok(_impedances) = acoustical_simulation(&geo, &freqs, "tlm_python") {
                     let (fundamental, _) = get_fundamental(&geo, "tlm_python", 20.0).unwrap_or((65.41, 1.0));
                     let note = note_name(freq_to_note(fundamental));
                     log!("Simulation done: {:.1} Hz ({})", fundamental, note);

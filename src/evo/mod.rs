@@ -3,12 +3,29 @@
 //! This module implements genetic algorithms for optimizing didgeridoo geometries
 //! to achieve target acoustic properties using the CADSD framework.
 
-use crate::geo::Geo;
+use crate::Geo;
+use crate::tonehole::Tonehole;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, atomic::{AtomicBool, Ordering as SyncOrdering}};
 use std::f64::consts::PI;
+use rand::SeedableRng;
+use rand::rngs::StdRng;
 use rand_distr::Distribution;
+
+/// Crossover strategy for evolutionary optimization
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CrossoverStrategy {
+    /// Single-point crossover
+    SinglePoint,
+    /// Average of both parents
+    Average,
+    /// Swap a contiguous segment between parents
+    PartSwap,
+    /// Average a contiguous segment between parents
+    PartAverage,
+}
 
 /// Mutation strategy for evolutionary optimization
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -17,6 +34,8 @@ pub enum MutationStrategy {
     Gaussian,
     /// Prime-number indexed mutation for better space-filling exploration
     PrimeSequence,
+    /// Mutate exactly one gene per individual
+    SingleMutation,
 }
 
 /// Trait for evolvable genomes
@@ -35,11 +54,20 @@ pub trait Genome: Send + Sync {
     where
         Self: Sized;
     
-    /// Clone the genome with a new ID
+    /// Clone the genome with a new ID (invalidates cached loss)
     fn clone_with_new_id(&self) -> Box<dyn Genome>;
+    
+    /// Clone the genome preserving its loss (for elite selection)
+    fn clone_with_loss(&self) -> Box<dyn Genome>;
     
     /// Convert genome to geometry
     fn genome2geo(&self) -> Geo;
+    
+    /// Convert genome to geometry and toneholes.
+    /// Default implementation returns geometry with no toneholes.
+    fn geo_and_toneholes(&self) -> (Geo, Vec<Tonehole>) {
+        (self.genome2geo(), Vec::new())
+    }
     
     /// Get unique identifier
     fn id(&self) -> u64;
@@ -74,8 +102,8 @@ impl PrimeGenerator {
         sieve[1] = false;
 
         for i in 2..=((limit as f64).sqrt() as usize) {
-            if sieve[i as usize] {
-                for j in (i * i..=limit as usize).step_by(i as usize) {
+            if sieve[i] {
+                for j in (i * i..=limit as usize).step_by(i) {
                     sieve[j] = false;
                 }
             }
@@ -92,7 +120,7 @@ impl PrimeGenerator {
     }
 
     /// Get the next prime number in the sequence
-    pub fn next(&mut self) -> u32 {
+    pub fn next_prime(&mut self) -> u32 {
         let prime = self.primes[self.current_index % self.primes.len()];
         self.current_index += 1;
         prime
@@ -153,6 +181,14 @@ impl Genome for BaseGenome {
         })
     }
     
+    fn clone_with_loss(&self) -> Box<dyn Genome> {
+        Box::new(Self {
+            genome: self.genome.clone(),
+            id: Self::generate_id(),
+            loss: self.loss,
+        })
+    }
+    
     fn genome2geo(&self) -> Geo {
         // Default implementation - should be overridden by specific genome types
         Geo::make_cone(1500.0, 32.0, 60.0, 20)
@@ -193,9 +229,11 @@ pub struct KigaliGenome {
     smoothness: f64,   // smoothness parameter
     bell_accent: f64,  // bell accent factor
     bell_start: f64,   // bell start position (mm)
+    n_toneholes: usize, // number of toneholes
 }
 
 impl KigaliGenome {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         n_segments: usize,
         d0: f64,
@@ -207,8 +245,9 @@ impl KigaliGenome {
         smoothness: f64,
         bell_accent: f64,
         bell_start: f64,
+        n_toneholes: usize,
     ) -> Self {
-        let n_genes = 3 + 2 * (n_segments - 1) + n_bubbles * 3;
+        let n_genes = 3 + 2 * (n_segments - 1) + n_bubbles * 3 + n_toneholes * 4;
         
         Self {
             base: BaseGenome::random(n_genes),
@@ -222,11 +261,13 @@ impl KigaliGenome {
             smoothness,
             bell_accent,
             bell_start,
+            n_toneholes,
         }
     }
     
     /// Decode genome parameters
-    fn decode_parameters(&self) -> (f64, f64, f64, Vec<f64>, Vec<f64>, Vec<(f64, f64, f64)>) {
+    #[allow(clippy::type_complexity)]
+    fn decode_parameters(&self) -> (f64, f64, f64, Vec<f64>, Vec<f64>, Vec<(f64, f64, f64)>, Vec<Tonehole>) {
         let genome = self.base.genome();
         
         // Length and bell size
@@ -256,12 +297,30 @@ impl KigaliGenome {
         
         let mut i = geo_offset;
         while i + 1 < genome.len() {
+            // Stop if we've reached the tonehole section
+            if i >= geo_offset + 2 * (self.n_segments - 1) {
+                break;
+            }
             x_genome.push(genome[i]);
             y_genome.push(genome[i + 1]);
             i += 2;
         }
         
-        (length, bell_size, power, x_genome, y_genome, bubbles)
+        // Toneholes
+        let th_offset = geo_offset + 2 * (self.n_segments - 1);
+        let mut toneholes = Vec::new();
+        for j in 0..self.n_toneholes {
+            let idx = th_offset + j * 4;
+            if idx + 3 < genome.len() {
+                let x = genome[idx] * length;
+                let diameter = 2.0 + genome[idx + 1] * 28.0; // 2-30 mm
+                let depth = 1.0 + genome[idx + 2] * 19.0;     // 1-20 mm
+                let coverage = genome[idx + 3];                // 0.0-1.0
+                toneholes.push(Tonehole::with_coverage(x, diameter, depth, coverage));
+            }
+        }
+        
+        (length, bell_size, power, x_genome, y_genome, bubbles, toneholes)
     }
     
     /// Apply bell accent to geometry
@@ -348,6 +407,7 @@ impl Genome for KigaliGenome {
             smoothness: 0.3,
             bell_accent: 0.0,
             bell_start: 300.0,
+            n_toneholes: 0,
         }
     }
     
@@ -362,8 +422,19 @@ impl Genome for KigaliGenome {
         })
     }
     
+    fn clone_with_loss(&self) -> Box<dyn Genome> {
+        Box::new(Self {
+            base: BaseGenome {
+                genome: self.base.genome.clone(),
+                id: BaseGenome::generate_id(),
+                loss: self.base.loss,
+            },
+            ..*self
+        })
+    }
+    
     fn genome2geo(&self) -> Geo {
-        let (length, bell_size, power, x_genome, y_genome, bubbles) = self.decode_parameters();
+        let (length, bell_size, power, x_genome, y_genome, bubbles, _) = self.decode_parameters();
         
         // Generate base geometry (power-law taper)
         let mut x: Vec<f64> = (0..=self.n_segments)
@@ -400,12 +471,46 @@ impl Genome for KigaliGenome {
             Self::make_bubble(&mut x, &mut y, pos, width, height);
         }
         
-        // Clamp diameters to reasonable range
-        for diameter in &mut y {
-            *diameter = diameter.max(0.9 * self.d0).min(1.3 * bell_size);
+        let points: Vec<[f64; 2]> = x.iter().zip(y.iter()).map(|(&xi, &yi)| [xi, yi]).collect();
+        Geo::new(points)
+    }
+    
+    fn geo_and_toneholes(&self) -> (Geo, Vec<Tonehole>) {
+        let (length, bell_size, power, x_genome, y_genome, bubbles, toneholes) = self.decode_parameters();
+        
+        let mut x: Vec<f64> = (0..=self.n_segments)
+            .map(|i| length * i as f64 / self.n_segments as f64)
+            .collect();
+        
+        let mut y: Vec<f64> = (0..=self.n_segments)
+            .map(|i| {
+                let t = i as f64 / self.n_segments as f64;
+                t.powf(power) * (bell_size - self.d0) + self.d0
+            })
+            .collect();
+        
+        let shift_x = length / self.n_segments as f64;
+        for (i, &offset) in x_genome.iter().enumerate() {
+            if i < x.len() && i > 0 && i < x.len() - 1 {
+                x[i] += (offset - 0.5) * shift_x;
+            }
         }
         
-        Geo::new(x.into_iter().zip(y.into_iter()).map(|(xi, yi)| [xi, yi]).collect())
+        let shift_y = (1.0 - self.smoothness) * bell_size;
+        for (i, &offset) in y_genome.iter().enumerate() {
+            if i < y.len() && i > 0 && i < y.len() - 1 {
+                y[i] += 0.3 * (offset - 0.5) * shift_y;
+            }
+        }
+        
+        self.apply_bell_accent(&mut x, &mut y, length, bell_size);
+        
+        for (pos, width, height) in bubbles {
+            Self::make_bubble(&mut x, &mut y, pos, width, height);
+        }
+        
+        let points: Vec<[f64; 2]> = x.iter().zip(y.iter()).map(|(&xi, &yi)| [xi, yi]).collect();
+        (Geo::new(points), toneholes)
     }
     
     fn id(&self) -> u64 {
@@ -452,6 +557,7 @@ pub struct EvolutionaryOptimizer {
     pub population: Vec<Box<dyn Genome>>,
     pub parameters: EvolutionParameters,
     pub prime_generator: PrimeGenerator,
+    pub pause_flag: Option<Arc<AtomicBool>>,
 }
 
 /// Evolution parameters
@@ -464,6 +570,9 @@ pub struct EvolutionParameters {
     pub crossover_rate: f64,
     pub elite_size: usize,
     pub mutation_strategy: MutationStrategy,
+    pub crossover_strategy: CrossoverStrategy,
+    pub convergence_patience: usize,
+    pub convergence_threshold: f64,
 }
 
 impl Default for EvolutionParameters {
@@ -476,6 +585,9 @@ impl Default for EvolutionParameters {
             crossover_rate: 0.7,
             elite_size: 5,
             mutation_strategy: MutationStrategy::Gaussian,
+            crossover_strategy: CrossoverStrategy::SinglePoint,
+            convergence_patience: 10,
+            convergence_threshold: 1e-6,
         }
     }
 }
@@ -491,7 +603,13 @@ impl EvolutionaryOptimizer {
             population: initial_population,
             parameters,
             prime_generator: PrimeGenerator::default(),
+            pause_flag: None,
         }
+    }
+    
+    /// Set a shared pause flag for the evolution loop
+    pub fn set_pause_flag(&mut self, flag: Arc<AtomicBool>) {
+        self.pause_flag = Some(flag);
     }
     
     /// Create optimizer with random initial population
@@ -508,13 +626,58 @@ impl EvolutionaryOptimizer {
         Self::new(loss_function, population, parameters)
     }
     
+    /// Create optimizer with prime-indexed quasi-random initial population.
+    ///
+    /// Uses prime numbers as seeds for deterministic RNGs, providing better
+    /// space-filling coverage than purely random initialization.
+    pub fn with_prime_population<G: Genome + 'static>(
+        loss_function: Box<dyn LossFunction>,
+        genome_template: &G,
+        population_size: usize,
+        parameters: EvolutionParameters,
+    ) -> Self {
+        let prime_gen = crate::prime_conv::PrimeGenerator::new(10000);
+        let primes = prime_gen.prime_list();
+        let population: Vec<Box<dyn Genome>> = (0..population_size)
+            .map(|i| {
+                let prime = primes[i % primes.len()] as u64;
+                let mut rng = StdRng::seed_from_u64(prime);
+                let mut genome = genome_template.clone_with_new_id();
+                for gene in genome.genome_mut() {
+                    *gene = rand::Rng::gen(&mut rng);
+                }
+                genome
+            })
+            .collect();
+        
+        Self::new(loss_function, population, parameters)
+    }
+    
     /// Evolve the population for specified number of generations
     pub fn evolve(&mut self) -> Result<Box<dyn Genome>, Box<dyn std::error::Error>> {
+        self.evolve_with_progress(|_, _| {})
+    }
+    
+    /// Evolve with progress callback (generation, best_loss)
+    pub fn evolve_with_progress<F>(&mut self, mut progress_cb: F) -> Result<Box<dyn Genome>, Box<dyn std::error::Error>>
+    where
+        F: FnMut(usize, f64),
+    {
         // Evaluate initial population
         self.evaluate_population()?;
         
+        let mut best_loss_so_far = f64::INFINITY;
+        let mut generations_without_improvement = 0;
+        
         // Evolution loop
         for generation in 0..self.parameters.num_generations {
+            // Check for pause request and spin-wait until resumed
+            if let Some(ref flag) = self.pause_flag {
+                while flag.load(SyncOrdering::Relaxed) {
+                    std::thread::yield_now();
+                }
+            }
+            
             log::info!("Generation {}/{}", generation + 1, self.parameters.num_generations);
             
             // Create offspring
@@ -526,10 +689,22 @@ impl EvolutionaryOptimizer {
             // Select new population
             self.select_population(offspring)?;
             
-            // Log best individual
+            // Report progress
             if let Some(best) = self.get_best_individual() {
-                log::info!("Best loss: {:.6}, ID: {}", 
-                          best.loss().unwrap_or(f64::INFINITY), best.id());
+                let best_loss = best.loss().unwrap_or(f64::INFINITY);
+                progress_cb(generation, best_loss);
+                
+                if best_loss < best_loss_so_far - self.parameters.convergence_threshold {
+                    best_loss_so_far = best_loss;
+                    generations_without_improvement = 0;
+                } else {
+                    generations_without_improvement += 1;
+                }
+                
+                if generations_without_improvement >= self.parameters.convergence_patience {
+                    log::info!("Converged after {} generations (no improvement for {} generations)", generation + 1, generations_without_improvement);
+                    break;
+                }
             }
         }
         
@@ -544,17 +719,20 @@ impl EvolutionaryOptimizer {
         Ok(())
     }
     
-    /// Evaluate genomes in parallel
+    /// Evaluate genomes in parallel, skipping those with cached loss.
     fn evaluate_genomes(loss_function: &dyn LossFunction, genomes: &mut [Box<dyn Genome>]) -> Result<(), Box<dyn std::error::Error>> {
         genomes.par_iter_mut().for_each(|genome| {
-            let loss = loss_function.calculate(genome.as_ref());
-            genome.set_loss(Some(loss));
+            if genome.loss().is_none() {
+                let loss = loss_function.calculate(genome.as_ref());
+                genome.set_loss(Some(loss));
+            }
         });
         
         Ok(())
     }
     
     /// Create offspring through mutation and crossover
+    #[allow(clippy::borrowed_box)]
     fn create_offspring(&self) -> Result<Vec<Box<dyn Genome>>, Box<dyn std::error::Error>> {
         let mut offspring = Vec::new();
         
@@ -568,8 +746,8 @@ impl EvolutionaryOptimizer {
                 .unwrap()
         });
         
-        for i in 0..self.parameters.elite_size.min(sorted_population.len()) {
-            offspring.push(sorted_population[i].clone_with_new_id());
+        for individual in sorted_population.iter().take(self.parameters.elite_size.min(sorted_population.len())) {
+            offspring.push(individual.clone_with_loss());
         }
         
         // Create remaining offspring
@@ -612,68 +790,101 @@ impl EvolutionaryOptimizer {
         best.ok_or_else(|| "Tournament selection failed".into())
     }
     
-    /// Simple crossover operation
+    /// Crossover operation supporting multiple strategies.
     fn crossover(&self, parent1: &dyn Genome, parent2: &dyn Genome) -> Result<Box<dyn Genome>, Box<dyn std::error::Error>> {
         let genome1 = parent1.genome();
         let genome2 = parent2.genome();
-        
+
         if genome1.len() != genome2.len() {
             return Err("Genomes must have same length for crossover".into());
         }
-        
+
         let mut child_genome = Vec::with_capacity(genome1.len());
-        let crossover_point = rand::random::<usize>() % genome1.len();
-        
-        for i in 0..genome1.len() {
-            let gene = if i < crossover_point {
-                genome1[i]
-            } else {
-                genome2[i]
-            };
-            child_genome.push(gene.clamp(0.0, 1.0));
+
+        match self.parameters.crossover_strategy {
+            CrossoverStrategy::SinglePoint => {
+                let crossover_point = rand::random::<usize>() % genome1.len();
+                for i in 0..genome1.len() {
+                    let gene = if i < crossover_point {
+                        genome1[i]
+                    } else {
+                        genome2[i]
+                    };
+                    child_genome.push(gene.clamp(0.0, 1.0));
+                }
+            }
+            CrossoverStrategy::Average => {
+                for i in 0..genome1.len() {
+                    child_genome.push(((genome1[i] + genome2[i]) / 2.0).clamp(0.0, 1.0));
+                }
+            }
+            CrossoverStrategy::PartSwap => {
+                child_genome = genome1.to_vec();
+                let start = rand::random::<usize>() % genome1.len();
+                let end = (start + rand::random::<usize>() % (genome1.len() - start)).min(genome1.len());
+                for i in start..end {
+                    child_genome[i] = genome2[i].clamp(0.0, 1.0);
+                }
+            }
+            CrossoverStrategy::PartAverage => {
+                child_genome = genome1.to_vec();
+                let start = rand::random::<usize>() % genome1.len();
+                let end = (start + rand::random::<usize>() % (genome1.len() - start)).min(genome1.len());
+                for i in start..end {
+                    child_genome[i] = ((genome1[i] + genome2[i]) / 2.0).clamp(0.0, 1.0);
+                }
+            }
         }
-        
+
         let mut child = parent1.clone_with_new_id();
         child.set_genome(child_genome);
         Ok(child)
     }
-    
-/// Simple mutation operation
-fn mutate(&self, genome: &dyn Genome) -> Result<Box<dyn Genome>, Box<dyn std::error::Error>> {
-    let mut mutated = genome.clone_with_new_id();
-    let mutated_genome = mutated.genome_mut();
-    
-    match self.parameters.mutation_strategy {
-        MutationStrategy::Gaussian => {
-            for gene in mutated_genome {
-                if rand::random::<f64>() < self.parameters.mutation_rate {
-                    // Gaussian mutation
+
+    /// Mutation operation supporting multiple strategies.
+    fn mutate(&self, genome: &dyn Genome) -> Result<Box<dyn Genome>, Box<dyn std::error::Error>> {
+        let mut mutated = genome.clone_with_new_id();
+        let mutated_genome = mutated.genome_mut();
+
+        match self.parameters.mutation_strategy {
+            MutationStrategy::Gaussian => {
+                for gene in mutated_genome {
+                    if rand::random::<f64>() < self.parameters.mutation_rate {
+                        let noise = rand_distr::Normal::new(0.0, 0.1)
+                            .map_err(|e| format!("Mutation failed: {}", e))?
+                            .sample(&mut rand::thread_rng());
+                        *gene = (*gene + noise).clamp(0.0, 1.0);
+                    }
+                }
+            }
+            MutationStrategy::PrimeSequence => {
+                let generator = PrimeGenerator::new(1000);
+                let mut index = 0;
+                for gene in mutated_genome {
+                    if rand::random::<f64>() < self.parameters.mutation_rate {
+                        let prime = generator.nth(index);
+                        let noise = (prime as f64 / 100.0) * rand::random::<f64>();
+                        *gene = (*gene + noise).clamp(0.0, 1.0);
+                        index += 1;
+                    }
+                }
+            }
+            MutationStrategy::SingleMutation => {
+                if !mutated_genome.is_empty() {
+                    let idx = rand::random::<usize>() % mutated_genome.len();
                     let noise = rand_distr::Normal::new(0.0, 0.1)
                         .map_err(|e| format!("Mutation failed: {}", e))?
                         .sample(&mut rand::thread_rng());
-                    *gene = (*gene + noise).clamp(0.0, 1.0);
-                }
-            }
-        },
-MutationStrategy::PrimeSequence => {
-            let generator = PrimeGenerator::new(1000);
-            let mut index = 0;
-            for gene in mutated_genome {
-                if rand::random::<f64>() < self.parameters.mutation_rate {
-                    // Prime-based mutation using prime numbers as scaling factors
-                    let prime = generator.nth(index);
-                    let noise = (prime as f64 / 100.0) * rand::random::<f64>();
-                    *gene = (*gene + noise).clamp(0.0, 1.0);
-                    index += 1;
+                    mutated_genome[idx] = (mutated_genome[idx] + noise).clamp(0.0, 1.0);
                 }
             }
         }
+
+        Ok(mutated)
     }
     
-    Ok(mutated)
-}
-    
     /// Select new population from combined parent and offspring
+    #[allow(clippy::borrowed_box)]
     fn select_population(&mut self, offspring: Vec<Box<dyn Genome>>) -> Result<(), Box<dyn std::error::Error>> {
         let mut combined: Vec<Box<dyn Genome>> = self.population.iter()
             .map(|g| g.clone_with_new_id())
@@ -729,6 +940,7 @@ mod tests {
             0.3,    // smoothness
             0.2,    // bell_accent
             300.0,  // bell_start
+            0,      // n_toneholes
         );
         
         let geo = genome.genome2geo();
@@ -740,7 +952,7 @@ mod tests {
     #[test]
     fn test_evolution_optimizer() {
         let loss_function = Box::new(TestLossFunction::new());
-        let genome_template = KigaliGenome::new(10, 32.0, 50.0, 80.0, 1800.0, 1500.0, 0, 0.3, 0.0, 300.0);
+        let genome_template = KigaliGenome::new(10, 32.0, 50.0, 80.0, 1800.0, 1500.0, 0, 0.3, 0.0, 300.0, 0);
         
         let mut optimizer = EvolutionaryOptimizer::with_random_population(
             loss_function,
@@ -754,11 +966,128 @@ mod tests {
                 crossover_rate: 0.7,
                 elite_size: 2,
                 mutation_strategy: MutationStrategy::Gaussian,
+                crossover_strategy: CrossoverStrategy::SinglePoint,
+                convergence_patience: 10,
+                convergence_threshold: 1e-6,
             },
         );
         
         // This is a basic test - in practice, you'd want to test with actual loss functions
         let result = optimizer.evolve();
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_prime_population_initialization() {
+        let loss_function = Box::new(TestLossFunction::new());
+        let genome_template = KigaliGenome::new(10, 32.0, 50.0, 80.0, 1800.0, 1500.0, 0, 0.3, 0.0, 300.0, 0);
+        
+        let optimizer = EvolutionaryOptimizer::with_prime_population(
+            loss_function,
+            &genome_template,
+            10,
+            EvolutionParameters {
+                population_size: 10,
+                generation_size: 5,
+                num_generations: 3,
+                mutation_rate: 0.1,
+                crossover_rate: 0.7,
+                elite_size: 2,
+                mutation_strategy: MutationStrategy::Gaussian,
+                crossover_strategy: CrossoverStrategy::SinglePoint,
+                convergence_patience: 10,
+                convergence_threshold: 1e-6,
+            },
+        );
+        
+        assert_eq!(optimizer.population.len(), 10);
+        // Verify all genomes have valid values
+        for genome in &optimizer.population {
+            for &gene in genome.genome() {
+                assert!(gene >= 0.0 && gene <= 1.0, "Gene value {} out of range", gene);
+            }
+        }
+    }
+
+    #[test]
+    fn test_kigali_genome_with_toneholes() {
+        let genome = KigaliGenome::new(
+            10, 32.0, 50.0, 80.0, 1800.0, 1500.0, 0, 0.3, 0.0, 300.0, 2,
+        );
+        let (geo, toneholes) = genome.geo_and_toneholes();
+        assert_eq!(toneholes.len(), 2);
+        for th in &toneholes {
+            assert!(th.x >= 0.0);
+            assert!(th.diameter >= 2.0);
+            assert!(th.diameter <= 30.0);
+            assert!(th.depth >= 1.0);
+            assert!(th.depth <= 20.0);
+            assert!(th.coverage >= 0.0);
+            assert!(th.coverage <= 1.0);
+        }
+        assert!(!geo.geo.is_empty());
+    }
+
+    #[test]
+    fn test_new_mutation_strategies() {
+        let genome = BaseGenome::random(10);
+        let original = genome.genome().to_vec();
+
+        let mut params = EvolutionParameters::default();
+        params.mutation_strategy = MutationStrategy::SingleMutation;
+        let optimizer = EvolutionaryOptimizer::new(
+            Box::new(TestLossFunction::new()),
+            vec![genome.clone_with_new_id()],
+            params,
+        );
+
+        let mutant = optimizer.mutate(&genome).unwrap();
+        let mutated = mutant.genome();
+        let diff_count = original.iter().zip(mutated.iter()).filter(|(a, b)| (**a - **b).abs() > 1e-12).count();
+        assert_eq!(diff_count, 1);
+    }
+
+    #[test]
+    fn test_crossover_strategies() {
+        let parent1 = BaseGenome::random(8);
+        let parent2 = BaseGenome::random(8);
+
+        for strategy in [
+            CrossoverStrategy::SinglePoint,
+            CrossoverStrategy::Average,
+            CrossoverStrategy::PartSwap,
+            CrossoverStrategy::PartAverage,
+        ] {
+            let params = EvolutionParameters {
+                crossover_strategy: strategy,
+                ..Default::default()
+            };
+            let optimizer = EvolutionaryOptimizer::new(
+                Box::new(TestLossFunction::new()),
+                vec![parent1.clone_with_new_id()],
+                params,
+            );
+            let child = optimizer.crossover(&parent1, &parent2).unwrap();
+            assert_eq!(child.genome().len(), 8);
+        }
+    }
+
+    #[test]
+    fn test_evolutionary_optimizer_pause_flag() {
+        let loss_fn = TestLossFunction::new();
+        let genome_template = BaseGenome::random(4);
+        let params = EvolutionParameters {
+            num_generations: 1,
+            ..Default::default()
+        };
+        let mut optimizer = EvolutionaryOptimizer::new(
+            Box::new(loss_fn),
+            vec![genome_template.clone_with_new_id()],
+            params,
+        );
+        assert!(optimizer.pause_flag.is_none());
+        let flag = Arc::new(AtomicBool::new(false));
+        optimizer.set_pause_flag(flag.clone());
+        assert!(optimizer.pause_flag.is_some());
     }
 }

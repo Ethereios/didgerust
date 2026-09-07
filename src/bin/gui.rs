@@ -117,7 +117,7 @@ script_mod! {
 
                             title := H3{
                                 text: "CADSD - Didgeridoo Analyzer"
-                                draw_text +: {color: #xdfe7ee}
+                                draw_text +: {color: #dfe7ee}
                             }
                             hint := Label{
                                 text: "drag: orbit  wheel: zoom"
@@ -145,7 +145,7 @@ script_mod! {
                                     width: Fill
                                     height: 24
                                     text: "Geometry"
-                                    draw_text +: {color: #xdfe7ee, font_size: 14}
+                                    draw_text +: {color: #dfe7ee, font_size: 14}
                                 }
 
                                 bore_style_label := Label{
@@ -172,7 +172,7 @@ script_mod! {
                                     width: Fill
                                     height: 18
                                     text: "950"
-                                    draw_text +: {color: #xaaffaa}
+                                    draw_text +: {color: #xaaaaff}
                                 }
                                 length_slider := Slider{
                                     width: Fill
@@ -193,7 +193,7 @@ script_mod! {
                                     width: Fill
                                     height: 18
                                     text: "35.0"
-                                    draw_text +: {color: #xaaaaff}
+                                    draw_text +: {color: #aaaaff}
                                 }
                                 top_slider := Slider{
                                     width: Fill
@@ -214,7 +214,7 @@ script_mod! {
                                     width: Fill
                                     height: 18
                                     text: "85.0"
-                                    draw_text +: {color: #xaaaaff}
+                                    draw_text +: {color: #aaaaff}
                                 }
                                 bell_slider := Slider{
                                     width: Fill
@@ -235,7 +235,7 @@ script_mod! {
                                     width: Fill
                                     height: 18
                                     text: "50"
-                                    draw_text +: {color: #xaaaaff}
+                                    draw_text +: {color: #aaaaff}
                                 }
                                 segments_slider := Slider{
                                     width: Fill

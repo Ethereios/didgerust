@@ -1,0 +1,348 @@
+THE DIDJERIDU (DIDGERIDOO)
+Neville Fletcher
+Research School of Physical Sciences
+Australian National University
+Canberra ACT 0200
+
+
+        ABSTRACT: The didjeridu of the Australian aboriginal people is an ancient and deceptively simple instrument,
+        consisting ofa length cut from a narrow tree trunk or branch and hollowed by the successive action of fire and
+        termites. Skilled players, however, are able to produce a wide repertoireof interesting musical effectsincludinga
+        rhytlunicdrone, striking timbre changes,and sounds that are voicedas well as played. Thispaperoutliucsthepassive
+        ecoustics of the didjeridu tube, the active acoustics of the sound-productionprocess, and the mechanisms by which
+        the various musical efTectsare produced.
+
+
+
+
+1. INTRODUCTION                                                   an even tone and cover up any effect of the breathing. With
+                                                                  the didjeridu, however, the player makes a virtue of neces-
+The didjeridu (commonly spelt didgeridoo) or yiraki of the        sityandemphasisestherhythmicbreathingcycletoproduce
+Australian aboriginal people is avery ancient instrument          a pulsating drone. The pulsations are usually further dec-
+with considerable acoustic interest, despite its extremely        orated by tongue vibrations, so that the player effectively
+simple construction. It consists ofa more-or-less straight        says unvoiced words such as "ritoru" or even "didjeridu",
+piece of tree trunk or branch, hollowed out by the succes-        withthefinal"u" sound prolonged. The westernised name
+sive action of fire and termites to produce a gently flaring      "didjeridu" for the instrument perhaps arises from this cir-
+tube. Didjeridusfrom Central Australia are typically about        cumstance, though it may perhaps be a word from some
+one metre in length, while those from Amhem Land are              aboriginallanguage,nowextinct.
+usually about 1.5 metres long. The longer didjeridus are              There has becnonly a little written about the acoustics of
+now generally preferred because they allow a greater range        thedidjeridu[I,2] or about its playingtechuiques [3,4]. The
+of musical effects. In each case the blowing end is about         instrurnentitself, however, has become increasingly used in
+30 mm in internal diameter and the free end about 50 nun,         popular music by groups such as Gondwanaland, and was
+though all these dimensions vary significantly from one in-       earlier made widely known on television through the efforts
+strument to another, even among those by the same maker.          of Rolf Harris. A few simple calculations and measure-
+The average wall thickness is usually 5 to IO mm. At the          ments, however, allow us to understand a good deal about
+blowing end, the walls are coaled with a rim of resinous          this interesting instrument.
+gum, to improve playing comfort, and the free end is often
+given a slight extra flare by internal scraping. The outside      2. PASSIVE ACOUSTICS
+of the instrument is smoothed and painted in geometrical          It is a good approximation to treat the didjeridu as a trun-
+totemic designs, usually in black, white and orange.              cated conical hom of length L. Suppose that the diameter of
+    To play the didjeridu, the musician seals the narrow end      the smaIlerend is d j and that of the Iarger end d-. Then if
+of the tube around his mouth, blows, and vibrates his lips 1Ul-   we imagine the cone to be continued to its apex, the distance
+der muscular tension in very much the same way as used in         from this apex to the smaller blowing end of the instrument
+playing a brass instrument such as the tuba. Thedidjeridu         will be XI = d IL/(d2 - d j). Since the players' lips form
+uses air at rather a high rate so that, to playa sustained        a pressure-controlled valve, the preferred sounding frequen-
+tone, the player adopts the technique of "circular breath-        cies are those at which the aconstic pressure at this end, and
+ing". After playing normally fora few seconds, he expands         thustheacousticil11pedauce,isamaximum. Thesc frequcn-
+his cheeks with air, seals off his mouth from his throat with     ciesfn can be shown [5] to be the roots of the equation
+the back of the tongue and, while using the stored air to
+                                                                                   knL' = mr-tan-1knxj                       (I)
+maintain the tone, takes a quick breath through his nose.
+Thistechuiqueiscommononcertainotherinstrurnents, such             where k n = 2rrf n/c, c is the speed of sound in air, and the
+as Indonesian flutes, and is now used routinely by oboists        acoustic length L' = L+0.3d2 includes the end-correction
+and even flute players to play without breath breaks for as       at the open end.
+long as several minutes. In these instruments, with their             If the flare isextrernely smaIl so that the hom is nearly
+much smaller breath demand, the objective is to maintain          cylindrical, thenxj becomes very large and tan-1knrr ap-
+
+
+                                                                                                         Vol. 24 (1996) No, 1 - 11
+  proaches 1r/ 2. T he resonance f~uerw.:ies arelhcn /n =               He lmholtz a lumdrcd ycars ago [61. it is only recently that
+  (n-!) e/2L' whic h fom llhcseriesof odd harTTOnics lhat               these mechanis ms have been studied in detail. Tbere is a
+  we expec t, for cxamp lc as the playing Irequcrcies of a d ar-        clear distinction betwocn three types ofprcs5Ul'C'-COntmlled
+  iret, starting with a quan cr of a wavelength equalt o ue nile        valves.  as  iIlUSU1lted in Fig.    I.
+                                                                                                            In the rll'5l lWOIypC5. air
+  length. Morcgcncrally. if the f1are isfairty small we can             pressu res aeting on thc: two faces of t he valve have oppos ite
+  cxpand !he rcsult ( I) to I rrive at the approxillllllccxp=sion       effects. tcnding to eithcr open or close thc valve. while in
+                                                                        the third type excess prcssure on either face te nd5 10 open
+    1.. ~ {n - i)~ { I + [I + lr:~~(n-_d¥)') 1/2} . (2)                 thevaJve. If we repleSCnla c lo5illi aetion of eXQC5S pres-
+                                                                        sure by the symbo l - and an OJlCnins action by + . then
+  Weeansce thai thc fJtqucoc ies of lhc1o\l.amodcs. and per-            the rust twovalvcs bavc c lassifatioa (- , +) and ( + . - )
+  licuIarlythal of lhc f~ntaI. are raised rclam-e1y 1D.ll'C
+                                                                        rcspCC1ively. andtbc thin1has class iflCalion ( + . + ).
+  lhaIl thosc: of thc tigh:rpania ls., so 1Ilal: all the modcin-            The familiar reed valves of oboes and claritv:ts are or
+  lef\'a.ls are comprcsscd. For modc:ratef1aJe,onlythclov. est          the ( - ,+ ) 1}lJC. 15 also ~ the rncta11t1e1ds \l5ICId in orpn
+  IDOliefrequency is ii gnifical1.ly affcacd. Forthc~of                 rced-pipes. The buman vocal folds are usually m.xScl1cd
+  end diaJrelcrs foundinthc l}-pic aldidjeridus oi Tablc l.1bis         as ha\-i ng the oonfigwation (+ , + ).15 8ie the ,-ocaI orga lll
+  fundamental-mode fttqueney is raised by I f-..or between              of birds (the 5}ri m ). lhough the modds used are ~nera.lly
+  aboUII06 and 1.38 rdati~ 10 I q lilldriad tube ofthc                  IIlDIe C:O~R-x than Ibis. The lips of pIaym or brass in-
+
+  SInE \cnglb. The ratioofsccood 10 rust mode fm:p.cn:ics .             strumaII5.,sucbas thetrumpctortuba.andd lhc didjericfu.
+  whicb would be I perf ca Iwdfth (1-'0) for I cylindrical              arc either or conIigut3lioa (+.-) or (+. +). and possibly
+  pipe. ranp from about DO (abouIl tone f1aI~ Ipcrfcet                  changcchar3ck:rbctwccndiff~playingrcgirrcsl7J · 11
+  l:WClftlt) lO aboul I. O (ll ittle lcss thao l scmit onc flat). The   is probably ncce5Sal)' 10 use a r31hcrcomplex modd forthc
+  grcalertbc narc.thct1aner the5CCOoomodeappcan;rdam'c                  ,ibratinglip vat\'e,5UChasbasbeen~'CIopcdfOfthehu.
+
+  IOthe droocfundamcn1al.                                               man ,"OC.lI!fold5I81. ~ thi5 bas         noIy-etbeeDattempted.
+                                                                        WeIIWSlth:JdorcbesalisflOdforthcprescntwitllsimplcr
+               TAIIll. 1. l)pkal dldjmc hu I I)
+       GIl&thL (CDI)
+       ~d, (mm)
+       IMrncWI"d~ (mra)
+                              B9
+                               n
+                               J6
+                                        144
+                                         26
+                                         ((l
+                                                          14~
+                                                           Xl
+                                                           40
+                                                                        """". If we defl/lCthclCOUSlicadmilWlCCof aplaSlll'C-
+                                                                        comolIcd valve under blol.\ing prcsswe. as view ed from
+       F~f, (Hz)               60        80                64           the imtrumcnt. 10 be thc laDo ofthc 5ma1kignal acous-
+     • DroncpiliCb                 B,          E~         C~            tic flow out olthc imtrumcnt to the smaIl-sigm1 ICOUSIic
+                                                                        pressu re in the i n5UUmcnI moull1lieee. lhen therc is thc pos-
+      Tbc:scfOOdc.fn:qlll:Dl;)'pn.:dictiol"6arecomrmcdbythc
+                                                                        5ibit~· of 5Clf-su5laiBcdoscillation if the rWSli ve part of
+  me:lI5UIO:I drone fn:qUCllC ies of three Iypical didjaidus from       Ibis impedance (the acotI5ticconducunce) is negative. to
+  Amhcm Land 15 listed in Table I. The effect of fIarc is
+                                                                        ll''l:JWrn: the kJs5a, in the system. and if the rcacili--e part
+  caruyseerai nlhcCll5l:of lbcsecondand lhi n1iMrun1cnl:s--
+                                                                        can bc:ba1anccdbythercaai\~ adminanocofthe i nsuument
+  thc sccooo is only l pcn:ent soorter than thc lhird. butits
+                                                                        ntle andthcpla}ers rnooth.takcfttoBJClhcr. ln ai lcascs.thc
+  fundamental frequcncy is 25 pm:enl higher ba;ause of its
+                                                                        fust: condi tion rcquimlhattheblO\loi ns prcssllle 5hould be
+  Jarg,cflan::. Unfonunalelylhcsccond. rnodcfreqUCllCics ",crc
+                                                                        gn:ate r than$Orn: thres hold \'llluedetenni nedbythetensiorl
+  not m:ordcd, bUI me pik:hes agroc qualitath'ely with thc
+                                                                        of the lip muscles. whicb itself ikpcnd$ on the pilCh of the
+  lhcoretical predictionsll ).
+                                                                        IlOtebeing played l9.I OI
+       II is inlercsti~ to OOIc that traditionalmakersaM playen
+                                                                            Pl'O\idcd a blowing pressurc greater tha n this mini mum
+  secm to llave liltleconcc m witll citherthc drnnc flal UCncy
+                                                                        isusc:d. then the lKXlllstic ad milta ncc of a lip- valvc gencralor
+  or the inlClVai to lhcsccondmode--thc fitsl lwo instrumc:n5
+  in the table arc actua lly by thc: samcm.-Ike r. lndeed. agood
+  player can produce most of the nuancesof llllditional per-
+  fOrTlWlCC5 0n api ecc:ofp1a stie pipe of app ropriatediameter
+  and length! wten used in popular Westem l1UJSic, foweve,
+  it is rvx:c:ssary to 5Clect a didjcridll of approp riatc pitch to
+  matc h the keyboard instrumelllS. thou gh in some multi-track
+  recordingsthedidj crid u i5 actllal ly recordcd fi tsl and llw:n
+  pitch -shifted, the player having made some adjustment for
+  the associa ted change in tempo . Btcak ing w ith tradition.
+  Graham Wiggins has made the perhaps obvious extension
+  of buildinga didjeridu wilh key5 10 0pc norweor more holes
+  nearthe fOOland 50 a llowthcdrollCp i[(;h to be changcd
+
+  3. SO UNDING MECIIA NISM                                                    (-, + )             1+. - )            (+ . +)
+  While rruc h of our undemandi ng of the 50000ing rrech-                    flgu,", I. The!hnlctypc:sofsimpleprcssw«oolmlleJ
+  anism of wind inst ruments da tes bae\( 10 the time of                     nl..e Air flo.....direction il shownwith lWl.-n:M'.
+
+
+12 - VOl.24 ( 1996) No. 1                                                                                               Acoustic s Australia
+  can be shown [9] to have a form like one of those shown           generating the upper partials of the tone. The process has
+  in Fig. 2. For such a (+, -) or a (+, +) valve, the acoustic      been examined for brass instruments such as the trumpet
+  conductance-the real part of the admittance-is large and          [12] andtrornbone [13] and much of this discussion can be
+  negative at a frequency either just above or just below the       applied to the didjeridu.
+  resonance frequency of the lip-valve, which is determined             Because, unlike the reed valve in a clarinet, the lip valve
+  by lip mass and muscular tension. At other frequencies the        operatesatvetynearlyitsresonancefrequency[7,9,IO],the
+  conductance is relatively small and maybe either positive or      motion of the player's lips is nearly sinusoidal. The aver-
+  negative. The magnitude of this peak negative conductance         age lip opening is determined by the blowing pressure, and
+  is sufficiently large that it is able to overcome the positive    the amplitude of the lip vibration is such that the lips just
+  conductance losses in the rest of the system and force.it into    about close once in each cycle. If Po is the steady blowing
+  oscillation. While this can happen over a considerable fre-       pressure, p the pressure just inside the mouthpiece of the
+  quencyrange if the lip resonance frequency is adjusted-a          instrument, and x = ao + asin21rft the lip opening, then
+  skilled trombone player can play a giissando without moving       the volume flow U through the lip valve is
+  the instrument slide-the oscillation is most easily sustained
+  near an impedance maximum of the tube, where its posi-                                U "" ,x(Po - p)I/2                     (3)
+  tive conductance is least. The acoustic impedance of the
+  player's mouth also plays an important role in sustaining         where, is a constant. The pressure p inside the instrument
+  the lip oscillation-a role that can be appreciated when we        mouthpiece is approximately RU, where R is the acoustic
+  realise that it is possible to buzz the lips at their resonance   resistance of the instrument tube at the resonance frequency
+  frequency even in the absence of any instrument tube [10].        h,andwecansubstitutethisbackinto(3),alongwiththe
+                                                                    expression for x, to find, after a little algebra, thatifa < ao
+                                                                    the flow has the form
+
+                                                                                                                               (4)
+
+
+                                                                    This expression cannot be taken too literally in the limit as
+                                                                    a->ao, but the shape of the flow waveform is essentially
+                                                                    as shown in Fig. 3
+                                                                        Clearly such a waveform has many harmonics, and this
+                                                                    accounts for the rich sound of the didjeridu, and of lip-
+                                                                    excited instruments in general. The relative strengths of the
+                                                                    upper harmonics are not well predicted by this simple flpw
+                                                                    waveform, however, for several reasons. The flow waveform
+                                                                    gives a spectral envelope which is initially nearly constant
+                                                                    and then declines at about 12 dB/octave. The assumption
+       Figure 2. Acousticconductanceofa(+,-) valve(full             thatRisconstant, however, is not very good, and this re-
+       line)and ofa (+,+) valve(brokenlinc). Thercsonance           sistance is less for tile upper harmonics than for the reso-
+       frequencyfor free vibrationof the valve is shown.            nant fundamental, except for accidental near-coincidences
+                                                                    with higher hom resonances. Finally, the transfer func-
+      This is the operating regime fora didjeridu-the player
+                                                                    tionbetweenflow spectrum and aconstic radiation rises at
+  adjusts lip tension so that the lip resonance is close to the
+                                                                    6 dB/octave at low frequencies and is then flat above about
+  first tube resonance. To produce the second mode, the player
+                                                                    3 kHz for the didjeridu hom. Despite these reservations,
+  must use a much higher lip tension to raise the lip resonance
+                                                                    however, this simple treatment does give a fair idea of spec-
+  frequency, and this requires, in turn, a greater threshold
+                                                                    tralbchaviour.
+  blowing pressure. The actual pressures used are, of course,
+  well above the threshold value. Measuremcnts [I] show
+  that a didjeridu player typically uses a pressure of about 1-
+  2 kPa (10-20 cm water gauge pressure) for the drone note
+  and about 4-5 kPa to produce the second mode. Some play-
+  erscanproducethethirdmodeandevenhighermodes,but
+  they are rarely used. Indeed, even the second mode is only
+  employed for brief accents, and not as a sustained tone.
+
+   4. SOUND QUALITY
+   The discussion above is essentially linear and expressed
+   in terms of linear quantities such as acoustic admittances.
+   Sound production in wind instruments, however, is a non-              Figure 3. The flow wavcfonn through a lip-valve at
+   linear process [5,l1],andt11isnonlincarityisresponsiblefor            several amplitude levels,as given by Equation(4).
+
+
+Acoustics Australia                                                                                       Vol. 24 (1996) NO.1 - 13
+       Note that the sound spectrum of the didjeridu, as for
+  all sustained-tone instruments (except when playing "multi-
+  phonics" or other special effects), is strictly harmonic. The
+  fact that the upper modes of the pipe are not in harmonic
+  relation to the fundamental affects only the strengthofcer-
+  lain harmonics. If one of the upper pipe modes is sounded
+  instead of the fundamental, then this sound will itself be
+  accompanied by its own set of harmonics.
+       We should now consider the effect of the player's mouth
+  cavity on sound quality. The player's lip opening varies
+  nearly sinusoidally with time, as we have seen. The time
+  spent at each opening is inversely proportional to the lip
+  speed at that opening. If the lips just close each cycle so
+  that a = aD, the fraction of time spent at opening x can
+  then be shown to be proportional to [x(2ao- x)t 1 which
+  is sharply peaked atx =0 and 2ao, so that the lips spend
+  most of their time either nearly fully open or nearly closed.                            Frequency in kilohertz
+  Seen from the instrument tube, therefore, the player's mouth
+                                                                          Figurc4. Fonnantbandsinthedidjeridusound. In the
+  is mostly either blocked off by the closed lips or else forms
+                                                                          upper trace, there is a mouth-cavity fonnantatabout
+  a Helmholtz resonator consisting of a closed volume vented              1.5 kHz, while in the lower trace this has been shifted
+  by the lip opening. The resonance frequency of this res-                to about 2.2 kHz by constricting the mouth.
+  onatorcanbe estirnated from our experience with whistling,
+  in which the whistle frequency is the resonance frequency          pallybecausetrumpets, tubas and the like have a cup-shaped
+  of the sante Helmholtz resonator. Since the lip opening is         mouthpiece with a narrow constriction between it and the
+  similar, within a factor of less than ten, in the two cases, the   main bore of the instrument. This mouthpiece, as well as
+  attainable resonance frequencies should be the same within         providing a comfortable support for the lips, functions as
+  about a factor three. We therefore ex-pect that it should be       a Helmholtz resonator in its own right, and its resonance
+  possible to val)' the resonator frequency over a range from        producesabroadforrnantband, typically with a centrefre-
+  about 500 Hz to about 3 kHz by changing the mouth volume           quency around 500 Hz for a trumpet [5J. The mouthpiece
+  with the tongue.                                                   cavity aiso functions as a filter which reduces any influence
+       It is fairly easy to understand the effect of such a res-     that mouth resonances might have on upper partials of the
+  onator on the lip-valve flow and hence on the radiated sound       sound.
+  spectrum. The resonator is rather highly damped by the flow            There is one other aspect of performance technique that
+  resistarce through the lip valve so that its bandwidth encom-      deserves detailed acoustic comment. This is the use of vocal
+  passes the frequencies of several harmonics of the drone           sounds to augment the drone of the didjeridu. Because of the
+  frequency. The acoustic flow through the lip valve will be         acoustic coupling between the vocal folds in the throat and
+  enhanced for these harmonics, so that the acoustic spectrum        the player's vibrating lips, the interaction is quite complex
+  will exhibit a "formant band" rather like those of the human       Suppose that the player's vocal folds vibrate at a frequency
+  voiceand,indeed,arisingfromsimilarcauses. Details are              Iv Then this produces pulses of flow in the same way as
+  more complicated than this, of course, becanse the opening         described for the lip valve and illustrated in Fig. 3. The
+  from the mouth to the instrument is changing with time.            flow entering the mouth, and therefore the mouth pressure
+       While the didjeridu can be played with a dull drone,          Po of (4), thus contains all harmonics nIv ofthe vocal-fold
+  lacking obvious formants, this is not usual for good players.      frequency. When this flow is convolved with the nonlinear
+  Fig. 4 shows two examples of such formants, which play             flow through the lips, which are vibrating with frequency
+  an important role in producing the characteristic sound of         /L,asin(4),theresultistheproductionofallfrequencies
+  the didjeridu. In the first example, there is a pronounced         nIv ± mIL, those with greatest amplitude having small
+  formant band at about 1500 Hz, while in the second example         integervalues(lor2)formandn.
+  the player has reduced the volume of his mouth so as to raise          The simplest eX3111ple of' this frequency mixing occurs
+  formant frequency to about 2.2 kHz. In each case there             when the player sings a steady tone at a frequency simply
+  is some evidence for a lower vocal-tract formant at about          related to the drone frequency. A typical example is the
+  500 Hz. Because the frequency range of these formants is           singing ofa note that is a just major tenth (frequency ratio
+  similar to that of human vowel formants, they have a similar       5/2) above the drone fundamental. The cross term [v -
+  aural effeet. In normal playing, using circular breathing,         2/LthenhasafrequencYh/2andthisisaccompaniedby
+  these formants are produced in a rhythmic manner as the            all its harmonics from the other cross terms. The sound
+  mouth volume changes, but they are often made a tonal              is therefore an octave below the original drone frequency.
+  feature of the performance.                                        There is not be much radiated energy in this sub-octave
+       These formant phenomena are much more pronounced              fundamental, but the subjective pitch is generated strongly
+   in the didjeridu than in Western brass instruments, prinei-       from the sequence of harmonics. Because of the low pitch
+
+
+14 - Vol. 24 (1996) No.1                                                                                            Acoustics Australia
+                                                                       AtkoowledgmenlJ
+
+                                                                                  and.
+                                                                       The:work 00 ""hil;h, thQ;paper is baKd was compkted a 1011&
+                                                                       timcago
+                                                                       eisev.-bcre l ll.
+                                                                                          for the most psn. alreadyb«n pub!1S1v:d
+                                                                                           b is a pleasu re !O ad llOVt'ledgc lbc bclp
+                                                                       I rave recei\-ed from com-ersalionswilh 1 m -or Jones. a
+                                                                       disl:inguishcdmusic:ologi5l andexpcn didjeridll player, and
+                                                                       wnh Graham Wir,gins.a phy Ucisl lumed didJeridu . .-i nuoso
+                                                                       Some of the . nalyted eumples \W:re played b)' 1 11:\'01"and
+                                                                       some were eoUecIed in lbc field by Iingui51Bill Hoddlnoll.
+                                                                            ou ld also like 10 1h;ri; ~ Tbwaites for assistarlCC
+                                                                       ' .....
+                                                                       with lbc rncaswc mcnlS
+
+                                                                       Rdenncn
+                                                                         I. Nllf\etdlQ-, ~~ ollhcA-.ti.adid}c:ri<ll~.A ....
+                                                                            1nIliI..-t~St.lwr No. I ,2i-37 ( I98.Jl
+
+       flp~ S. T~frequcncy          cmp.y of ~.-.I oi.                   2. G.C. WaD-. -'Jbo:phytio;. aClbcdid,a1doo-, P•.Vfla lW-
+       didPidudurine . ~ p ~ ~ N<*: 1k
+                                                                            "D.. .19.~161(1ml
+       ~Iofikdrooo:fro.p:no:y,tht ... ~~                                 J. TA . Jones" 1 k cbdjcrida- , SnJ_ '" U..- lQ-..ry of
+       boad:l,aoid1hc~"",""                                                 ~AUItrtIl .. I , U-SS ( I961)
+
+                                                                         4. TA , .Iotu. "'Thc ,.;m.i {~l in ~ AtnbI::ra
+  mcIlbcaJmgl h of lbchigherh.um:l'*:s,tlw:sourd bas                        Laid TcdWqlXOland Ilyb ~, in 7M ......... AloonptttI
+                                                                            H~rr/Qpcd RM lkmdIaoidE.S. pt,1lbpt..A~So­
+  • rougb !2Spill8lpIaIlly _ hidJ is \ U)' etreem-e. A ralbc:r
+                                                                            cicKy bEohationtllrol>lhtbcArt:a.m..-.c:.-tioaWlIhUn:
+  RDIu IaUlt can be olUincd by 5i"li1ll 1 note a perl"ect                   Smilh,Sydne)· (lm)pp264-Z74
+  rlflb (frequm:y J3tio 312) abooo-e lbc dronefwIlWretul
+       FinlDy, wre5hould rmurt thll: pIa)'cn of ltE in!itrum:d           S. N1l~IlidTD.Rostint-1lw~i¥M'<J-' ~
+                                                                            _    SpUwa--\bilIc. New YorI<; ( 1991) pp, 191- 19l ,
+  oftenustit lO ~tnditionll lO~CJfIlOricsand,to
+  Ihiselld, en:beUish tb;i.r pla)'irc by addins lbc SW'C5OUlds              J69-m,J7I-Jl!8
+  01barkinc dinp. brolps .... other aninWs. Th:: pill,:h of              6. It HdmhoIIZ, Olo... 'S"""'O-" i¥T_ (IKU ) _                   AJ _
+  tIw:se \'OCll sounds is llllha'high so that li'equen;)· ~1lI              Etm.no- . New Y<rl ( 1954)
+  docs llOlha\-~ 5UCh. prongunotd efred, w ltEsoun:lsean                 7. S. YCtIIlib...:a. ~~bdJaYiDur ofbnupl8)~'. IipI·,
+  be made easily recognisable                                               J. ..e.-a. 5«. ho. '17,1 919- 19J9 ( I99S)
+     Fig. ' sblM'S I spect ral display 01 . sbon passage: of             • . K. bhir.lU lnd ll. F1anapIl. "S)1ltt-. ol ~cd ~
+  dldjeriduplaying     lnlhi$ ~ntlllion. limeis . lollg lhe                  froml f\to{>.l"UI moddollhe wocal_da-,&IISyn T,d>, J.
+  borizoIa.la:cU andfreque p;y oo ltr:\-erticala..<is, ....
+                                                          ithlhl:            51. 123J- 1263 (1912)
+  lknsily of sMdi nc indical ing lIE $OOIllI p ft$ stn Ia-el. Two        9. N.H f1dchc:r    , ~E>«: iIalion m.o;banism< in ...,.,.p.. , nd atid
+  !hinpare inurcdialCtyob\'ious , Th::fi~ islhal. lbc har­                  bnua~",·,A,,",,1iNI 43,6J-72(lml
+  IIlDIlicSUUttureoC lbclOlUld isclear1yevidc:n1in lbccb.ely            10 , NH , f1etdla', MAlllDlIOlllOOS V1brD lKJn orai lfl(lk J'RS'tifO"
+  spaccd da rt bards R1nIUlIJ horiJ:ORla1ly in the fipre. Th::               conuolloed n1ves in ass fIows~,J. A--..t 5«. AItt 9J ,
+  so:o nd fcarure is lbc fonnan l bands, w ~h soo....·up as                  2172-2180 {l9') l )
+  darkcrregions on the plol . nd val)'wilh lime. Articulation
+                                                                        It , NIL Flelc.... . -Non1ino:tv thcofy or mlMal ...-irid ;~
+  andcircularbread lingdwidcthc lime recordinto repeanng                     rroeru<' ApplW<lAroouric.f JO. ·S-lISlI 990 )
+  segments. Featull:$ of this type will be fami liar 10 all}v nc:
+  irrvok'td with hllnllUlipOCC h analysis.                              12, J. Badus arid T,C. HwidIe)o, ~H.rmonic 'aIlSlbon ill !he
+                                                                            lrumpd~, J. Acc>II.<f. ~. AItt. 49, 509- SI9 ( 19'71)
+
+  5, CONCL US ION                                                       13. S J EUiou and JM . 8ctwlmr , ~RLpcnh"n in brass witid
+                                                                            in'lnll~.-,J,SctinJu"" l1b. IJ, IR I _2 17( 1 9lU )
+  A1tR llIgh thcd idj eridli is physicallya simplein strulllenl alld
+  its makers appe.u 10 accept ", ide variations in its physical
+  dimensiol15.ndlbcrefore in us luning. il supports. wde ve-
+  riel)' of stbtk p.:rfom lallCCk:chniqUCi. We have considered
+  tr:rclbc lCOllSlics ofonly lbc mos:li lllJOrtanloft tr:se, blll it
+  is dear IhaIuere is a gre.ucka l of inleresting lIMcmandi ng
+  to be de rived . I bope lholil his papt r may serce ali an ex-
+  ample of lbc SOI1 of 1'eS1I115fhal ean come from ooopcr3lion
+  bel\l-1XnacouslicilVlS . nd mllsiroIogiil$
+
+
+sccostce AuSlra~a                                                                                                 Vol, 2. (1996 ) No.1. 15
+

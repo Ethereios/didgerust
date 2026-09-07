@@ -1,0 +1,12 @@
+{
+  "description": "Kigali-style didgeridoo geometry",
+  "geo_type": "kigali",
+  "length": 1500.0,
+  "top_diameter": 32.0,
+  "bottom_diameter": 65.0,
+  "segments": 30,
+  "power": 0.3,
+  "temperature": 20.0,
+  "pressure": 101325.0,
+  "humidity": 0.0
+}

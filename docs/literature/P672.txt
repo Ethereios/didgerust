@@ -1,0 +1,559 @@
+Proceedings of the 33rd European Safety and Reliability Conference (ESREL 2023)
+Edited by Mário P. Brito, Terje Aven, Piero Baraldi, Marko Čepin and Enrico Zio
+©2023 ESREL2023 Organizers. Published by Research Publishing, Singapore.
+doi: 10.3850/978-981-18-8071-1_P672-cd
+
+
+
+   On the Construction of Numerical Models through a Prime Convolutional Approach
+
+
+   Doaa Almhaithawi∗,1                                            Francesco Panelli∗,3
+   E-mail: doaa.almhaithawi@polito.it                             E-mail: francesco.panelli@mathema.com
+
+   Massimo Bertini2                                               Alessandro Bellini2
+   E-mail: mbert@mathema.com                                      E-mail: abel@mathema.com
+
+   Stefano Cuomo2                                                 Tania Cerquitelli1
+   E-mail: stefano.cuomo@mathema.com                              E-mail: tania.cerquitelli@polito.it
+
+   ∗
+     Corresponding author.
+   1
+     Department of Control and Computer Engineering, Politecnico di Torino, Torino, Italy.
+   2
+     Mathema, Italy.
+   3
+     Independent researcher.
+
+                                                          Abstract
+   In this paper we apply neural network models to a set of natural numbers in order to classify the congruence classes
+   modulo a given integer m ∈ {2, 3, . . . , 10}. We compare the performances of two kinds of architectures and of
+   several input data representations. It turns out that these tasks are fully solved using a convolutional architecture and
+   a special representation for the input data that exploits the prime factor decomposition of numbers.
+
+   Keywords: Neural Networks, Natural Numbers, Convolutional Networks, Prime Numbers, Congruence Classes
+
+   1. Introduction                                               ized as follows. We consider families of functions
+   Neural Networks are a powerful tool in Machine                fi,θi : Rni → Rni+1 , i = 1, . . . , k, each de-
+   Learning that has been successfully used in solv-             pending on a set of parameters θi (whose elements
+                                                                 are called weights), and we consider the family
+   ing several kinds of problems; the tasks that can
+                                                                 of Neural Networks NΘ = f1,θ1 ◦ · · · ◦ fk,θk
+   be addressed with them are extremely diverse in                                                          k
+                                                                 depending on the set of parameters Θ = i=1 θi .
+   nature and have a wide spectrum of applicabil-
+                                                                 The set Θ is initialized randomly; then, through
+   ity that ranges from image recognition to word
+                                                                 a suitable optimization process, called training,
+   generation, medical diagnosis and much more
+                                                                 the best set Θ̂ is found so that the corresponding
+   (cf. de Rosa and Papa (2021),Gatt and Krahmer
+                                                                 network NΘ̂ is an acceptable approximation of φ.
+   (2018), Hu et al. (2019), Li et al. (2020), Liu et al.
+                                                                    In order to be processed by a network N =
+   (2019), Papastratis et al. (2020), Richardson et al.
+                                                                 f1 ◦ · · · ◦ fk , the input data has to be given a
+   (2021), Sarvamangala and Kulkarni (2022)).
+                                                                 vector representation; the vectors representing the
+      In its simplest form, a Neural Network can be
+                                                                 input data are then moved by the functions fi from
+   formalized as a composition N = f1 ◦ · · · ◦ fk of
+   functions fi : Rni → Rni+1 , each linking two real            one latent space to the next one up to the output
+   vector spaces. All of these spaces, except for the            space. In each of the latent spaces the dispositions
+   ﬁrst and the last one, are called latent spaces.              of the data can be studied geometrically, and the
+      Usefulness of Neural Networks comes from                   emerging geometric properties can be compared
+   their applicability in all those problems that re-            with the semantic features. It has been observed in
+                                                                 several papers (cf. Abdal et al. (2019), Fetty et al.
+   quire the approximation of an unknown function
+                                                                 (2020), Giardina et al. (2022), Shen et al. (2020),
+   φ. This approximation process can be formal-
+                                                             2821
+2822      Proceedings of the 33rd European Safety and Reliability Conference (ESREL 2023)
+
+
+
+
+  Vaswani et al. (2007)) that in many remarkable          particular: some modes of vectorial representa-
+  cases and for several kinds of networks there exist     tion of natural numbers (Subsection 2.1), the ar-
+  in fact relationships between the two.                  chitectures of the neural networks that we build
+      This phenomenon is not fully understood yet         (Subsection 2.2), the parameters adopted and the
+  and it appears to be rather complex and multi-          general functioning of the training process (Sub-
+  faceted. The study of the geometry of the latent        section 2.3). In Section 3 we present the results
+  spaces, in particular, is very challenging and has      of our experiments (cf. also Tables 2, 3 and 4).
+  been carried out in many different ways by many         Finally, in Section 4 we comment, analyze and
+  authors (cf. Arvanitidis et al. (2017), Connor and      interpret the results.
+  Rozell (2020), Donoho and Grimes (2005), Smith
+  et al. (2019)).                                         2. Experiment Setting
+      The main problem in relating geometric proper-      2.1. Input Data Representation
+  ties of the latent spaces with semantic features of
+  the data relies on the fact that while the former are   Having chosen to work with a dataset of natural
+  objectively determined characteristics of mathe-        numbers, the ﬁrst problem to face is how to rep-
+  matical entities, the latter need not necessarily       resent such numbers so to make them accessible
+  be so. Consequently, in many of the situations          by a network. In contrast to other kinds of datasets
+  analyzed in the literature, understanding whether       for which there is a “natural” vector representation
+  it is possible to assign a semantic interpretation to   (e.g. images, that may be represented as matrices
+  a geometric parameter − or, conversely, whether         of pixels), for natural numbers several equally
+  it is possible to characterize a feature of the data    pleasurable vector representations are available,
+  using a geometric parameter − turns out to be a         and we shall now brieﬂy describe them.
+  rather ambiguous task. Furthermore, most of the            Given any b ∈ N, b ≥ 2 (called base) it is a
+  examples in this direction usually deal with data       well-known fact from elementary Arithmetic that
+  (e.g. images) that possess several features wildly      every n ∈ N may be uniquely expressed in the
+  intertwining with one another, and this makes the       form
+  picture still more complex and of difﬁcult inter-                                  k
+                                                                                     
+  pretation.                                                                   n=          d i bi              (1)
+      In order to overcome these issues, we suggest                                  i=0
+
+  the use Neural Networks to address problems re-         for suitable d0 , d1 , . . . , dk ∈ {0, 1, . . . , b − 1}
+  lated to a dataset with objective features − a math-    (called digits) and k ∈ N. We can therefore repre-
+  ematical dataset. Our choice falls on the set N of      sent n using the vector
+  natural numbers for its intuitiveness, immediacy
+  and easy implementability. For evident reasons of                     (d0 , d1 , . . . , dk ) ∈ Rk+1
+  ﬁniteness, we take into consideration only the ﬁrst
+                                                          where k = logb n and d0 , d1 , . . . , dk are as in
+  one million natural numbers (from 0 to 999 999).
+                                                          (1). This will be called the b-adic vector represen-
+      In this paper we train networks so to identify
+                                                          tation of n.
+  the congruence classes modulo a given integer
+                                                             It is clear that the b-adic representation requires
+  m ∈ {2, 3, . . . , 10}. The networks that we build
+                                                          b distinct symbols to denote the b distinct digits;
+  have different structures and process input data
+                                                          for evident computational reasons we shall there-
+  with various vector representations. It turns out
+                                                          fore impose the limitations 2 ≤ b ≤ 10 on the
+  that the tasks under consideration are fully solved
+                                                          possible values of the base b in our analysis. It
+  using a convolutional architecture and a particular
+                                                          is also clear that the input space for a network
+  representation for the input data that exploits the
+                                                          working with our dataset of natural numbers from
+  concept of “Prime Grid”.
+                                                          0 to 999 999 will be RN , where
+      The work is organized as follows. In Section 2
+  we describe the settings of our experiments. In                       N = logb (1 000 000)
+                   Proceedings of the 33rd European Safety and Reliability Conference (ESREL 2023)            2823
+
+
+
+
+(a number ranging from N = 6 when b = 10 to             to 0 and, furthermore, almost all of their non-zero
+N = 20 when b = 2).                                     entries take only very small values. In order to
+   The vector representations described so far de-      make such observations more precise, we conduct
+pend on the choice of a base b, thus they seem          a simple analysis on these prime signatures: for
+not to give an intrinsic description of numbers.        a few values of p ∈ N we determine how many
+This fact suggests to look for a new vector rep-        natural numbers between 2 and 999 999 can be
+resentation that, on the contrary, be more closely      factorized using the ﬁrst p primes only. The re-
+related to the arithmetic structure of the set N. We
+thus construct a vector representation for natural         Table 1. Number of naturals between 2 and
+numbers based on the concept of “Prime Grid”,              999 999 that can be factorized with the ﬁrst p
+introduced in Kolossváry and Kolossváry (2022).          primes only.
+   Let P = {pi | i = 1, 2, . . . } be the sequence                  p        Number          Percentage
+of all prime numbers in ascending order, and call
+                                                                 100         259 223           ∼ 26%
+Prime Grid the set NP of all the inﬁnite sequences             1000          604 017           ∼ 60%
+of natural numbers indexed on the set P. Follow-               5 000         785 095           ∼ 79%
+ing Kolossváry and Kolossváry (2022) we can, in
+view of the so-called Fundamental Theorem of
+Arithmetic, associate to each n ∈ N an element          sults, shown in Table 1, indicate that about the
+                                                        80% of them has a prime signature (1 , 2 , 3 , . . . )
+                  (1 , 2 , 3 . . . )          (2)    that satisﬁes i = 0 for all i > 5 000. This leads us
+of the Prime Grid so that                               to reduce our dataset to precisely those numbers
+                          ∞
+                                                        that can be factorized using only the ﬁrst 5 000
+                          
+                    n=          pi i .          (3)    primes. In particular, this means that using the
+                          i=1                           Prime Grid vector representation the dimension of
+                                                        the input space is set to N = 5 000.
+Observe that (3) is a ﬁnite product, since in it
+there are only ﬁnitely many exponents taking pos-
+                                                        2.2. Architectures
+itive values; the sequence (2) used to identify
+the natural number n, called in Kolossváry and         For our experiments we construct networks fol-
+Kolossváry (2022) the prime signature of n, is         lowing two different types of architecture:
+therefore eventually zero.
+                                                        • MLP (cf. Figure 1): This is a standard mul-
+   These considerations suggest the possibility of
+                                                          tilayer perceptron architecture with ﬁve fully
+exploiting the prime signature of numbers to rep-
+                                                          connected linear layers, each followed by the
+resent them as vectors: given n ∈ N, we can in
+                                                          Leaky ReLU function (except for the last one
+fact cut its prime signature (2) after the k-th entry
+                                                          which is only linear). For the b-adic vector rep-
+if i = 0 for all i > k, and use the element of
+                                                          resentations the dimensions of the layers follow
+Rk so obtained as a vector representation of n.
+                                                          the scheme:
+This means in particular that our dataset of nat-
+ural numbers from 0 to 999 999 can be faithfully                  N → 100 → 50 → 10 → 5 → m                  (4)
+represented by vectors in RN , where N = 78 498
+is the number of primes < 1 000 000. This will be         where the input space has dimension
+called the Prime Grid vector representation of the
+numbers.                                                                N = logb (1 000 000) .
+   Now, this value N for the dimension of the in-         For the Prime Grid vector representation, whose
+put space appears excessively big. A quick glance         input space has a much bigger dimension (N =
+to the data shows in fact that the prime signatures       5 000), we use the following scheme instead:
+of the numbers between 0 and 999 999 are very
+sparse sequences with most of the entries equal              N → 1000 → 500 → 100 → 50 → m. (5)
+2824        Proceedings of the 33rd European Safety and Reliability Conference (ESREL 2023)
+
+
+
+
+       In both cases, the dimension m of the output          instead the scheme
+       space depends on the task adopted for the train-
+       ing process.                                                  F → 1000 → 100 → 10 → m.               (7)
+
+
+
+
+                 Fig. 1.   MLP architecture
+
+                                                                       Fig. 2.   CNN architecture
+  • CNN (cf. Figure 2): This is the standard ar-
+    chitecture for a convolutional Neural Network
+    (cf. O’Shea and Nash (2015)). In contrast to
+    MLP, in this case each element n of the dataset       2.3. Training Process
+    is organized into a B × N matrix whose rows           As mentioned in Section 1, we work with a dataset
+    contain the vector representations of a sequence      of natural numbers so to have the possibility of
+    of B consecutive numbers starting with n. This        dealing with objective features. Among the sev-
+    matrix is then processed in C different chan-         eral available choices, we decide to train our net-
+    nels, each of which is acted on by a learn-           works so to identify the congruence classes mod-
+    able k × k kernel. In our model, there are two        ulo a given number m ∈ N.
+    convolutional layers, each followed by a max             Recall from the so-called Modular Arithmetic
+    pooling with a stride of 2. The ﬁrst one of the       that, given two integers z1 , z2 ∈ Z, we write
+    convolutional layers has C = 64 and k = 7,
+    while the second one has C = 128 and k = 3.                            z 1 ≡ z2   mod m
+    The length B of the sequence of numbers is
+                                                          if and only if m divides the difference z1 − z2 ; in
+    set to B = 8 in all of the experiments. After
+                                                          this case z1 is said to be congruent to z2 modulo
+    the convolutional layers there are a ﬂatten layer
+                                                          m. The congruence classes modulo m are the sets
+    and, subsequently, four fully connected linear
+    layers each followed (with the exception of            [ρ]m = {ρ + mz | z ∈ Z}, ρ = 0, 1, . . . , m − 1
+    the last one) by the Leaky ReLU function. For
+    the b-adic vector representations the dimensions      and the number ρ ∈ {0, 1, . . . , m−1} is called the
+    of the linear layers are taken according to the       residue modulo m of the class [ρ]m ; evidently an
+    scheme                                                integer a is in [ρ]m if and only if ρ is the remainder
+                                                          of the division of a by m.
+                F → 100 → 50 → 10 → m,              (6)      Let m ∈ N be ﬁxed. We train a network so to
+                                                          determine, for a given natural number, its residue
+       where F is the dimension of the ﬂatten layer       modulo m. In order to achieve this goal we select
+       and m is the dimension of the output space.        two disjoint subsets of our dataset D: the training
+       For the Prime Grid vector representation we use    set Dt and the validation set Dv = D\Dt .
+                   Proceedings of the 33rd European Safety and Reliability Conference (ESREL 2023)         2825
+
+
+
+
+   The training set Dt consists of r randomly se-         confusion matrix and the accuracy (cf. Pedregosa
+lected disjoint batches B1 , . . . , Br , each contain-   et al. (2011) for the implementation). The results
+ing s elements. The training process is split into t      are collected in Tables 2, 3 and 4.
+epochs. During each epoch, for i = 1, . . . , r the
+model is applied to the batch Bi , the weights are        4. Conclusions
+optimized accordingly and then the new model is           A quick glance to Tables 2 and 3 shows that
+applied to the batch Bi+1 .                               the problem of classifying the congruence classes
+   In the case of b-adic vector representations, the      modulo m is fully resolved when the input data
+values of the parameters r, s and t are chosen            is processed using the b-adic vector representation
+depending on the architecture of the network:             with b = m; a fact appearing not that remarkable
+• MLP: we take r = 66, s = 10 000 and t = 60.             since in this case the rightmost entry of the rep-
+  In this case the cardinality of Dt is 660 000 so        resenting vector is precisely m and therefore the
+  that it occupies about 2/3 of the whole dataset.        answer to the proposed task is furnished by the
+• CNN: we take r = 400, s = 256 and t = 10.               input vector representation itself. This seems to
+  In this case the cardinality of Dt is 102 400 so        be essentially the sole situation that the network
+  that it occupies only 10% of the whole dataset.         is able to handle when the MLP architecture and
+                                                          the SGD optimizer are used. Indeed, from Table 2
+   The case of the Prime Grid vector representa-          we see that the only cases in which the network
+tion is treated differently because of its elevated       does not make completely random choices are
+computational complexity, and we use r = 400,             those in which b divides m, that is, in which we
+s = 256 and t = 10 for both kinds of architec-            have m = bc for some c ∈ N. More speciﬁcally
+tures. In this way the cardinality of Dt is 102 400       analyzing the confusion matrices we observe that
+so that it occupies only 13% of the whole dataset.        if b and c are powers of the same prime then the
+   As for the optimization step, in the case of b-        task is solved, otherwise the network correctly
+adic vector representations we use and compare            assigns to each number in the validation set its
+the performances of two different optimization al-        residue modulo b, but it makes random choices
+gorithms: the Stochastic Gradient Descend (SGD)           when allocating the residues modulo c. As an
+and Adam. It turns out that Adam provides more            example, we show the confusion matrices of the
+accurate results than SGD, therefore in the case of       cases b = 2, m = 6 and b = 3, m = 6.
+the Prime Grid vector representation we make use
+solely of this optimizer.                                      ⎛                          ⎞
+                                                                 21594 0 12193 0 21268 0
+   Since the task of the training process is a mul-            ⎜ 0 9767 0 28734 0 16694 ⎟
+                                                               ⎜                          ⎟
+                                                               ⎜ 21661 0 12099 0 21176 0 ⎟
+ticlass classiﬁcation problem, the function to be              ⎜                          ⎟
+                                                               ⎜ 0 9928 0 28434 0 16833 ⎟
+                                                               ⎜                          ⎟
+optimized will be the Cross Entropy loss func-                 ⎝ 21681 0 11958 0 21170 0 ⎠
+tion. The number of classes to be distinguished                    0 9619 0 28624 0 16567
+is clearly the modulo, m, and therefore this will                      Confusion Matrix b = 2, m = 6.
+be the dimension of the output space in all the
+schemes (4), (5), (6) and (7).                                 ⎛                                ⎞
+                                                                 19750 0   0 35305 0        0
+   The details of the implementation of both the               ⎜ 0 18723 5       0   36467  0   ⎟
+                                                               ⎜                                ⎟
+optimization algorithms, SGD and Adam, and of                  ⎜ 0     0 45754   0     0   9182 ⎟
+                                                               ⎜                                ⎟
+the Cross Entropy loss function can be found in                ⎜ 20225 0   0   34970   0    0   ⎟
+                                                               ⎜                                ⎟
+                                                               ⎝ 0 18258 5       0 36546 0 ⎠
+Paszke et al. (2019).
+                                                                   0       0    45694    0      0   9116
+
+3. Results                                                             Confusion Matrix b = 3, m = 6.
+
+After the training process, the trained model is             The situation slightly improves when using the
+validated on the validation set Dv . The results of       CNN architecture and the SGD optimizer. In par-
+these validations are analyzed by calculating the         ticular, in this case the network is also able to
+2826        Proceedings of the 33rd European Safety and Reliability Conference (ESREL 2023)
+
+
+
+
+                     Table 2.    Accuracies of the MLP architecture using the b-adic input representation.
+   Rep.        Optimizer         Mod 2      Mod 3     Mod 4     Mod 5     Mod 6     Mod 7     Mod 8     Mod 9       Mod 10
+                 Adam             1.00      1.00      1.00      0.95      1.00      1.00      1.00      0.99         0.98
+   2-adic
+                 SGD              1.00      0.33      1.00      0.20      0.33      0.14      1.00      0.11         0.20
+                 Adam             1.00      1.00      1.00      0.82      1.00      0.73      0.70      1.00         1.00
+   3-adic
+                 SGD              0.50      1.00      0.25      0.20      0.50      0.14      0.12      1.00         0.10
+                 Adam             1.00      0.83      1.00      0.98      0.33      0.24      1.00      0.15         0.78
+   4-adic
+                 SGD              0.50      0.33      1.00      0.20      0.17      0.14      0.60      0.11         0.10
+                 Adam             0.50      0.36      0.46      1.00      0.35      0.92      0.37      0.92         0.50
+   5-adic
+                 SGD              0.50      0.33      0.25      1.00      0.17      0.14      0.13      0.11         0.50
+                 Adam             1.00      1.00      1.00      0.51      1.00      0.99      0.92      1.00         0.20
+   6-adic
+                 SGD              0.67      0.50      0.29      0.20      0.99      0.14      0.14      0.16         0.12
+                 Adam             0.50      0.33      0.91      0.78      0.30      1.00      0.99      0.16         0.25
+   7-adic
+                 SGD              0.50      0.33      0.25      0.20      0.17      0.98      0.12      0.11         0.10
+                 Adam             1.00      0.33      1.00      0.85      0.33      0.31      1.00      0.98         0.20
+   8-adic
+                 SGD              0.51      0.33      0.38      0.20      0.18      0.14      1.00      0.12         0.12
+                 Adam             0.50      1.00      0.26      0.93      0.50      0.14      0.59      1.00         0.99
+   9-adic
+                 SGD              0.50      0.54      0.25      0.20      0.20      0.14      0.13      1.00         0.10
+                 Adam             0.80      0.54      0.40      1.00      0.33      0.16      0.30      0.76         1.00
+   10-adic
+                 SGD              0.59      0.33      0.29      0.20      0.19      0.14      0.14      0.11         1.00
+
+
+              Table 3.    Accuracies of the CNN architecture (B = 8) using the b-adic input representation.
+   Rep.        Optimizer         Mod 2      Mod 3     Mod 4     Mod 5     Mod 6     Mod 7     Mod 8     Mod 9       Mod 10
+                 Adam             1.00      0.36      1.00      0.22      0.34      0.13      1.00      0.12         0.18
+   2-adic
+                 SGD              1.00      0.33      1.00      0.20      0.36      0.15      1.00      0.10         0.20
+                 Adam             0.50      1.00      0.26      0.22      0.50      0.13      0.14      1.00         0.10
+   3-adic
+                 SGD              0.50      1.00      0.26      0.20      0.50      0.15      0.12      1.00         0.11
+                 Adam             1.00      0.35      1.00      0.22      0.34      0.13      1.00      0.11         0.10
+   4-adic
+                 SGD              1.00      0.36      1.00      0.20      0.33      0.14      1.00      0.12         0.20
+                 Adam             0.50      0.35      0.25      1.00      0.17      0.13      0.10      0.13         0.47
+   5-adic
+                 SGD              0.50      0.35      0.24      1.00      0.17      0.13      0.12      0.10         0.50
+                 Adam             1.00      1.00      0.60      0.22      1.00      0.15      0.39      0.15         0.16
+   6-adic
+                 SGD              1.00      1.00      0.71      0.16      1.00      0.13      0.33      0.54         0.19
+                 Adam             0.50      0.36      0.26      0.22      0.17      1.00      0.13      0.13         0.10
+   7-adic
+                 SGD              0.51      0.33      0.24      0.19      0.13      1.00      0.14      0.13         0.10
+                 Adam             1.00      0.35      0.42      0.22      0.34      0.13      1.00      0.12         0.18
+   8-adic
+                 SGD              1.00      0.34      1.00      0.20      0.35      0.13      1.00      0.12         0.22
+                 Adam             0.50      0.36      0.26      0.22      0.50      0.13      0.13      1.00         0.10
+   9-adic
+                 SGD              0.48      1.00      0.24      0.20      0.52      0.13      0.12      1.00         0.11
+                 Adam             0.91      0.36      0.54      1.00      0.17      0.13      0.14      0.13         1.00
+   10-adic
+                 SGD              0.93      0.32      0.53      1.00      0.32      0.14      0.26      0.11         1.00
+
+
+       Table 4. Accuracies of the MLP and CNN architectures using the Prime Grid input representation
+       and the Adam optimezer.
+             Arch.       Mod 2      Mod 3     Mod 4     Mod 5     Mod 6     Mod 7     Mod 8     Mod 9     Mod 10
+             MLP          1.00       0.76      0.94      0.46      0.86      0.44      0.59      0.37        0.55
+             CNN
+                          1.00       1.00      1.00      1.00      1.00      1.00      1.00      1.00        1.00
+            (B = 8)
+                   Proceedings of the 33rd European Safety and Reliability Conference (ESREL 2023)             2827
+
+
+
+
+                        ⎛                                                 ⎞
+                          133820 0      0   130   0     0   0   0     0
+                        ⎜   6   21410 9104   3  6080 29722 7 33467 5547 ⎟
+                        ⎜                                                 ⎟
+                        ⎜   2    9253 32568 5   9294 18320 15 25410 10665 ⎟
+                        ⎜                                                 ⎟
+                        ⎜ 137     2     32 84872 0     13 32427 15    4 ⎟
+                        ⎜                                                 ⎟
+                        ⎜   0   10528 23954 2 18136 14165 10 29745 8329 ⎟
+                        ⎜                                                 ⎟
+                        ⎜   1    9279 7062   0  2709 50930 12 27542 7792 ⎟
+                        ⎜                                                 ⎟
+                        ⎜ 127     7     22 61215 6     28 55588 19    3 ⎟
+                        ⎜                                                 ⎟
+                        ⎝   5   13122 7410   1  4375 35692 12 38150 6578 ⎠
+                             0     7165 16846     0    6352 25402     10   32048 17291
+
+                                 Fig. 3.   Confusion Matrix, Prime Grid, m = 9.
+
+identify the congruence classes modulo m with a            pattern:
+b-adic vector representation of the input data if m
+                                                           • If the modulo, m, is a power q k of a prime q,
+divides b (cf. Table 3).
+                                                             then the classes are split into groups according
+   Tables 2 and 3 also show that the Adam op-
+                                                             to the exponents of q: for i = 0, 1, . . . , k, group
+timizer generally behaves better than the SGD
+                                                             i contains all the classes that are divisible by
+optimizer; there are, however, a few exceptions
+                                                             q i but not by q i+1 . The classes belonging to
+when it is used in combination with the CNN
+                                                             the same group are confused with one another.
+architecture. It is perhaps worth mentioning that
+                                                             As an example, see the confusion matrix in
+Adam is usually more unstable than SGD: during
+                                                             Figure 3 where we take m = 9 = 32 .
+the training process the loss function does not
+                                                           • If the modulo, m, is of the form 2q where q is
+decrease monotonically, but it frequently jumps
+                                                             an odd prime, then class [0]m and class [q]m
+up and down making sometimes the convergence
+                                                             are identiﬁed correctly, while the others are
+of the network more difﬁcult (cf. Figure 4). For
+                                                             split into two groups, those with an odd residue
+this reason all the experiments conducted using
+                                                             and those with an even residue. The classes
+this optimizer train the model for t epochs, but
+                                                             belonging to the same group are confused with
+then validate it in correspondence of the one that
+                                                             one another. As an example, see the confusion
+presents the minimum value for the loss function.
+                                                             matrix of the case m = 6 below.
+                                                              ⎛                                             ⎞
+                                                                  194736    0     48     12     21     0
+                                                              ⎜      0   127476   1       0      0   19632 ⎟
+                                                              ⎜                                             ⎟
+                                                              ⎜     14      0   107181    7   61600     0   ⎟
+                                                              ⎜                                             ⎟
+                                                              ⎜     12     14      4   172848    1     40 ⎟
+                                                              ⎜                                             ⎟
+                                                              ⎝      9      6   33259     0   135450    0   ⎠
+                                                                     0    18789   0       0      0   128840
+                                                                       Confusion Matrix, Prime Grid, m = 6.
+
+                                                              The most remarkable situation occurs, however,
+                                                           when the input is processed using the Prime Grid
+                                                           vector representation and the architecture of the
+                                                           network is the CNN (cf. Table 4). In this case, in
+  Fig. 4.   Adam optimizer behavior, b = 2, m = 6.
+                                                           fact, the network is able to identify correctly all
+                                                           the congruence classes modulo m, for all m = 2,
+  As for the Prime Grid vector representation (cf.         3, . . . , 10.
+Table 4), when the adopted architecture is the                The reason underlying this particularly nice be-
+MLP we observe that the accuracies never reach             havior appears to be the following. In contrast
+very high values, still the choices that the network       to other kinds of input data vector representa-
+makes are not completely random. The analysis              tions (e.g. the b-adic ones), the Prime Grid vec-
+of the confusion matrices suggests the following           tor representation is able to endow the model
+2828      Proceedings of the 33rd European Safety and Reliability Conference (ESREL 2023)
+
+
+
+
+  with the multiplicative structure of natural num-         Fetty, L., M. Bylund, P. Kuess, G. Heilemann, T. Ny-
+  bers. This, however, is not sufﬁcient to produce             holm, D. Georg, and T. Löfstedt (2020). Latent space
+  a network capable of identifying the congruence              manipulation for high-resolution medical image syn-
+                                                               thesis via the stylegan. Zeitschrift für Medizinische
+  classes modulo some m ∈ N (as the ﬁrst row in                Physik 30(4), 305–314.
+  Table 4 shows) since the resolution of this task          Gatt, A. and E. Krahmer (2018). Survey of the state
+  requires the comparison of adjacent numbers and              of the art in natural language generation: Core tasks,
+  therefore the possibility of analyzing the additive          applications and evaluation. Journal of Artiﬁcial
+  structure of the set N. In order to overcome this            Intelligence Research 61, 65–170.
+                                                            Giardina, A., S. S. Paria, and A. Kaustubh (2022). A
+  issue, the choice of the convolutional architecture
+                                                               naive method to discover directions in the stylegan2
+  has been successful: indeed the input organized              latent space. arXiv preprint arXiv:2203.10373.
+  in sequences of B consecutive numbers and the             Hu, X., P. Ma, Z. Mai, S. Peng, Z. Yang, and L. Wang
+  kernels that move along these sequences allow                (2019). Face hallucination from low quality images
+  the network to learn such an additive structure              using deﬁnition-scalable inference. Pattern Recogni-
+  and to extract features that globally relate all the         tion 94, 110–121.
+                                                            Kolossváry, I. B. and I. T. Kolossváry (2022). Distance
+  numbers in the sequence rather than considering              between natural numbers based on their prime signa-
+  them individually.                                           ture. Journal of Number Theory 234, 120–139.
+     It is now evident that the length B of the se-         Li, D., C. Du, and H. He (2020). Semi-supervised cross-
+  quence of numbers must play a fundamental role               modal image generation with generative adversarial
+  in the subject. Indeed, if B is too small in compar-         networks. Pattern Recognition 100, 107085.
+                                                            Liu, L., H. Zhang, X. Xu, Z. Zhang, and S. Yan (2019).
+  ison to m, then the network is expected to exhibit
+                                                               Collocating clothes with generative adversarial net-
+  issues in classifying the congruence classes mod-            works cosupervised by categories and attributes: a
+  ulo m. A complete investigation of this kind of              multidiscriminator framework. IEEE transactions on
+  phenomena goes beyond the scope of this paper,               neural networks and learning systems 31(9), 3540–
+  and it constitutes an interesting subject for further        3554.
+  analysis.                                                 O’Shea, K. and R. Nash (2015). An introduction
+                                                               to convolutional neural networks. arXiv preprint
+  Acknowledgement                                              arXiv:1511.08458.
+                                                            Papastratis, I., K. Dimitropoulos, D. Konstantinidis, and
+  This research project has been supported by a Marie
+                                                               P. Daras (2020). Continuous sign language recogni-
+  Skłodowska-Curie Innovative Training Network Fel-
+                                                               tion through cross-modal alignment of video and text
+  lowship of the European Commission’s Horizon 2020
+                                                               embeddings in a joint-latent space. IEEE Access 8,
+  Programme under contract number 955901 CISC.
+                                                               91170–91180.
+  References                                                Paszke, A., S. Gross, F. Massa, A. Lerer, J. Brad-
+                                                               bury, G. Chanan, T. Killeen, Z. Lin, N. Gimelshein,
+  Abdal, R., Y. Qin, and P. Wonka (2019).             Im-      L. Antiga, A. Desmaison, A. Kopf, E. Yang,
+     age2stylegan: How to embed images into the style-         Z. DeVito, M. Raison, A. Tejani, S. Chilamkurthy,
+     gan latent space? In Proceedings of the IEEE/CVF          B. Steiner, L. Fang, J. Bai, and S. Chintala (2019).
+     International Conference on Computer Vision, pp.          Pytorch: An imperative style, high-performance deep
+     4432–4441.                                                learning library. In Advances in Neural Information
+  Arvanitidis, G., L. K. Hansen, and S. Hauberg (2017).        Processing Systems 32, pp. 8024–8035. Curran As-
+     Latent space oddity: on the curvature of deep gener-      sociates, Inc.
+     ative models. arXiv preprint arXiv:1710.11379.         Pedregosa, F., G. Varoquaux, A. Gramfort, V. Michel,
+  Connor, M. and C. Rozell (2020).           Representing      B. Thirion, O. Grisel, M. Blondel, P. Prettenhofer,
+     closed transformation paths in encoded network la-        R. Weiss, V. Dubourg, J. Vanderplas, A. Passos,
+     tent space. In Proceedings of the AAAI Conference         D. Cournapeau, M. Brucher, M. Perrot, and E. Duch-
+     on Artiﬁcial Intelligence, Volume 34, pp. 3666–3675.      esnay (2011). Scikit-learn: Machine learning in
+  de Rosa, G. H. and J. P. Papa (2021). A survey on text       Python. Journal of Machine Learning Research 12,
+     generation using generative adversarial networks.         2825–2830.
+     Pattern Recognition 119, 108098.                       Richardson, E., Y. Alaluf, O. Patashnik, Y. Nitzan,
+  Donoho, D. L. and C. Grimes (2005). Image manifolds          Y. Azar, S. Shapiro, and D. Cohen-Or (2021). Encod-
+     which are isometric to euclidean space. Journal of        ing in style: a stylegan encoder for image-to-image
+     mathematical imaging and vision 23(1), 5–24.
+                    Proceedings of the 33rd European Safety and Reliability Conference (ESREL 2023)   2829
+
+
+
+
+  translation. In Proceedings of the IEEE/CVF confer-
+  ence on computer vision and pattern recognition, pp.
+  2287–2296.
+Sarvamangala, D. and R. V. Kulkarni (2022). Convolu-
+  tional neural networks in medical image understand-
+  ing: a survey. Evolutionary intelligence 15(1), 1–22.
+Shen, Y., C. Yang, X. Tang, and B. Zhou (2020). Inter-
+  facegan: Interpreting the disentangled face represen-
+  tation learned by gans. IEEE Transactions on Pattern
+  Analysis and Machine Intelligence 44, 2004–2018.
+Smith, A. L., D. M. Asta, and C. A. Calder (2019).
+  The geometry of continuous latent space models for
+  network data. Statistical science: a review journal of
+  the Institute of Mathematical Statistics 34(3), 428.
+Vaswani, A., N. Shazeer, N. Parmar, J. Uszkoreit,
+  L. Jones, A. Gomez, Ł. Kaiser, and I. Polosukhin
+  (2007). Attention is all you need. in advances in
+  neural information processing systems. In Proc.
+  NIPS, pp. 5998–6008.
+

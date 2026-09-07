@@ -72,7 +72,33 @@ pub fn show_export_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
             }
         }
         if ui.button("🎵 Export Audio WAV").clicked() {
-            state.sim_message = "Audio export placeholder".to_string();
+            let geo = create_geometry(state);
+            let engine = crate::waveguide::WaveguideEngine::from_geo(&geo);
+            let samples: Vec<f32> = (0..44100)
+                .map(|i| {
+                    let t = i as f64 / 44100.0;
+                    let freq = state.fundamental_freq.unwrap_or(100.0);
+                    let phase = 2.0 * std::f64::consts::PI * freq * t;
+                    (phase.sin() as f32) * (state.audio_gain as f32)
+                })
+                .collect();
+            
+            if let Some(path) = FileDialog::new()
+                .add_filter("WAV", &["wav"])
+                .set_file_name("audio.wav")
+                .save_file()
+            {
+                let processor = crate::audio::AudioProcessor::new(&geo, crate::audio::AudioConfig::default());
+                if let Ok(p) = processor {
+                    if let Err(e) = p.export_wav(&samples, path.to_str().unwrap_or_default()) {
+                        state.sim_message = format!("WAV export failed: {}", e);
+                    } else {
+                        state.sim_message = format!("Exported WAV to {}", path.display());
+                    }
+                } else {
+                    state.sim_message = "Failed to create audio processor".to_string();
+                }
+            }
         }
     });
     ui.separator();

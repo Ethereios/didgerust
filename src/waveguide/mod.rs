@@ -10,7 +10,9 @@
 //! - `WaveguideEngine`: A cascade of cells representing the bore geometry
 //! - `WaveguideSimulator`: High-level interface for impedance calculation
 
-use crate::geo::Geo;
+use crate::sim::AcousticConstants;
+use crate::tonehole::Tonehole;
+use crate::Geo;
 use num_complex::Complex64;
 use std::f64::consts::PI;
 
@@ -70,12 +72,13 @@ impl WaveguideCell {
 
     /// Compute the delay in samples for a given sampling rate
     pub fn delay_samples(&self, sample_rate: f64) -> usize {
-        let wavelength = C / (sample_rate as f64 / 1024.0); // Approximate wavelength
+        let wavelength = C / (sample_rate / 1024.0); // Approximate wavelength
         (self.length / wavelength).ceil() as usize
     }
 }
 
 /// Waveguide engine - cascade of waveguide cells representing bore geometry
+#[derive(Debug, Clone)]
 pub struct WaveguideEngine {
     /// Vector of waveguide cells
     pub cells: Vec<WaveguideCell>,
@@ -83,11 +86,28 @@ pub struct WaveguideEngine {
     pub total_length: f64,
     /// Number of segments
     pub n_segments: usize,
+    /// Acoustic constants for tonehole calculations
+    pub acoustic_constants: AcousticConstants,
+    /// Toneholes positioned along the bore (x in mm)
+    pub toneholes: Vec<Tonehole>,
 }
+
+    /// Internal element type for waveguide cascade
+    #[derive(Debug, Clone)]
+    #[allow(dead_code)]
+    enum Element {
+        Cell(WaveguideCell),
+        ToneholePosition(usize),
+    }
 
 impl WaveguideEngine {
     /// Create a waveguide engine from a bore geometry
     pub fn from_geo(geo: &Geo) -> Self {
+        Self::from_geo_with_toneholes(geo, &[], AcousticConstants::default())
+    }
+
+    /// Create a waveguide engine from a bore geometry with toneholes
+    pub fn from_geo_with_toneholes(geo: &Geo, toneholes: &[Tonehole], acoustic_constants: AcousticConstants) -> Self {
         let mut cells = Vec::new();
         let mut total_length = 0.0;
 
@@ -106,6 +126,8 @@ impl WaveguideEngine {
             cells,
             total_length,
             n_segments,
+            acoustic_constants,
+            toneholes: toneholes.to_vec(),
         }
     }
 
@@ -114,34 +136,72 @@ impl WaveguideEngine {
         let omega = 2.0 * PI * freq_hz;
         let k = omega / C; // Wave number
 
-        // Start with identity matrix
+        // Sort toneholes by position
+        let mut sorted_toneholes: Vec<&Tonehole> = self.toneholes.iter().collect();
+        sorted_toneholes.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+
+        // Build element list: interleave cells and tonehole shunts
+        let mut elements: Vec<Element> = Vec::new();
+        let mut cum_x_mm = 0.0;
+        let mut tonehole_idx = 0;
+
+        for cell in &self.cells {
+            let cell_end_mm = cum_x_mm + cell.length * 1000.0;
+
+            // Check if any tonehole falls within this cell
+            while let Some(th) = sorted_toneholes.first() {
+                if th.x >= cum_x_mm && th.x <= cell_end_mm {
+                    elements.push(Element::ToneholePosition(tonehole_idx));
+                    tonehole_idx += 1;
+                    sorted_toneholes.remove(0);
+                } else {
+                    break;
+                }
+            }
+
+            elements.push(Element::Cell(cell.clone()));
+            cum_x_mm = cell_end_mm;
+        }
+
+        // Add any remaining toneholes at the end
+        while tonehole_idx < self.toneholes.len() {
+            elements.push(Element::ToneholePosition(tonehole_idx));
+            tonehole_idx += 1;
+        }
+
+        // Cascade all elements
         let mut total_matrix = [[Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0)],
                                  [Complex64::new(0.0, 0.0), Complex64::new(1.0, 0.0)]];
 
-        for cell in &self.cells {
-            // Propagation matrix for the segment
-            let kl = k * cell.length;
-            let cos_kl = Complex64::new(kl.cos(), 0.0);
-            let sin_kl = Complex64::new(0.0, kl.sin());
+        for elem in &elements {
+            let elem_matrix = match elem {
+                Element::Cell(cell) => {
+                    let kl = k * cell.length;
+                    let cos_kl = Complex64::new(kl.cos(), 0.0);
+                    let sin_kl = Complex64::new(0.0, kl.sin());
+                    let zc = (cell.zc0 * cell.zc1).sqrt();
+                    [
+                        [cos_kl, sin_kl * zc],
+                        [sin_kl / zc, cos_kl],
+                    ]
+                }
+                Element::ToneholePosition(idx) => {
+                    let y = self.tonehole_admittance(freq_hz, *idx);
+                    [
+                        [Complex64::new(1.0, 0.0), Complex64::new(0.0, 0.0)],
+                        [y, Complex64::new(1.0, 0.0)],
+                    ]
+                }
+            };
 
-            // Characteristic impedance (use geometric mean for segment)
-            let zc = (cell.zc0 * cell.zc1).sqrt();
-
-            // Transfer matrix for uniform tube section
-            let segment_matrix = [
-                [cos_kl, sin_kl * zc],
-                [sin_kl / zc, cos_kl],
-            ];
-
-            // Matrix multiplication: total = segment * total
             let new_matrix = [
                 [
-                    total_matrix[0][0] * segment_matrix[0][0] + total_matrix[0][1] * segment_matrix[1][0],
-                    total_matrix[0][0] * segment_matrix[0][1] + total_matrix[0][1] * segment_matrix[1][1],
+                    total_matrix[0][0] * elem_matrix[0][0] + total_matrix[0][1] * elem_matrix[1][0],
+                    total_matrix[0][0] * elem_matrix[0][1] + total_matrix[0][1] * elem_matrix[1][1],
                 ],
                 [
-                    total_matrix[1][0] * segment_matrix[0][0] + total_matrix[1][1] * segment_matrix[1][0],
-                    total_matrix[1][0] * segment_matrix[0][1] + total_matrix[1][1] * segment_matrix[1][1],
+                    total_matrix[1][0] * elem_matrix[0][0] + total_matrix[1][1] * elem_matrix[1][0],
+                    total_matrix[1][0] * elem_matrix[0][1] + total_matrix[1][1] * elem_matrix[1][1],
                 ],
             ];
             total_matrix = new_matrix;
@@ -160,9 +220,59 @@ impl WaveguideEngine {
         (a * z_rad + b) / (c * z_rad + d)
     }
 
+    /// Compute the admittance of a single tonehole at a given frequency
+    fn tonehole_admittance(&self, freq_hz: f64, idx: usize) -> Complex64 {
+        if idx >= self.toneholes.len() {
+            return Complex64::new(0.0, 0.0);
+        }
+        let th = &self.toneholes[idx];
+        let z = if th.is_open {
+            th.open_impedance(freq_hz, &self.acoustic_constants)
+        } else {
+            th.closed_impedance(freq_hz, &self.acoustic_constants)
+        };
+        if z.norm() > 1e-15 {
+            Complex64::new(1.0, 0.0) / z
+        } else {
+            Complex64::new(1e15, 0.0)
+        }
+    }
+
     /// Compute impedance spectrum at multiple frequencies
     pub fn impedance_spectrum(&self, freqs: &[f64]) -> Vec<Complex64> {
         freqs.iter().map(|&f| self.transfer_function(f)).collect()
+    }
+    
+    /// Compute impedance with simplified model for real-time performance
+    /// Uses precomputed values and reduced complexity calculations
+    pub fn impedance_spectrum_fast(&self, freqs: &[f64]) -> Vec<Complex64> {
+        // Precompute frequency-independent geometric factors
+        let total_length = self.total_length.max(1e-6);
+        let r_last = (self.cells.last().map(|c| c.d1).unwrap_or(0.01) / 2.0).max(1e-6);
+        
+        freqs.iter().map(|&f| {
+            let omega = 2.0 * PI * f;
+            let k = omega / C;
+            
+            // Simplified: assume uniform tube for fast calculation (reduces matrix chain)
+            let zc_avg = self.cells.iter()
+                .map(|c| (c.zc0 + c.zc1) / 2.0)
+                .sum::<f64>() / self.n_segments as f64;
+            
+            let kl = k * total_length;
+            let cos_kl = kl.cos();
+            let sin_kl = kl.sin();
+            
+            // Simplify to single segment approximation
+            let z_rad = Complex64::new(RHO * C / (2.0 * PI * r_last), 0.0);
+            
+            let a = cos_kl;
+            let b = Complex64::new(0.0, sin_kl * zc_avg);
+            let c = Complex64::new(0.0, sin_kl / zc_avg);
+            let d = cos_kl;
+            
+            (a * z_rad + b) / (c * z_rad + d)
+        }).collect()
     }
 }
 
@@ -195,64 +305,11 @@ impl WaveguideSimulator {
     }
 }
 
-/// Prime number generator for prime-indexed mutation strategies
-pub struct PrimeGenerator {
-    primes: Vec<usize>,
-    current_index: usize,
-}
-
-impl PrimeGenerator {
-    /// Create a new prime generator
-    pub fn new() -> Self {
-        Self {
-            primes: Self::generate_primes(1000),
-            current_index: 0,
-        }
-    }
-
-    /// Generate primes using sieve of Eratosthenes
-    fn generate_primes(limit: usize) -> Vec<usize> {
-        let mut is_prime = vec![true; limit + 1];
-        is_prime[0] = false;
-        is_prime[1] = false;
-
-        for i in 2..=((limit as f64).sqrt() as usize) {
-            if is_prime[i] {
-                for j in (i * i..=limit).step_by(i) {
-                    is_prime[j] = false;
-                }
-            }
-        }
-
-        is_prime.iter().enumerate()
-            .filter(|(_, &is_p)| is_p)
-            .map(|(p, _)| p)
-            .collect()
-    }
-
-    /// Get the next prime number
-    pub fn next(&mut self) -> usize {
-        let prime = self.primes[self.current_index % self.primes.len()];
-        self.current_index += 1;
-        prime
-    }
-
-    /// Get a prime number at a specific offset
-    pub fn nth(&self, n: usize) -> usize {
-        self.primes[n % self.primes.len()]
-    }
-}
-
-impl Default for PrimeGenerator {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::geo::Geo;
+    use crate::evo::PrimeGenerator;
+use crate::Geo;
 
     #[test]
     fn test_waveguide_cell_creation() {
@@ -280,10 +337,56 @@ mod tests {
 
     #[test]
     fn test_prime_generator() {
-        let mut gen = PrimeGenerator::new();
-        assert_eq!(gen.next(), 2);
-        assert_eq!(gen.next(), 3);
-        assert_eq!(gen.next(), 5);
-        assert_eq!(gen.next(), 7);
+        let mut gen = PrimeGenerator::new(1000);
+        assert_eq!(gen.next_prime(), 2);
+        assert_eq!(gen.next_prime(), 3);
+        assert_eq!(gen.next_prime(), 5);
+        assert_eq!(gen.next_prime(), 7);
+    }
+
+    #[test]
+    fn test_waveguide_with_toneholes() {
+        use crate::tonehole::Tonehole;
+        let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+        let toneholes = vec![Tonehole::new(500.0, 12.0, 5.0, true)];
+        let engine = WaveguideEngine::from_geo_with_toneholes(
+            &geo,
+            &toneholes,
+            AcousticConstants::default(),
+        );
+        let z_with = engine.transfer_function(440.0);
+        let z_without = WaveguideEngine::from_geo(&geo).transfer_function(440.0);
+        assert!(z_with.norm() > 0.0);
+        assert!(z_without.norm() > 0.0);
+        assert!((z_with - z_without).norm() > 1e-10, "Toneholes should change impedance");
+    }
+
+    #[test]
+    fn test_waveguide_simulator() {
+        let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+        let sim = WaveguideSimulator::new(&geo);
+        assert_eq!(sim.n_segments(), 20);
+        assert!((sim.total_length() - 1.0).abs() < 1e-6);
+        
+        let freqs = vec![100.0, 200.0, 440.0, 1000.0];
+        let spec = sim.compute_impedance(&freqs);
+        assert_eq!(spec.len(), 4);
+        for z in spec.iter() {
+            assert!(z.norm() > 0.0, "Impedance should be finite");
+        }
+    }
+
+    #[test]
+    fn test_waveguide_impedance_spectrum_fast() {
+        let geo = Geo::make_cone(1000.0, 32.0, 60.0, 20);
+        let engine = WaveguideEngine::from_geo(&geo);
+        let freqs = vec![100.0, 200.0, 440.0, 1000.0];
+        let spec_fast = engine.impedance_spectrum_fast(&freqs);
+        let spec_full = engine.impedance_spectrum(&freqs);
+        assert_eq!(spec_fast.len(), spec_full.len());
+        for (z_fast, z_full) in spec_fast.iter().zip(spec_full.iter()) {
+            assert!(z_fast.norm() > 0.0, "Fast impedance should be finite");
+            assert!(z_full.norm() > 0.0, "Full impedance should be finite");
+        }
     }
 }

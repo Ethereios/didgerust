@@ -1,59 +1,57 @@
-# didgerust - Implementation Plan Checklist
+# DidgeRust Future Goals
 
-## Phase 0: Inventory + API coverage
-- [x] Create API coverage matrix for both crates (`didgerust` and `cadsd-accurate`)
-- [x] Identify public exports and map to implemented internals
-- [x] Identify gaps (missing modules, partial implementations, mismatched semantics)
+This file documents important features and improvements that are **not yet fully implemented**.
+Status levels: 🔄 partial, ❌ missing, ⚠️ needs improvement.
 
-## Phase 1: Module-by-module code reading (cadsd-accurate)
-- [x] `src/geo/` (geometry invariants, mm units, parametric generators)
-- [x] `src/sim/` (acoustical simulation pipeline + backends)
-- [x] `src/conv/` (note↔freq conversion, cent calculations)
-- [x] `src/analysis/` (peak detection, note labeling, report helpers)
-- [x] `src/evo/` (genome encoding, mutation/crossover, selection loop)
-- [x] `src/loss/` (each loss component, intermediate requirements)
-- [x] `src/export/`, `src/persistence/`, `src/audio/` (IO/state serialization)
-- [x] `src/ui/` + app entrypoints (wiring to core logic)
+## Partial Implementations (concrete improvements needed)
 
-Deliverable after Phase 1:
-- [ ] Create `DESIGN_NOTES.md` with per-module call graphs + invariants
+### Acoustics / Simulation
 
-## Phase 2: Module-by-module code reading (top-level didgerust crate)
-- [x] `src/sim/`
-- [x] `src/geo/`
-- [x] `src/evo/`
-- [x] `src/loss/`
-- [x] `src/visualization/`
-- [x] `src/lib.rs`, `src/main.rs`, examples/bin
+- **Radiation impedance** — ⚠️ Geipel approximation in `src/sim/mod.rs::za`. Replace with Levine-Schwinger IIR; validate against published unflanged-pipe data.
+- **Viscothermal losses** — ⚠️ Full Tw/Zcw system in `cadsd_ze_with_losses`. Validate against Scavone 1997 data in 100 Hz–2 kHz range.
+- **Bent-shape correction** — 🔄 `bent_effective_length()` exists with tests. Wire into `Segment::effective_length`; integrate into optimizer loss; show in GUI bore preview.
+- **Tonehole models** — ⚠️ Open/closed impedance in `src/tonehole/mod.rs`. Add three-port scattering junction (Scavone & Smith 1997) for chromatic design.
+- **ComplexImpedance strategy** — ⚠️ Basic implementation exists. Add full viscothermal model; validate against TLM for non-cylindrical geometries.
+- **Differentiable TLM** — ⚠️ Analytical gradients + Adam in `src/diff_tlm.rs`. Implement real backprop through cascade using Wirtinger calculus; test against numerical gradients.
+- **FDTD validator** — 🔄 3-D Yee grid with PML in `src/fdtd/`. Increase grid resolution; validate against analytical cylinder; add bent-geometry study.
+- **Prime-conv ML** — 🔄 `PrimeConvBlock` forward pass in `src/prime_conv/`. Build training pipeline; generate dataset from TLM; train surrogate for top-5 peaks.
+- **DWM prototypes** — 🔄 2-D/3-D mesh in `src/dwm/`. Integrate with `DidgeridooSimulator` as alternative strategy; validate against TLM.
 
-Deliverable after Phase 2:
-- [x] Update API coverage matrix for differences vs `cadsd-accurate`
+### GUI / UX
 
-## Phase 3: Reconciliation / alignment plan
-- [x] Decide target architecture: single backend vs adapters
-- [x] Propose adapter layer between `didgerust` and `cadsd-accurate` APIs
-- [x] Identify duplicated logic and deprecation steps
+- **GUI tonehole editor** — ⚠️ Sliders work; no drag-and-drop on bore preview.
+- **3-D bore preview** — ⚠️ Wireframe exists in `src/app.rs::draw_bore_gizmos`. Add camera controls, zoom, rotation.
+- **Optimizer loop** — ⚠️ Buttons log only; no real async execution with progress callbacks.
+- **Frequency grid** — ⚠️ Linear by default; log grid not cents-based everywhere.
 
-Deliverables:
-- [x] `RECONCILIATION_PLAN.md`
+## Missing Implementations
 
-## Phase 4: Testing + validation plan
-- [x] Create physics regression test plan (geometry + simulation + peak detection)
-- [x] Create conversion regression test plan
-- [x] Create optimizer smoke test plan
+### Neural / Differentiable
 
-Deliverables:
-- [x] `ACCURACY_PARITY.md` (already existed, validated)
-- [x] `TEST_PLAN.md`
+- **Neural fitness predictor** — ❌ Placeholder struct only in `src/nn/mod.rs`. No MLP, no training loop, no dataset.
+- **Time-domain synthesis** — ❌ Frequency-domain only. No sample-by-sample waveguide loop; no cpal audio output from simulation.
+- **PINN surrogate for bent geometries** — ❌ No physics-informed neural network for bent-bore correction.
 
-## Phase 5: Performance plan
-- [x] Identify hotspots (segments conversion, impedance recompute, peak scanning)
-- [x] Propose caching + batching strategy
-- [x] Plan profiling steps
+### Audio
 
-Deliverables:
-- [x] `PERF_REPORT.md`
+- **Real-time audio backend** — ❌ No time-domain synthesis → no cpal audio output from actual simulation.
+- **WAV export from waveguide** — ❌ Current export uses simple sine wave; not from time-domain simulation.
 
-## Tracking
-- [x] Mark tasks completed after each phase
+### Geometry
 
+- **RBF constraint systems** — ❌ No radial-basis-function constraints for smooth geometry deformation during optimization.
+
+### Testing
+
+- **File I/O tests for persistence** — ❌ No tests for `AppSettings`, `ProjectState`, `OptimizerCheckpoint` save/load with real files.
+- **CLI command tests** — ❌ No automated tests for `src/bin/cli.rs` commands.
+
+## Completed (fully working)
+
+- **TLM cascade** — `src/sim/mod.rs::cadsd_ze_with_losses` with full viscothermal losses.
+- **Evolutionary optimizer** — `src/evo/mod.rs` with multiple mutation/crossover strategies.
+- **Loss functions** — `src/loss/mod.rs` with 10+ components.
+- **Peak detection** — Three modes: local maxima, prominence, phase-based.
+- **CLI for experimental features** — `src/bin/cli.rs` exposes all experimental modules to non-Rust users.
+- **Persistence** — JSON save/load for settings, checkpoints, project state.
+- **Geometry ops** — cone, cylinder, bubble, stretch, scale, volume, Kigali, Mbeya.

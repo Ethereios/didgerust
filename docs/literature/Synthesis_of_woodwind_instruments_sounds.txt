@@ -1,0 +1,3049 @@
+                POLITECHNIKA POZNA SKA
+          WYDZIAŁ ELEKTRONIKI I TELEKOMUNIKACJI
+KATEDRA TELEKOMUNIKACJI MULTIMEDIALNEJ I MIKROELEKTRONIKI
+
+
+
+
+       Synteza dźwięku
+         MAGISTERSKA PRACA DYPLOMOWA
+
+
+
+
+     instrumentów dętych
+      metodą falowodową
+                   Michał Junczyk
+
+
+
+
+                                                 Promotor:
+                              dr inż. Maciej Bartkowiak
+
+
+
+
+                     Pozna . 2010
+The dissertation deals with an implementation of the woodwind instrument
+physical model using the digital waveguide modelling technique. An
+essential theory concerning acoustical properties of woodwind instruments
+and applicable modelling methods is discussed. This includes an analysis of
+two existing models of clarinet and flute instruments, which serves as a
+starting point for the implementation of the “Irish whistle” physical model in
+Matlab. The final result is the “Irish whistle” application capable of
+producing a whistle-like sound. Graphical User Interface allows a convenient
+control over the model and excitation source parameters. The evaluation of
+the model consists of various comparison tests with a real Irish whistle and
+an examination of the most interesting model parameters.
+
+
+
+
+Praca dotyczy implementacji modelu fizycznego instrumentu dętego metodą
+falowodową. W pracy przedstawiono podstawowe informacje teoretyczne na
+temat właściwości akustycznych instrumentów dętych oraz możliwe techniki
+ich modelowania. Na podstawie dostępnej literatury dokonano analizy
+istniejących modeli fizycznych fletu oraz klarnetu, które posłużyły jako
+punkt wyjścia do implementacji modelu fletu irlandzkiego w środowisku
+Matlab. Rezultatem projektu jest aplikacja „Irish whistle” pozwalająca na
+produkcję dźwięków o brzmieniu zbliżonym do oryginału. Graficzny interfejs
+użytkownika    umożliwia      wygodną     kontrolę     nad      parametrami    źródła
+pobudzenia    oraz      modelu   instrumentu.      W     celu    ewaluacji    modelu
+przeprowadzono       szereg      testów    porównawczych           z    prawdziwym
+instrumentem     oraz    przetestowano     wpływ       najbardziej     interesujących
+parametrów.
+
+
+
+                                                                                   2
+1     INTRODUCTION .................................................................................... 5
+
+    1.1    PREFACE ............................................................................................ 5
+      1.1.1 Thesis outline ................................................................................ 5
+      1.1.2 Why physical modelling? Limitations of other sound synthesis methods . 5
+      1.1.3 Physical modelling .......................................................................... 7
+    1.2    PROBLEM STATEMENT ............................................................................. 9
+    1.3    METHODOLOGY: ................................................................................... 9
+      1.3.1 Introduction to the topic .................................................................. 9
+      1.3.2 Example code analysis ...................................................................10
+      1.3.3 Irish flute implementation ..............................................................10
+      1.3.4 GUI creation and tuning .................................................................10
+      1.3.5 Evaluation and testing ...................................................................11
+    1.4    ASSUMPTIONS .....................................................................................11
+      1.4.1 Physical modelling and audio compression ........................................11
+      1.4.2 Desired outcome ...........................................................................12
+      1.4.3 Limitations ...................................................................................12
+
+2     THEORY .............................................................................................. 14
+
+    2.1    ACOUSTIC WAVES ................................................................................14
+      2.1.1 Acoustic waves propagation in space ...............................................14
+      2.1.2 D’Alembert Solution .......................................................................14
+      2.1.3 Digital Waveguide .........................................................................15
+    2.2    DIGITAL WAVEGUIDE ACOUSTIC MODELLING ..................................................16
+      2.2.1 Lumped acoustic systems ...............................................................16
+      2.2.2 Acoustic impedance, admittance and their electrical analogies ............17
+      2.2.3 Wave propagation in cylindrical tubes ..............................................18
+      2.2.4 Load Impedances and discontinuities ...............................................23
+      2.2.5 Input impedance ...........................................................................26
+    2.3    TONE HOLES AND OTHER PRACTICALITIES .....................................................27
+      2.3.1 Two port junction model .................................................................28
+      2.3.2 Three-port junction model ..............................................................32
+      2.3.3 Dynamic three-port filter model ......................................................33
+      2.3.4 Wave digital filter model.................................................................35
+    2.4    INTERPOLATION ...................................................................................37
+    2.5    EXCITATION MODELS .............................................................................38
+      2.5.1 Clarinet nonlinear excitation mechanism ..........................................39
+      2.5.2 Models of clarinet excitation mechanism ...........................................43
+      2.5.3 Excitation mechanism of transverse flute and recorder .......................46
+
+
+                                                                                                               3
+      2.5.4 Perry’s Cook STK flute excitation model ...........................................50
+      2.5.5 Chris’s Chafe vortex noise model .....................................................53
+    2.6    CLARINET AND FLUTE PHYSICAL MODELS.......................................................54
+
+3     IMPLEMENTATION OF AN IRISH FLUTE PHYSICAL MODEL .................. 57
+
+    3.1    INTRODUCTION....................................................................................57
+    3.2    IRISH TIN WHISTLE CONSTRUCTION AND ACOUSTIC PROPERTIES ...........................57
+    3.3    BLOCK DIAGRAM OF THE TIN WHISTLE PHYSICAL MODEL ....................................59
+    3.4    GRAPHICAL USER INTERFACE ....................................................................64
+      3.4.1 Global parameters and display properties .........................................65
+      3.4.2 Input signal parameters .................................................................66
+      3.4.3 Physical model parameters .............................................................66
+
+4     EVALUATION OF THE IRISH TIN WHISTLE PHYSICAL MODEL ............. 68
+
+    4.1    INTRODUCTION....................................................................................68
+    4.2    EVALUATION METHODOLOGY ....................................................................69
+    4.3    MOST INTERESTING CONTROL PARAMETERS ...................................................70
+      4.3.1 Model adjustments ........................................................................70
+      4.3.2 Stability control .............................................................................71
+      4.3.3 Timbre control ..............................................................................72
+      4.3.4 Overblowing .................................................................................78
+    4.4    REAL VS. VIRTUAL TIN WHISTLE COMPARISON ................................................81
+      4.4.1 Tuning .........................................................................................81
+      4.4.2 Resonances and timbre ..................................................................83
+      4.4.3 Transient and stationary characteristics ...........................................88
+    4.5    IMPERFECTIONS OF THE TIN WHISTLE MODEL .................................................94
+
+5     CONCLUSIONS AND FUTURE RESEARCH ............................................. 96
+
+    5.1    RESEARCH SUMMARY .............................................................................96
+    5.2    RECOMMENDATIONS AND FUTURE RESEARCH..................................................96
+
+6     BIBLIOGRAPHY .................................................................................. 97
+
+
+
+
+                                                                                                            4
+1 Introduction
+
+1.1 Preface
+
+1.1.1 Thesis outline
+This work aims at exploring the topic of physical modelling of woodwind
+instruments using the digital waveguide modelling synthesis. Simple models
+of clarinet and flute were implemented using the available literature and
+web resources. The Irish flute instrument (also known as “tin whistle” or
+“penny whistle”) has been chosen for the most detailed implementation and
+evaluation.
+The thesis consists of three main parts in chronological order starting with
+theory, through implementation and finishing with evaluation of the model.
+First two chapters contain some fundamental theory concerning musical
+sound, acoustic waves and modelling using digital waveguides (DWG
+synthesis). The most common building blocks of DWG physical models are
+discussed using clarinet and flute models from the open-source STK
+Synthesis Toolkit library. Chapter three presents a new Irish flute DWG
+model implementation in Matlab. Chapter four deals with the evaluation of
+the Irish flute model. The most interesting model parameters affecting the
+produced sound, as well as the stability of the system are examined and
+described in more details. Subsequently, results of the model tuning
+process are discussed. Finally, comparison tests between obtained sounds
+of the real instrument and its model are conducted, with some comments
+about model imperfections. The last fifth chapter contains conclusions on
+conducted research and discusses possible future improvements.
+
+1.1.2 Why physical modelling? Limitations of other sound synthesis
+      methods
+For centuries the classical music and traditional instruments make our lives
+pleasant with non decreasing power. On the other hand, the theoretical
+study of musical acoustics is a relatively young part of science, considering
+the long history of musical instrumentation. The most amazingly sounding
+instruments e.g. Stradivarius violin were designed mostly by empirical
+means. Tools and methods to analyze acoustical differences between such
+a masterpiece and its mediocre counterpart came afterwards. Before
+
+                                                                             5
+mathematical models and helpful test equipment were available, the
+knowledge about instrument design was handed down from generation to
+generation over many centuries and design improvements were obtained
+mostly empirically. It’s only the past century when the musical acoustics
+reached the level enabling the cooperation between instrument designers
+and physicists. Through the in-depth analysis performed by scientists,
+designers achieve a better understanding of many complex instrument
+properties, helping them improve their products.
+Music synthesis differs from musical acoustics principally with its design
+oriented goals, which can be summarized as the creation of new sounds and
+instruments using electronic devices or computers. The most popular sound
+synthesis techniques are based on pre-recorded sounds of original
+instruments (sampling) or creation of new sounds using waveform and
+noise generators, filters, envelope generators, modulators and various
+effect processors (e.g. additive, subtractive and fm synthesis) [1]. All this
+contemporary technology delivered into creative hands of musicians yields
+fruits in the development of new music genres e.g. techno, hip-hop and
+almost infinitely big field for an experimentation and creation of completely
+new, sometimes strange musical sounds. While the electronic music brought
+many excitement and freshness to our lives, traditional instruments and
+acoustical music is doing very well and has the most powerful impact on
+listeners.
+Hence, another goal set for companies and hobbyist involved into musical
+synthesis world is the recreation of the traditional acoustic instruments
+sounds, which turned out to be a non-trivial task. The outcome should be a
+“better” version of the original instrument which is easier to play, cheaper,
+more portable and more flexible.
+Results of the simplest synthesis method called “sampling” are not
+satisfying, because produced sound elongates and shortens in an unnatural
+manner along with the pitch changes. Moreover the natural instrument
+property to change its timbre depending on the musician’s expression is
+difficult to realise on the synthesizer based on few samples only. The
+solution called “multisampling” (recording a complete set of samples of
+natural instrument representing various types of expressions) is very time
+consuming and demands many gigabytes of storage space, e.g. Alicia
+
+                                                                           6
+Keys’s piano library contains 17 GBs of samples recorded with 12 different
+discrete velocities.
+The frequency domain based methods like additive or subtractive synthesis
+try to recreate the spectrum of the original sound using basic waveforms
+and filters. However reproduction of all original spectral characteristics
+demands plenty of available signal paths, manipulators etc., and creates a
+cost of an increased components/computational power requirements.
+Moreover if the instrument becomes too complex, less experienced users
+may be muddled up in plethora of parameters. Finally, realistic spectrum
+changes in time are difficult to obtain, because sound processing and
+generation components have stationary characteristics.
+
+1.1.3 Physical modelling
+Starting back in the eighties of the last century, musical acoustics and
+synthesis worlds turned into new, very attractive approach called physical
+modelling, which lays at the crossroads of these two fields. Its strength in
+simulating sounds of traditional instruments lies in the fact that, “rather
+than trying to directly reproduce the sound by an acoustical system,
+physical modelling aims, relying on the physical properties of the system, at
+simulate its functioning” [2]. It took about twenty years before the PCs
+computing power became sufficient to perform real-time processing
+demanded by virtual instruments mathematical models. Nowadays most
+professional audio software companies invest time and money into the
+physical modelling research and equip new versions of their popular DAW
+(Digital Audio Workstation) software with new playful instruments. Arturia
+Brass, Propellerhead Reason Kong or Image Line Sakura are the most
+popular   programs     able   to   realistically   synthesize   sounds   of   most
+chordophones, idiophones and some aerophones.
+The sound produced by a digital physical model is calculated as its response
+to a given input, such as the blowing pressure in the mouth of a musician.
+By simulating the behaviour of the acoustical model itself, it is possible to
+obtain realistic reproduction of the physical features of the output e.g.
+changing the timbre with the register of the notes played. Therefore it is
+much easier for the player to actually interact with the virtual instrument.
+
+
+
+
+                                                                                7
+Comparing to the previously mentioned synthesis schools, which rather
+produce sounds of non changing spectrum characteristics within time,
+physical modelling deals very well with the reproduction of transients,
+crucial from the perceptual point of view. Most of the music and speech
+sounds are transient in nature, with very abrupt spectrum and amplitude
+changes during the attack phase of a note. Effects like vibrato (amplitude or
+frequency modulation) or natural expression with varying dynamic levels
+are hard to reproduce by additive synthesis or sampling, because it would
+lead to an analysis and synthesis of many different sound spectra or playing
+many different samples for even a single note [2].
+The main difficulty and biggest drawback of the physical modelling method
+is the complexity of sound production processes and physical properties of
+simulated instruments. Therefore modelling demands a serious number of
+experiments and solid theory background. Toshifumi Konimoto, leader of
+the Yamaha physical modelling research team responsible for the legendary
+VP1 and VL1 synthesizers puts more light on the time consuming evaluation
+process, explaining that “rather than relying on frequency response graphs
+and other "precision” measurements to evaluate final performance, many
+critical performance decisions are made using the trained ears of top-level
+music and sound specialists” [3]. Considering practicality and computational
+cost the biggest goal for designers and physicist is to find the “optimal
+trade-off between the convenience of the model and its perceptual
+relevancy” [2]. More complex model means an increased processor usage
+and leads to problems with the real-time performance, by increasing latency
+while using e.g. MIDI wind controller or keyboard. Hence, if the particular
+physical   property   of   the    instrument    is   imperceptible,   it   can    be
+skipped/simplified in the model to save a computing power. Another
+drawback from the end user point of view is the high risk of making a model
+unplayable,   by   tweaking      accessible   parameters   in   the   wrong      way.
+Instruments create sound because of the occurrence of an acoustic
+resonance, which is the result of an acoustic feedback. Digital systems
+containing feedback are very prone to unstable behaviour for even tiny
+changes of model parameters. Therefore PM synthesizer very often demand
+painstaking approach when designing new patches and are recommended to
+experienced synthesizer’s users.
+
+                                                                                   8
+1.2 Problem statement
+The goal of this thesis is the creation of the woodwind instrument physical
+model using digital waveguide synthesis method. The research is conducted
+based on the available web resources and literature. Matlab is the
+programming environment of choice. Irish Flute is the instrument of choice
+for most detailed implementation with GUI (Graphical User Interface). Final
+stage of this project is the evaluation of the implemented model consisting
+of comparison tests with the Feadog Irish whistle and analysis of the most
+interesting model parameters.
+
+1.3 Methodology:
+All the actions leading to the desired outcome can be divided into five
+essential stages:
+  1) Introduction to the topic
+  2) Example code analysis
+  3) Irish flute implementation
+  4) GUI creation and tuning
+  5) Evaluation and testing
+
+
+
+1.3.1 Introduction to the topic
+Introduction to the topic stage starts with the analysis of materials
+concerning   acoustics   of   the   woodwind   instruments,   acoustic   wave
+propagation and digital waveguide synthesis theory background. The best
+available resource materials treating of a digital waveguide modelling are
+made accessible online by its inventor, Julius O. Smith from the Stanford
+University [4]. Another great source of information is provided by Smith’s
+colleagues from the Stanford’s University CCRMA department – Perry Cook
+and Gary Scavone. Starting with the ultimate open-source library STK
+(Synthesis ToolKit), which is a “set of open source audio signal processing
+and algorithmic synthesis classes written in the C++ programming
+language” [5], through the Scavone’s highly educational PhD thesis about
+single-reed woodwind instruments [6], finishing at Cook’s reader-friendly
+book “Real Sound Synthesis for Interactive Applications” [7]. .
+
+
+
+
+                                                                            9
+Reference materials concerning woodwind instruments and acoustics in
+general were found mostly in the internet: [8], [9], [10] and [11].
+
+1.3.2 Example code analysis
+After obtaining theoretical understanding of how woodwind instrument
+physical models work, the next stage was to implement and run a simple
+model of such instrument in Matlab environment. The STK clarinet and STK
+flute source codes from the open-source STK library were analyzed and
+rewritten using Matlab, thus allowing stage-by-stage analysis of the signal
+flow and better understanding of the sound generation process.
+
+1.3.3 Irish flute implementation
+Unfortunately the author of this thesis does not possess any experience
+playing a clarinet or a transverse flute. Both instruments are quite
+expensive and hard to master for a beginner. Furthermore their physical
+models are constantly improved by specialists from mentioned Stanford
+University CCRMA (Center for Computer Research in Music and Acoustics)
+department or Marseille’s laboratory of mechanics and acoustics of the
+CNRS (Centre National de la Recherche Scientifique) [12]. To keep the
+project down to earth, the Irish flute (also known as the Tin Whistle or
+Scottish flageolet) has been purchased; hence allowing the author to
+conduct comparison tests between the real instrument and its model using
+self played and recorded sounds. Tin whistle with its simple construction,
+almost perfectly cylindrical bore and only six finger holes seemed to be the
+perfect choice for the creation of a new physical model and further
+research.
+
+1.3.4 GUI creation and tuning
+After creating an Irish flute physical model in Matlab using building blocks
+and filter design functions from previously mentioned STK programs, the
+next step was the initial evaluation of obtained sounds. Implementation was
+a success in terms of generating “some” flute-like sounds, but the
+differences between the real Irish flute and its model’s timbre, attack
+character and spectrum were easily perceivable. Therefore in order to make
+parameters adjustment easier, a graphical user interface in Matlab was
+created. The sound samples of a real Irish flute were recorded and made
+
+
+                                                                         10
+available in the application to allow a quick comparison between virtual and
+real-world sounds during calibration process. There is no doubt that this
+part of the project was the most challenging and arduous one. Firstly the
+author had to overcome problems with an unexpected behaviour of the
+model introduced by a feedback in the system, finding a set of parameters
+ensuring stability for most standard musician’s finger configurations on the
+instrument (fingering). Moreover the amplitude, frequency, randomness or
+noise character etc. of an incoming pressure from a player’s mouth are
+equally important factors affecting obtained sound. Hence it was not a
+trivial task to adjust a plethora of parameters in a way to closely reproduce
+real instrument sounds. Last but not least every generation of the couple
+seconds long sound was taking about 20-30 seconds, which made a process
+of tuning quite tedious.
+
+1.3.5 Evaluation and testing
+Last part of the project was focused on the model tuning, analysis of
+various parameters affecting timbre and stability and finally various
+comparison tests with real Irish whistle. Due to perceptible discrepancies
+between synthesized and recorded sounds the idea of performing MOS
+listening tests was abandoned
+
+1.4 Assumptions
+
+1.4.1 Physical modelling and audio compression
+The goal of the project formulated as the creation of a woodwind instrument
+physical model, could be put in the wider context connected with audio
+compression, simultaneously explaining the relevancy of the project for the
+Multimedia Telecommunications Department.
+“MPEG-4 Structured Audio [13] standard of compression defines decoders
+for generating sound based on several kinds of “structured” inputs. Text
+input is converted to speech in the Text-To-Speech (TTS) decoder, while
+more general sounds including music may be normatively synthesized”
+[14]. Hence, a synthetic music may be transmitted at extremely low
+bitrates. The structured audio tools are able to decode music in a
+parameterized form (e.g. scores, MIDI) placed in the bit stream using
+special synthesis language called Structured Audio Orchestral Language.
+
+
+                                                                          11
+The SAOL defines an orchestra made up of various instruments, which
+create and process a control data. The MPEG-4 does not standardize a
+single method of synthesis for this task, but rather a way to describe
+method of synthesis. Therefore any of future sound synthesis method could
+be used, including a physical modelling.
+One of the biggest advantages of physical modelling to become a synthesis
+method of choice in an audio codec’s industry, is its ability to realistically
+synthesize sound of acoustic instruments having a time-sequenced set of
+commands (score) and couple parameters describing an instrument model.
+Physically-based models are a highly structured representation of sound.
+Moreover, the control parameters have a direct physical interpretation, and
+therefore vary slowly enough to be used for efficient coding.
+Naturally other methods should manage to perform the task as well, but for
+a cost of extra memory space in the decoder to keep samples or
+waveforms.
+Summing up, the main advantage of physical modelling approach in
+compression is that ultralow bit-rate transmission can be achieved.
+
+1.4.2 Desired outcome
+Keeping in mind physical modelling properties in the context of audio
+compression and possible future research in this field, the desired project
+outcome could be a set of documented Matlab functions, able to generate
+realistic sound of a woodwind instrument.
+
+1.4.3 Limitations
+At the beginning, physical modelling seems to a be very complex and
+overwhelming topic. Exploration of numerous conference papers demands
+significant amount of knowledge from sciences like digital signal processing,
+acoustics, signals theory, even music. Before this project, author’s
+experience in the field of music synthesis was rather analytical than design
+oriented. Regardless of intellectually exacting and time-consuming process
+of data collection and initial implementation problems, the project was a
+fascinating journey through various author’s interest.
+Implementation code was not optimized, therefore real-time processing is
+not possible. It is very difficult to compete alone with heavy experienced
+teams from CCRMA or Yamaha. Another factor was lack of a MIDI breath
+
+                                                                           12
+controller (e.g. Akai EWI USB) [15], which could take advantage from real-
+time control functionality. Woodwind and brass virtual instruments possess
+a dedicated MIDI controller with a mouth pressure sensor and construction
+similar to woodwind instruments. Control buttons are placed along the bore
+simulating tone-holes and therefore allowing original fingering. Without no
+doubt such device would be a great help to obtain realistic input signal to
+feed later into a physical model.
+
+
+
+
+                                                                        13
+2 Theory
+
+2.1 Acoustic Waves
+
+2.1.1 Acoustic waves propagation in space
+Wave equation governs the propagation of an acoustic wave through a
+material medium e.g. air and describes the evolution of acoustic pressure p
+and particle velocity u as a function of position r and time t. The
+displacement vector r is equals to r = (x, y, z) for the most general three-
+dimensional case. A simplified form considering only one spatial dimension
+has a form:
+
+
+
+                                                                              (2.1)
+
+Here, K is a bulk modulus of a medium and ρ is a density of air. More
+popular form of the same equation is the one with the speed of wave:
+
+
+
+                                                                              (2.2)
+
+From two above equation one can easily see that the speed of wave equals
+to:
+
+
+
+
+                                                                              (2.3)
+
+2.1.2 D’Alembert Solution
+The generalized solution of a one-dimensional wave equation is called
+D’Alembert’s formula and has a form:
+
+
+
+                                                                              (2.4)
+
+where p+ and p- are any arbitrary functions representing two oppositely
+directed pressure waves travelling along the direction of propagation x. The
+plus (+) superscripts indicates travelling in the positive x-direction or to the
+right, while negative (−) superscripts indicate travel in the negative x-
+direction or to the left. “An important point to note about the travelling
+wave   solution of   the   1D wave   equation is   that   a   function   of    two
+
+                                                                                14
+variables has been replaced by two functions of a single variable in time
+units. This leads to great reductions in computational complexity” [16].
+Detailed derivation of the D’Alembert from a one-dimensional wave
+equation can be found in [16].
+D'Alembert's solution serves as the theoretical foundation on which physical
+models for stringed and woodwind instruments are based upon. The
+superposition of two travelling waves yields the standing wave present in an
+actual instrument which is physically responsible for a sound generation.
+
+2.1.3 Digital Waveguide
+In order to digitally represent travelling waves from a D’Alembert solution,
+first they need to be sampled with some time period T.
+
+
+                                                                           (2.5)
+
+
+
+                                                                           (2.6)
+
+
+
+                                                                           (2.7)
+
+After that the propagation of a wave can be simulated using a simple digital
+delay line. Since there are two oppositely directed travelling waves in the
+solution, a second delay line is needed to perform a simulation of a standing
+wave in a flute bore.
+This leads to the invention of a nifty structure called digital waveguide,
+which allows to perform digitalization along both temporal and spatial
+dimensions and may be defined as a bidirectional delay line with some
+impedance R.
+
+
+
+
+Figure 2.1: A N samples long digital waveguide at wave-impedance. (source: [37])
+
+
+
+
+                                                                             15
+Each segment of digital waveguide corresponds not only to the time interval
+of T seconds, but also to the spatial interval of Tc meters. Wave impedance
+R is needed for e.g. in case of connecting two digital waveguides and
+calculating losses due to reflection at their coupling.
+The physical standing wave vibration in the instrument is a sum of left and
+right travelling waves. Figure 2.2 shows an extraction of a physical signal
+from a middle of a digital waveguide using digital line taps.
+
+
+
+
+ Figure 2.2: Extracting a physical signal using delay line taps from the middle of a
+                          digital waveguide. (source: [37])
+
+Delay lines may be tapped in any arbitrary place, so an acoustic vibration
+signal may be obtained from any section of the instrument resonant part in
+a form:
+
+
+                                                                                (2.8)
+
+Or using a digital waveguide model variables:
+
+                                                                                (2.9)
+
+
+
+
+2.2 Digital waveguide acoustic modelling
+
+2.2.1 Lumped acoustic systems
+“An acoustic system in which sound wave propagation is determined by
+solutions to the wave equation is referred as a distributed system” [6]. In
+such case wave variables are functions of both space and time. However
+sometimes it is convenient to determine a lumped input-output response of
+sound wave propagation through an acoustic system and ignore information
+about the exact behaviour everywhere within it. A good example of using a
+lumped-parameter system for convenience comes from a realm of an
+electromagnetism. Instead of considering distributed-parameter systems
+like electric transmission lines or optical waveguides, engineers take
+
+                                                                                  16
+advantage of ordinary RLC circuits. However one condition has to be met in
+order to ensure correct results – the oscillation wavelength has to be large
+relatively to the geometry of the physical component. So the lumped
+system is convenient during analysis of the behaviour of large wavelength
+sound waves within small structures. Operating in the low-frequency limit
+allows describing an acoustic system in terms of fundamental acoustic
+components analogous to masses, springs and dampers known from
+mechanical system analysis or inductors, capacitors and resistors in
+electrical circuit analysis.
+
+2.2.2 Acoustic impedance, admittance and their electrical analogies
+Lumped acoustic system input-output relation in a frequency domain may
+be described using an admittance Г (velocity response of the system to an
+applied pressure input) or impedance Z (pressure response to an applied
+velocity input) as presented in figure 2.3. “Velocity can take form of either
+particle velocity V (in meters per second) for systems in open air or volume
+velocity U (in meters cubed per second) for enclosed structures” [6].
+
+
+
+
+         Figure 2.3: Linear acoustic system block diagrams. (source: [6])
+
+Wave impedance referred also as the characteristic impedance in open air is
+the ratio of pressure P to particle velocity U in a sound wave travelling
+through air is given by:
+
+
+
+                                                                            (2.10)
+
+where ρ is the density of air and c is a speed of sound propagation.
+The acoustic impedance of the open tube expressed in terms of the Laplace
+transform, for zero initial conditions has a form:
+
+
+
+
+                                                                            (2.11)
+
+
+                                                                               17
+Where L is the length of the tube and S is its cross-section. In the low-
+frequency limit an acoustic impedance of an open tube is called an
+inductance or an inertance and it is analogous to the inductance and mass
+in an electrical and mechanical systems, respectively.
+A cavity or a tank is the acoustic analogy of the electrical capacitor or the
+mechanical spring and in given by:
+
+
+
+                                                                       (2.12)
+
+where Q is the cavity volume.
+To express losses in an acoustical system one may use frequency-
+independent real value resistive component with impedance:
+
+
+                                                                       (2.13)
+
+An acoustic resistance equivalent in an electrical and mechanical realm are
+resistor and dashpot, respectively. In practice to represent viscous and
+thermal losses present in the tube, frequency-dependent parameters are
+used and will be described in more details in the next section.
+A detailed derivation of presented formulas for an acoustic inertance, cavity
+and resistance can be found in [6 p. 7].
+
+2.2.3 Wave propagation in cylindrical tubes
+This section describes the behaviour of an acoustic wave propagating inside
+the cylindrical tube. Presented theory forms a basis for understanding
+processes in the cylindrical bores of the clarinet and flute. It is worth
+mentioning that this project does not deal with woodwind instruments
+having a conical, complex bores (e.g. trumpet, saxophone), because of their
+much more advanced acoustical description and bigger computational power
+requirements of their models.
+In general a bore acts as a resonator whose first goal is to emphasize
+certain desirable frequencies. The second goal is to encourage production of
+sustained oscillations within a feedback system. Special finger holes are
+placed along the bore in order to allow effective length variations, thus to
+produce musically useful range of frequencies. A more detailed description
+of flute bore and tone holes is presented in sections 2.3.5 and 2.4.
+
+
+                                                                          18
+An infinite cylindrical pipe, assuming its walls are rigid, perfectly smooth
+and thermally insulated, theoretically allows a lossless propagation of the
+plane wave along its main axis. However, in practice to make the pipe
+resemble a cylindrical bore, one should consider a confine, cylindrical pipe
+of radius r and length L. The axis of the pipe is coincident with the direction
+of wave propagation along the x axis.
+
+
+
+
+    Figure 2.4 A cylindrical pipe in cylindrical polar coordinates. (source: [6])
+
+Scavone in his work [6 p. 10] solves a three dimensional Helmholtz
+equation in cylindrical polar coordinates for such pipe and proves that “wave
+motion in cylindrical bores is primarily planar along the principal axis of the
+tube x”.[6]
+A sinusoidal time dependent planar wave motion equation in the tube has a
+form:
+
+
+                                                                               (2.14)
+
+where ω is the angular velocity of the wave, k is the wave number equal to
+        and C is the amplitude of the wave.
+
+Following [6] the volume flow for a cross-sectional area S is given by:
+
+
+
+                                                                               (2.15)
+
+Hence, the wave impedance is:
+
+
+
+                                                                               (2.16)
+
+In the previous section a digital waveguide with sampled travelling pressure
+waves components within was introduced. To calculate the value of
+propagating volume flow it is necessary to know the acoustic impedance of
+the pipe being modelled.
+
+                                                                                    19
+Knowing that the total pressure of two oppositely travelling pressure waves
+in the tapped digital waveguide is given by:
+
+
+                                                                        (2.17)
+
+Then the volume flow U has a form:
+
+
+
+                                                                        (2.18)
+
+Relations between the pressure and volume velocity travelling wave
+components at any particular position in space x and time t are:
+
+
+                                                                        (2.19)
+
+And
+
+
+                                                                        (2.20)
+
+The characteristic wave impedance Z0 is a frequency-domain parameter.
+Presented equations for pressure and volume velocity in-phase travelling-
+wave components are valid for both frequency- and time-domain analyses,
+because the wave impedance of sound plane wave is purely real and
+independent of position.
+The analysis assumes a lossless wave propagation along the bore, by
+neglecting viscous and thermal effects near the pipe walls. In reality this is
+not a case. Scavone in [6 p. 23] meticulously described an impact of the
+boundary layer friction and thermal exchange with the environment.
+Albeit, for the purposes of this study, theoretical description might be
+omitted. More interesting explanation of the actual influence of the visco-
+thermal layer can be done showing its implementation taken from the
+waveguide bore model.
+In order to truly model a thermoviscous losses distributed along the pipe in
+a digital domain, low pass digital filter should be placed after each unit
+delay in a digital waveguide. To improve computational performance one
+can replace each unit delay with the digital filter designed to approximate
+the attenuation and phase delay incurred over the distance cT (spatial
+sampling interval).
+The transfer function of the filter is given by:
+
+                                                                           20
+                                                                           (2.21)
+
+Where vp is a phase velocity and        is an attenuation coefficient per unit
+length [6]. Both parameters vary with the frequency and depend upon pipe
+radius.
+
+
+
+
+ Figure 2.5 Digital waveguide implementation of lossy plane-wave propagation in
+         the air, with the unit delays incorporated into H(z). (source: [6])
+
+Unfortunately, the solution presented in figure 2.5 significantly increase
+number of calculations in the system. Since the woodwind bore model is
+linear, the problem may be overcame by commuting or lumping filters
+together into one filter   , as long as the signal in not being observed:
+
+
+
+
+                                                                           (2.22)
+
+
+
+
+  Figure 2.6 Commuted thermoviscous losses in digital waveguide cylindrical air
+                    column implementation. (source: [6])
+
+
+
+                                                                                  21
+The solution, as presented in the figure 2.6, allows for significant
+computational savings. It is possible to improve the bore model even
+further by incorporating thermoviscous losses into the transfer function of
+the reflection filter at the end of the bore.
+Figure 2.7 presents the second order digital filter frequency response
+obtained using a least-square approximation with the invfreqz function in
+Matlab. Thermoviscous losses were calculated for an Irish flute bore of 12
+mm diameter. Length of the bore is 25.6 cm equal to approximately 33
+samples for the sampling frequency of 44.1 kHz and speed of sound 343
+m/s. In order to increase an accuracy of approximation in the low frequency
+
+region, a weighting function        was applied to the approximation error
+
+during the optimization.
+
+
+
+
+Figure 2.7 Thermoviscous damping theoretical response (blue) and its digital filter
+approximation (green) for sampling frequency 44100 Hz, pipe radius of 6 mm and
+                             pipe length 25.6 cm.
+
+
+
+
+                                                                                22
+2.2.4 Load Impedances and discontinuities
+Similarly      to   the   transmission     line   discontinuities   known    from
+electromagnetism, an acoustic wave passing between media characterised
+by different impedances produces a reflected wave and transmitted wave.
+Travelling pressure waves are typically reflected in a frequency dependent
+manner characterised by reflection coefficient, or reflectance. Reflectance is
+a frequency-dependent ratio between complex amplitudes of incident and
+reflected waves. For a pipe of characteristic impedance Z0 loaded at the end
+with the impedance ZL , continuous time-domain pressure-wave reflectance
+is given by:
+
+
+
+                                                                            (2.23)
+
+Where ZL is the load impedance at x=L and Z0 is the characteristic
+impedance of the cylindrical tube. Phase-shift term             comes from wave
+propagation from x=0 to x=L and back and has a unity magnitude and can
+be ignored in case of plane waves.
+Similarly as in the transmission line theory reflection coefficient comes in
+pair with transmission coefficient, representing the ratio of incident to
+transmitted complex amplitudes at a particular frequency.
+
+
+
+                                                                            (2.24)
+
+For the     low-frequency waves      the    end of the      open tube   may be
+approximated by ZL = 0. Reflectance becomes negative, indicating that
+pressure travelling-wave components are reflected from the open end of a
+cylindrical tube with an inversion (or a 180o phase shift). For the rigidly
+terminated pipe at x=L, ZL is close to infinity, hence reflectance is equal to
+one and reflection occurs without attenuation and sign change.
+Presented formulas are extensively used to model non-uniform bores by
+division into uniform cylindrical sections and calculating reflected and
+transmitted travelling waves components for every junction.
+
+
+
+
+                                                                               23
+Figure 2.8 A non-uniform bore (a) and its approximation by cylindrical sections (b)
+                                  (source: [6])
+
+The actual load impedance of the unflanged cylindrical pipe of flute or organ
+pipe is complex and frequency dependent. The theoretical solution and its
+derivation obtained by Levine and Schwinger in 1947 is very complicated
+and can be found in [17].
+However for the digital waveguide modelling purposes it is possible to
+design   the   digital   filter,   which   accurately   mimics   continuous   time
+characteristics mentioned above. Figure 2.9 presents a first order IIR filter
+designed using invfreqz method and its location at the termination of the
+bore model.
+
+
+
+
+                                                                                24
+   Figure 2.9 Continuous-time and first order digital filter magnitude and phase
+ response for the Levine and Schwinger reflectance in a cylindrical duct of radius
+                          0.0061 meters. (source: [6])
+
+Figure 2.9 reveals a low-pass characteristics of the reflectance filter. The
+cut-off frequency depends on the radius of the bore. As expected from the
+previous idealized reflectance calculations (ZL=0), filter changes the polarity
+of the input signal, however mostly for low-frequencies (approx. 180
+degrees phase response near DC).
+
+
+
+
+  duct model – complementary model with reflectance and transmittance filters.
+Figure 2.10 Sound radiation filter implementation in a digital waveguide cylindrical
+
+                                    (source: [6])
+
+
+
+
+                                                                                 25
+The output of top delay line in a digital waveguide bore model is fed
+through a filter modelling the reflection impedance. Its output is piped into
+the bottom, oppositely directed delay line. Optionally, the output of the top
+delay line may be filtered by the transmission filter of complementary, high-
+pass characteristics as illustrated in the figure 2.10.
+
+2.2.5 Input impedance
+In the electromagnetism realm transmission lines can be described in the
+frequency domain by the characteristic impedance, defined as the ratio of
+the amplitude of a single voltage to its current wave. Since both
+electromagnetic    as   acoustic   ducts    also   transfer   reflected   waves,
+characteristic impedance differs from the impedance measured at the
+arbitrary place on the line.
+The input impedance (at x=0) ZIN of an acoustic cylindrical tube of length L
+terminated by a load impedance ZL is given by:
+
+
+
+                                                                          (2.25)
+
+Scavone in [6 p.14], using the above equation, derives formulas for
+resonant frequencies of the open-closed (o-c) pipe and open-open pipe (o-
+o), for n=1,2... given by:
+
+
+
+                                                                          (2.26)
+
+
+
+
+                                                                          (2.27)
+
+respectively. Open-closed pipe fundamental wavelength is equal to four
+times its length, while higher harmonics appears at odd integer multiplies of
+the fundamental frequency. In the open-open case resonances occur at all
+integer multiplies of the fundamental frequency, which corresponds to the
+wavelength equal to pipe doubled length.
+The input impedance of an acoustic structure provides               a valuable
+information regarding its natural modes of vibration and effectively
+describes particular resonance properties. A method for measuring an input
+impedance of the non-uniformly distributed bore is shown in [6 p. 16].
+
+
+                                                                             26
+In a digital domain one can find the input impedance using the impulse
+response h(n). Cylindrical bore model with thermoviscous losses ignored
+and rigid termination at the entrance (e.g. clarinet) has a form of the open-
+closed pipe feedback system presented in the figure 2.11.
+
+
+
+
+Figure 2.11 Digital waveguide model of closed-open cylindrical bore. (source: [6])
+
+
+
+The first step of the analysis of a system impedance is to measure the
+impulse response h(n). If the terminating reflectance is approximated by a
+simple polarity change, then the impulse response has a form of infinite
+length periodic impulse train. After that h(n) has to be transformed to the
+frequency domain using the discrete Fourier transform DFT, yielding to
+jtan(kL). One can quickly find obtained result correct, by substituting ZL=0
+and      founding      the      input      impedance        analytically     from:
+
+
+
+                                                                             (2.28)
+
+
+
+
+2.3 Tone holes and other practicalities
+For a musical instrument to be of any particular use, certain requirements
+need to be met. Firstly it should be able to easily produce a variety of
+sounds of different pitches. Cylindrical bore of flute or clarinet is musically
+useful, because it supports the sound generation over a wide range of
+frequencies. This is done twofold – by encouraging sounding on higher
+harmonic normal modes and allowing the effective tube length to be
+variable. In order to preserve the timbre within full available frequency
+
+                                                                                27
+range another conditions needs to be fulfilled, which is the constant ratio
+between the first and successive higher harmonics, regardless of the
+effective acoustical length of the tube.
+Ussualy woodwind instruments are not able to produce all twelve semitones
+in an octave over several octaves in contrary to e.g. piano or guitar, which
+would allow musicians to play arbitrary scale in multiple registers. Available
+range of frequencies depends on the geometrical dimensions and number of
+tone holes. Unsophisticated woodwind instruments like an Irish flute are
+rather designed to allow comfortable work in a particular musical scale only.
+Adjustments of the instrument pitch are controlled by cylindrical holes
+placed strategically along the bore. Appropriate combination of open and
+closed holes changes the effective acoustic length of the bore according to
+musician desire.
+Much of the acoustics behind woodwind tone holes is complicated and is
+generally beyond the scope of this work. However physical process behind
+the functioning of tone holes may be roughly explained within the
+description of implemented discrete-time models.
+“One    modelling      approach   would   be   to   treat   the   tone    hole     as    a
+small waveguide which connects to the main bore via one port on a three-
+port junction. However, since the tone hole length is small compared with
+the    distance   sound    travels   in   one sampling instant     cT    it   is   more
+straightforward to treat the hole as a lumped load along the bore” [18]. This
+approach is taken by two-port model developed by Keefe and improved by
+Smith and Scavone [19]. Last type of the tone hole model implemented in
+this project relies on wave digital filters [20].
+
+2.3.1 Two port junction model
+Very detailed description of the Keefe’s tone hole model in the four-filter
+form can be found in [6]. Single tone hole is represented by the two-port
+junction placed between particular bore sections and consists of two
+reflectance and two transmittance filters. Interaction between neighbouring
+holes is negligible.
+Using travelling pressure waves variables, two-port model transmission
+matrix is given by:
+
+
+
+
+                                                                                        28
+ Figure 2.12 A DWG two port scattering junction in four-filter form. (source: [6])
+
+Scavone describes all acoustical and physical parameters needed to
+calculate transmittance and reflectance of the junction. Second order digital
+filters responsible for filtering transmitted and reflected travelling waves are
+designed using the Matlab error-minimization method invfreqz.
+
+
+
+
+               Figure 2.13 Basic tone hole geometry (source: [6])
+
+
+
+Figures 2.14 and 2.15 present a theoretical reflectance and transmittance of
+an open tone hole calculated for clarinet’s bore of radius a =9.5 mm, tone
+hole radius b=4.75 mm and its shortest height tw=3.4 mm. Figures 2.16
+and 2.17 show a reflectance and transmittance of a closed hole. Green
+curve represents a continuous time characteristics and blue one its second
+order digital filter least-square approximation.
+
+
+
+
+                                                                                 29
+ Figure 2.14 Open tone hole reflectance
+
+
+
+
+Figure 2.15 Open tone hole transmittance
+
+
+
+                                           30
+ Figure 2.16 Closed tone hole reflectance
+
+
+
+
+Figure 2.17 Closed tone hole transmittance
+
+
+
+
+                                             31
+2.3.2 Three-port junction model
+A more computationally efficient approach is to represent the tone hole as
+the junction of three pipes as presented in the figure 2.18:
+
+
+
+
+Figure 2.18 The three-port tone hole junction where a side branch is connected to a
+                      uniform cylindrical tube. (source: [6])
+
+Scavone [6 p. 141] expands dynamic tone hole model proposed by Valimaki
+[22] and derives a one-multiply form of three-port scattering equations for
+pressure travelling waves components, allowing an efficient implementation
+within the physical model of the instrument.
+
+
+
+
+   Figure 2.19 Tone hole three-port scattering junction implementation in one-
+                           multiply form. (source: [6])
+
+
+
+                                                                            (2.29)
+
+
+
+                                                                            (2.30)
+
+
+
+
+                                                                                 32
+                                                                                (2.31)
+
+where
+
+
+                                                                                (2.32)
+
+and
+
+
+
+                                                                                (2.33)
+
+Last thing to complete the digital waveguide three-port tone hole
+implementation is to find an appropriate model of the tone hole itself.
+For the spatial interval cT = 7.87 mm it may be modelled by a short delay
+followed by some sort of terminating reflectance filter Rs(z). When the tone
+hole is completely closed incident pressure waves are ideally reflected
+without inversion. For the open state one can design reflectance filter based
+on the previously shown Levine-Schwinger unflanged pipe solution. Single
+first-order   low-pass   filter    works    perfectly,   accounting   for   frequency
+dependent reflection, losses and propagation delay.
+
+
+
+
+Figure 2.20 Complete structure for discrete-time modelling of three-port tone hole
+            model, including the reflectance filter Rs(z). (source: [20])
+
+2.3.3 Dynamic three-port filter model
+To simulate a more sophisticated behaviour of the hole by allowing it to
+dynamically    change     its     state    of   openness,   the   reflectance    filter
+characteristics has to become variable.
+
+
+                                                                                   33
+The input impedance of the open finger hole seen from the main bore, may
+be expressed as acoustic inertance:
+
+
+
+                                                                            (2.34)
+
+Where t is the tone hole effective height, ρ is the density of air and Sth is
+the cross-sectional area of the hole.
+The tone hole reflectance in terms of Laplace transform is then given by:
+
+
+
+                                                                            (2.35)
+
+Formula 2.35 may be transformed to a discrete-time filter using the bilinear
+transform:
+
+
+
+                                                                            (2.36)
+
+Where
+
+
+
+                                                                            (2.37)
+
+Alpha is a bilinear transform constant controlling the the non-uniform
+scaling of frequency called frequency warping. In case of the tone hole
+reflectance filter, alpha coefficient is set to 2fs to ensure the best possible fit
+in the low-frequency region [6].
+STK toolkit library instrument Blowhole models a dynamic register tone hole
+using varying all-pass filter. Reflectance characteristic mimics a reflection of
+the “mass-like” impedance. Filter phase response varies and is controlled by
+the measure of the hole openness g defined as the ratio between the open
+and total tone hole volume and radiation losses measure gain.
+
+
+                                                                            (2.38)
+
+Differential equation describing a filter has a form:
+
+
+                                                                            (2.39)
+
+
+
+
+                                                                                34
+Figures 2.21 and 2.22 present phase responses of the reflectance filter
+calculated for gain=1 and parameter g=0 representing totally closed hole
+and g=1 standing for fully opened hole.
+
+
+
+
+        Figure 2.21 Closed dynamic tone hole reflectance phase response.
+
+
+
+
+       Figure 2.22 Opened dynamic tone hole reflectance phase response.
+
+2.3.4 Wave digital filter model
+Another efficient digital tone hole model with dynamically adjustable states
+is based on the wave digital filters (WDF). WDF are most often used for
+digital simulation of analogue RLC circuits and their common feature with
+digital waveguide modelling (DWM) techniques is a digitalization of
+continuous-time models using travelling wave variables.
+Presented tone hole model is an example of the combined WDF and DWM
+approach, where lumped elements are represented using WDF and
+distributed elements are modelled using DWM techniques.
+Figure 2.23 presents a cross-sectional view of a woodwind tone hole, whose
+dimensions are relatively small comparing to the acoustic wavelength.
+Therefore acoustic behaviour of the tone hole may be modelled using a
+lumped acoustic element.
+
+
+
+
+                                                                           35
+        Figure 2.23 Cross-sections of a woodwind tone hole. (source: [20])
+
+It was mentioned that an open tone hole behaviour is approximately that of
+pure inertance, while a closed state is very similar to a pure compliance.
+One may try to model an inter-state (partially open or half-hole) by dividing
+the tone hole volume Vb into an “open” and “closed” parts behaving as an
+inertance and compliance, respectively.
+Such “half-hole” model can be equivalently represented using an electrical
+network:
+
+
+
+
+        Figure 2.24 Electrical network representation of the half-hole model.
+
+
+
+Formulas for an acoustical compliance and inertance, represented by a
+capacitor and an inductor, respectively can be found in [20].
+Reflectance filter response is given by:
+
+
+
+                                                                                (2.40)
+
+where
+
+
+
+                                                                                (2.41)
+
+Hence proposed solution includes only one multiplication in the filter and
+one for a three-port scattering function.
+In the previously presented dynamic hole model, a hole was represented by
+either a short digital waveguide followed by a filter or a terminating filter
+
+
+                                                                                   36
+only modelling both propagation and reflectance characteristics. In order for
+the model to work properly, a tone hole minimal height is constrained to the
+value corresponding to at least one-sample delay introduced by the
+reflectance filter or waveguide. Spatial sampling interval for sampling
+frequency 44100 Hz is t = cT/2 = 343/882000 = 3.8 mm. It is possible to
+model smaller tone hole heights by increasing the sampling frequency,
+which is computationally expensive. On the contrary, a WDF model is able
+to perform simulations of finger holes of an arbitrary height, without a need
+of using costly fractional interpolation techniques.
+
+2.4 Interpolation
+The appropriate effect of a given tone hole or tone hole network strongly
+depends on its placement. Therefore it is important for digital waveguide
+models to make available any arbitrary location along the bore. It would be
+very problematic e.g. to express the exact length of the bore section using
+only fixed number of discrete positions corresponding to the sampling
+frequency. Increasing accuracy by decreasing the sampling time interval
+leads to the growth of the computational cost.
+Inaccuracies between lengths of particular digital waveguide sections and
+real instrument geometrical dimensions lead to problems with tuning. That
+is why special interpolation techniques are used, allowing representation of
+fractional delay lengths. Most popular methods in the context of digital
+waveguide modelling are Lagrange interpolators (introducing amplitude
+error) and All-pass filters (introducing phase error), described in details in
+[6 p.124].
+This project takes advantage of the first order Lagrange interpolation
+referred also as linear interpolation. Lagrange interpolator is typically
+implemented as a FIR filter of coefficients given by general formula:
+
+
+
+
+where n=0,1,2...N, N is the order of the filter and    is the fractional delay of
+the interpolator. Sum of the coefficients must be equal to one in order to
+preserve a unity gain at DC. Additionally, the delay       should fall in range
+
+                to keep the filter gains at or below unity over all frequencies
+
+
+
+                                                                              37
+[22]. Table 2.1 presents specific values of the filter impulse response for
+orders 1, 2 and 3.
+Table 2.1 Interpolator coefficients for filter orders 1,2 and 3. (source: [21])
+
+
+
+
+2.5 Excitation models
+A very important paper in the history of physical modelling by McIntyre,
+Schumacher and Woodhouse [23] noted that many musical instruments can
+be characterized as linear resonators, modelled by filters such as all-pole
+resonators or waveguides, and a single nonlinear oscillator like the reed of
+the clarinet, the bow-string friction of the violin or the jet of the flute [7].
+
+
+
+
+Figure 2.25 Block diagram of a general musical oscillator, idealized as energetically
+active non-linear element coupled to an energetically passive linear element.
+(after: [23])
+
+The crucial element providing the energy and assisting in the production of
+stable oscillations within instrument resonator is called the excitation
+source.
+This   section covers a general description of the                sound production
+mechanism in three woodwind family instruments – clarinet, transverse
+flute and recorder. Simple, one-dimensional models of the clarinet and
+transverse flute excitation sources are briefly described based on the
+Scavone’s    and    Cook’s    STK    physical   models.    Finally,   more    detailed
+description of the recorder sound generation process is carried out, which
+closely corresponds to the sound production of the project’s main
+instrument of choice - Tin Whistle.
+
+
+
+
+                                                                                   38
+2.5.1 Clarinet nonlinear excitation mechanism
+Figure   2.26   presents   the   cross-section of   a single-reed   instrument
+mouthpiece (e.g. clarinet or saxophone).
+
+
+
+
+          Figure 2.26 A single-reed woodwind mouthpiece. (source: [6])
+
+The reed is springy and can bend upwards following the dashpot curve on
+the figure. The mouthpiece and reed act as pressure-controlled valve, which
+“allows the energy into the instrument for the initialization and maintenance
+of oscillations in the acoustic resonator” [6]. Player provides a flow of air at
+pressure above atmospheric, which is more or less steady source of energy.
+One can use an electrical analogy treating musician’s mouth pressure as the
+DC acoustic power.
+Therefore reed and mouthpiece characteristics has to be nonlinear to be
+capable of converting the DC input power into the AC oscillating air flow
+producing a sound in the resonator. The single-reed mechanism in a
+mouthpiece also restores the energy lost in the instrument bore due to
+radiation and thermoviscous losses.
+Common simplification for woodwind instruments is to neglect the reed
+mass, hence treating the reed nonlinearity behaviour as memory-less [23].
+Assuming that force acting on the reed is equal to       , where Sr is the reed
+effective surface area and Δp is the difference between the pressure inside
+the bore and the input mouth pressure, one can calculate the reed opening
+position from its spring time constant k using Hooke’s Law:
+
+
+
+                                                                         (2.42)
+
+The reed movement controls the volume flow through the reed channel and
+into the mouthpiece. Many acoustic papers take advantage of the reed
+movement formula to find a relation between the volume flow through the
+reed channel by using the Bernoulli equation for a steady flow.
+
+
+                                                                             39
+                                                                       (2.43)
+
+where w and y are the width and height of the reed channel, respectively,
+and ρ is the density of air.
+Scavone in [6 p.50-51] presents specific formulas describing a volume flow
+through the reed channel for both dynamic and steady flow case. Starting
+with combining the reed opening formula with the Bernoulli equation:
+
+
+
+
+                                                                       (2.44)
+
+Where pC=ky0/Sr is pressure necessary to push the reed against the
+mouthpiece facing and completely close the reed channel.
+
+
+
+
+Figure 2.27 The volume flow and pressure relationships for a single-reed oral
+cavity/mouthpiece. (source: [6])
+
+When the player starts blowing into the instrument, the initial reed pressure
+is equal to zero and the term Δp may be approximated by poc. Figure 2.28
+illustrates the formula for the nonlinear static volume flow uro in the non-
+oscillating regime for 0< poc <pC
+
+
+
+
+                                                                       (2.45)
+
+
+                                                                          40
+Figure 2.28 Steady flow (ur0) through a pressure controlled valve blown closed.
+(source: [6])
+
+One can see that initial increase in the oral cavity pressure results in a rapid
+increase in static volume flow. However, continuous increase of the oral
+cavity pressure leads to forcing the reed toward the mouthpiece facing and
+decrease in the volume flow. When oral cavity reaches pC the reed becomes
+completely shut and volume flow is equal to zero. The region of the curve in
+which flow decreases with increasing pressure is a region of a dynamic
+negative resistance. Whereas positive resistance takes energy out of the
+circuit, a negative one puts energy into the system. This particular region
+downward the sloping curve is the actual operating (active) regime of the
+clarinet during playing.
+After the reed is biased in the negative regime, we can consider the
+dynamic flow through the mouthpiece. In such case, the pressure difference
+becomes a function of both oral cavity pressure and reed pressure and
+dynamic flow behaviour can be described using equations provided by
+Hirschberg:
+
+
+
+                                              if
+
+                                                                          (2.46)
+
+                                              if
+                                                                          (2.47)
+
+
+
+
+                                                                             41
+                                            if
+
+                                                                       (2.48)
+
+Figure 2.29 depicts the nonlinear dynamic volume flow characteristics for
+constant oral cavity          , which pushed the reed by some constant
+
+distance y toward the mouthpiece facing, resulting in production of some
+static volume flow uro. Then the dynamic flow changes according to the
+varying reed channel pressure.
+
+
+
+
+Figure 2.29 Dynamic flow through a pressure controlled valve blown closed for
+poc/pc=0.4 (source: [6])
+
+
+
+
+                                                                          42
+In the first region when                 the volume flow is equal to zero,
+because the negative pressure inside the mouthpiece pulls the reed against
+the mouthpiece facing and stop any volume flow. The next region is
+characterised by increased rapid volume flow which reach a top for reed
+channel pressure equal to 0 which in turn is the point of undisturbed flow of
+static volume flow ur resulting from poc. When poc=pr , the volume flow
+stops, because Δp=Ń. Finally, when reed channel pressure becomes bigger
+than oral cavity, the negative flow into the mouth cavity occurs.
+
+2.5.2 Models of clarinet excitation mechanism
+In 1986 Smith [24] proposed the processing of reed/bore boundary using
+memory-less reflection coefficient, dependent on the difference between
+oral cavity pressure poc and bore pressures pb. His idea was to present the
+reed system in a form of lumped varying acoustic impedance Zr(Δp),
+dependent on the pressure difference Δp. He also assumed the continuity of
+the flow in the bore and the through the reed opening. Using travelling
+pressure waves variables, the equation assuming the conservation of flow
+between the bore and reed has a form:
+
+
+
+                                                                        (2.49)
+
+Where Z0b is the characteristic impedance of the bore, ur is the volume flow
+in the reed channel, ub is the volume flow in the bore and pb+ and pb- is right
+(outgoing) and left (incoming) travelling pressure waves components,
+respectively. Full derivation can be found in [6 p.148]. Finally an expression
+to calculate the value of the right travelling pressure wave using only left
+travelling wave and input oral cavity pressure is found:
+
+
+
+                                                                        (2.50)
+
+Substituting               yields:
+
+
+
+                                                                        (2.51)
+
+
+
+
+                                                                            43
+The presented equation may be easily incorporated into the digital
+waveguide physical model of clarinet in a form as in the figure 2.30. Signal
+dependent reflection coefficient is calculated as:
+
+
+
+                                                                          (2.52)
+
+
+
+
+Figure 2.30 The pressure-dependent reflection coefficient digital waveguide
+implementation. (after: [6])
+
+The model behaviour can be controlled using the slope parameter m and
+closing reed pressure (also referred as offset) pC. The former models the
+reed stiffness, which may vary depending on the material it was made. The
+latter roughly mimics musician embouchure.
+
+
+
+
+Figure 2.31 An example reflection coefficient r(pΔ+) (top), and the corresponding
+reed volume flow ur(pΔ+) (bottom). (source: [6])
+
+                                                                              44
+Figure 2.31 displays a sample reflection coefficient and corresponding
+volume flow. These values are normalized with respect to oral cavity
+pressure. The pressure necessary to close the reed channel is equal to 1.
+When pΔ+ exceeds pc, the reed starts to beat against mouthpiece and
+completely close the reed channel. Hence the reflection coefficient is equal
+to 1 and all incoming pressure from the instrument is reflected. If
+differential pressure is smaller than one incoming pressure reflects partially
+and oral cavity pressure is partially transmitted inside the bore. When pb- is
+greater than poc the negative flow through the reed channel occurs as
+expected. In the above table the desired negative resistance region occurs
+for Ń.5<pΔ+<1.
+It is also possible to model the reed using a reflection polynomial method,
+which has much in common with the signal dependent reflection coefficient
+approach. Both methods were successfully implemented in the course of
+this project
+
+
+
+
+Figure 2.32 The implementation of pressure-dependent reflection coefficient
+polynomial. (source: [6])
+
+Almost twenty years have passed since the development of simple linear
+reed models described in this section. One can find more advanced dynamic
+model in [6 p. 152], which represents the reed by a linear mass-spring-
+damper system with memory; hence more accurately simulate reed beating
+against the mouthpiece. Further improvements can be found in [25], [26]
+and [27]. More advanced single-reed excitation models weren’t investigated
+during   this   study,   because   the   project   scope   has   turned   to   the
+recorder/Irish flute modelling.
+
+
+
+
+                                                                               45
+2.5.3 Excitation mechanism of transverse flute and recorder
+Likewise to the clarinet, flute and recorder are also separable instruments,
+so one can divide them into the nonlinear excitation source and linear
+resonator.
+Flutes, recorders and organ pipes share a common sound production
+mechanism which employs an airstream directed at a sharp edge. An
+airstream can be formed by either musician’s lips (transverse flute) or
+special windway duct ended with a flue as in the case of recorder. Sound
+generation process referred as “air jet” or “air reed” can be described as the
+“flow-controlled valve” or “flow-controlled oscillator”, which has much in
+common with tone producing air oscillations in a bottle, if one blows across
+the opening of the neck.
+Tone generation process in a bottle consist of two complementary stages –
+“when the air is flowing out of the bottle, it directs the airstream outward,
+and when the airflow associated with the resonant vibration is inward, it
+directs the airstream inward to provide energy to sustain the oscillation”
+[28]. Blowing across the opening actually decrease the pressure inside the
+bottle, because of the conservation energy in fluids. According to Bernoulli’s
+Law, if the velocity of the air goes up (kinetic energy), the pressure must
+goes down (potential energy). So the increased velocity of the flow across
+the bottle causes the pressure to drop and in result pulls out some air from
+the   neck. However there’s      no equilibrium      in   the   system, because
+perturbations in the air jet cause fluctuations of the air piston inside the
+bottle neck, producing a steady state oscillation.
+This most basic cavity resonator is called the “Helmholtz resonator”, having
+an oscillation frequency equal to [7]:
+
+
+
+                                                                          (2.53)
+
+Where c is the speed of sound, r and L are bottle’s neck radius and height,
+respectively and V is the total volume of the cavity.
+Similar mechanism involving an oscillating jet appears in flute and recorder
+instruments. The frequency of jet fluctuations corresponds to the resonant
+characteristics of the instrument bore. The theory of jet driven acoustic
+systems is fairly well understood and has been presented in details in the
+
+                                                                             46
+literature: [23], [29], [30] and [31]. Analysis of the jet-drive system
+operation involves various research fields including fluid dynamics, aero-
+acoustics, and physics. Very advanced description of jet behaviour in flute-
+like instruments can be found in [31], including the time-domain physical
+model being a fruit of the research on extraction of quantitative information
+from jet images using image detection algorithms.
+Figure 2.33 presents a cross-section of a typical organ pipe. Its construction
+is very similar to the recorder, therefore one can use as the illustration of
+an air jet sound generation process.
+
+
+
+
+                     Figure 2.33 Organ pipe. (source: [32])
+
+In the organ pipe and the recorder the air is forced through the flue slit,
+across the mouth of the pipe where it hits a hard, bladed edge called the
+labium lip. In the transverse flute the role of the flue slit is played by the
+appropriately shaped mouth and lips of the musician, which forms the air
+jet. Air forced through the flue interacts with the air within the bore such as
+to generate sustained oscillations. Likewise as in the clarinet reed model,
+crucial factor of the system for sustaining oscillations is a negative
+resistance characteristic of the excitation source.
+The air supply is forced out of the slit across the mouth of the pipe and
+forms a turbulent jet, that reacts to the acoustical vibrations of the air
+within the pipe analogically as clarinet’s reed. Wawrzynek in [32] points out
+that, if the jet were simply allowed to move in and out with the air in the
+pipe, the oscillations would be cancelled out, because increased pressure
+inside the pipe would instantaneously force the jet out of the pipe and
+therefore decrease the pressure in the pipe (similarly for the low pressure
+inside the tube). However the jet does not travel as a flat sheet, but it
+interacts with acoustical vibrations in the pipe. As a result transverse waves
+are induced in the jet. The distance between the flue slit and the labium lip
+
+                                                                            47
+is carefully designed to correspond to one-half wavelength of the induced
+transverse wave. The delay along the distance from the flue to the lip
+results in the jet’s alternatively blowing in and out of the pipe one-half cycle
+out of phase with the acoustic displacement out of the mouth pipe due to
+vibration of the air column. This one-half cycle delay is the source of the
+negative resistance [32].
+The mathematical description of this phenomenon can be found at [23],
+[29], [30] and [31]. For purposes of this study, the complicated derivations
+and equations can be omitted, only essential information will be provided
+instead.
+It is common to present the air jet behaviour in the flute-like instruments as
+the relation between the volume flow inside the pipe and the jet deflection.
+
+
+
+
+Figure 2.34 Jet volume flow into a pipe past a lip with offset y0. (source: [30])
+
+It is interesting to recognize, that the jet flow saturates once is it blowing
+completely into the pipe and similarly when is blowing completely out of the
+pipe. This saturation result in an hyperbolic tangent like function presented
+in the figure 2.34. Saturation distortion inserts odd-numbered harmonics
+into the pipe along with the fundamental frequency of the deflection.
+However the complete system will resonate at frequencies resulting from
+the resonant modes of the body pipe. Harmonic content can be controlled
+by changing the vertical position of labium lip, which in result offset the
+deflection vs. flow curve along the x-axis, making it asymmetric and
+
+
+                                                                                    48
+inducing production of even harmonics. Altering the position of interaction
+between the jet and labium lip is a common practice of organ designers and
+transverse flute players to increase even harmonics in the produced sound.
+In recorders the pipe lip is placed at approximately the same height as the
+flue, therefore mostly odd harmonics are created.
+Our environment is filled with sounds resulting from directing the air flow at
+sharp edges of objects which are not coupled with any resonant cavity e.g.
+tightly stretched electric wires in the wind or stretched grass cane placed
+between the thumbs.
+
+
+
+
+                 Figure 2.35 Edge tone generation. (source: [28])
+
+Instead of the smooth and even flow division of the jet at the obstacle, one
+may observe oscillation of the flow back and forth across the edge. The
+reason for that is the formation of swirls and vortices in the flow. The
+frequency of obtained tone is proportional to the flow speed and reciprocal
+to the diameter of edge. Edge-tone instability producing vortex shading
+happens only for a specified oscillation flow conditions, which can be
+conveniently described using a Strouhal number:
+
+
+
+                                                                         (2.54)
+
+Where f is the frequency of vortex shedding, L is the characteristic length
+and V is the velocity of fluid.
+Vortex shedding is responsible for overblowing phenomena, which is
+another way of controlling the pitch by musicians. Apart from using tone
+holes to adjust the effective length of the pipe, musicians, especially those
+playing a transverse flute, are able to control a pitch by adjusting the length
+and speed of the air jet across the embouchure hole.
+
+
+
+
+                                                                            49
+              Figure 2.36 Overblowing mechanism. (source: [28])
+
+In the figure 2.36 different edge tone regimes with patterns of vortex
+formation of some air-reed instrument are presented. As expected
+increasing the velocity of the jet or decreasing the distance from the flue to
+the edge raises the frequency of the produced sound. In contrary to edge
+tone generation in a free-space, where frequency increase is linear in full
+range, one can see that in this case the frequency increase is linear only in
+particular regions, which correspond to the propagating modes of the
+resonance cavity. Hence, to achieve higher notes one may force the air
+column to sound its second harmonic, up an octave from the fundamental.
+In case of the transverse flute both increasing the velocity and decreasing
+the distance (rolling-in) methods are used. In case of recorder it is possible
+to only increase the velocity by blowing harder into the mouthpiece.
+However overblowing in recorders is not so easy to achieve, because of the
+impact of a windway forming a jet. Perhaps this relative easiness of control
+and low price made it so popular classroom instrument in schools.
+
+
+
+2.5.4 Perry’s Cook STK flute excitation model
+Most basic excitation source model was developed by Perry Cook and can be
+found in his book concerning sound synthesis [7] and STK synthesis toolkit
+[5]. The basic idea behind the model is similar to the reflection function of
+clarinet’s reed presented in the previous section.
+Cook proposed a model consisting of a simple, nonlinear polynomial
+function and a delay line. Nonlinear function mimics the tendency of the air
+to flow into or out of the mouth of the instrument as a function of
+
+
+                                                                           50
+differential pressure between the incoming mouth pressure and bore
+pressure. Very often the nonlinearity has a hyperbolic tangent shape with
+apparent saturation characteristics which simulates the flow limiting of the
+jet as it deflects fully into and out of the pipe. Delay line is responsible for
+simulation of the jet propagation from the flue to the labium lip.
+One can see an analogy between the nonlinear function modelling the
+excitation source and the classic waveshaping technique [33], which
+changes an original waveform by responding to its amplitude in a non-linear
+fashion. Waveshaping is a popular method to digitally simulate distortion
+introduced by analog amplifiers.
+Cook proposed a nonlinearity defined as:
+
+
+
+
+Figure 2.37 presents the waveshaping function response for the linear
+function from           range.
+
+
+
+
+                Figure 2.37 Nonlinear waveshaping function x3-x.
+
+If the input signal does not go beyond <-1.325,1.325> range the
+waveshaper inverts the phase of the input signal and introduces the third
+harmonic. Once the limit is exceeded hard limiting occurs and inserts a
+
+
+                                                                             51
+series of odd harmonics resulting from clipping. Figures 2.38 and 2.39
+present the spectrum of the nonlinear function output fed with sinusoidal
+100 Hz signal. Amplitude of the signal on the left equals 1.3, while on the
+right 1.5.
+
+
+
+
+Figure 2.38 and 2.39 Spectrum of the waveshaper output fed with sinusoidal 100
+Hz signal of amplitude 1.3 (left) and 1.5 (right).
+
+Asymmetric nonlinear functions (as in case of organ pipe or transverse
+flute) introduce significant amount of DC error. In a complete physical
+model of a flute the nonlinear function can be followed by a DC blocking
+filter. A 2nd order high-pass filter was proposed, tuned at 20 Hz,
+In order to obtain the fundamental tone, jet length has to be two times
+smaller than the length of the bore. Overblowing is possible by manipulating
+the jet’s length e.g. double reduction of length results in the production of
+second harmonic.
+Unfortunately, the control parameters of the described Cook’s model are not
+determined from the physical dimensions and properties of the actual
+instrument. Verge in his advanced work [2] proposes a one-dimensional
+model of the recorder air-jet mechanism, which accounts for vortex
+shedding, turbulences and other effects that their research group had
+examined experimentally in great detail. Parameters of the model are
+determined by a measurement of real instrument physical dimensions. Even
+more advanced time-domain physical model can be found in [31] which
+incorporates research concerning extraction of quantitative information from
+jet images using image detection algorithms. Both models were not
+implemented during the project, because of the complexity of presented
+acoustics and significant effort invested in getting simpler model to work
+properly.
+
+                                                                           52
+2.5.5 Chris’s Chafe vortex noise model
+Breath noise in wind instruments exhibits pitch-synchronous spectral
+features and has a more constant amplitude contour, compared to the pitch
+synchronous pulsed noise in other musical oscillator e.g. cello or violin [34].
+The formation of vortices and modulation of fricative noise depends on the
+air column oscillation.
+Detailed three-dimensional modelling of vortex formation is a very
+challenging problem. Moreover, the most woodwind excitation source
+models are one-dimensional like Cook’s nonlinear polynomial. Attached
+simple breath noise component being a mixture of the random number
+generator output with the incoming pressure sounds unnatural, because
+there is no interaction with the standing wave in the air column.
+Chafe proposed an efficient vortex-noise circuit extension, which can be
+incorporated into current physical models. Figure 2.40 presents the block
+diagram of the complete woodwind physical model. Elements being an
+inessential for the noise and edge tone generation were omitted and
+grouped in the resonator block.
+
+
+
+
+Figure 2.40 Block diagram of the pitch-synchronous noise model proposed by
+Chafe.
+
+The proposed vortex-noise generator has a form of deterministic chaos
+produced by an iterative quadratic mapping function, whose primary input
+is the noise value in the previous computation cycle.
+
+
+
+
+                                                                         (2.55)
+
+
+
+                                                                            53
+The second input is the feedback signal R from the resonator, whose
+amount is regulated using coefficient       . Coefficients     ,   and        control
+the character of produced noise for different values of R. Produced
+fluctuations can be more or less chaotic and oscillate over varying ranges,
+according to the reflected feedback signal R, hence having a spectral
+content modulated in a pitch synchronous manner to the output signal.
+Another improvement compared to Cook’s model is a modulation of
+nonlinear function coefficients using an obtained noise signal. The general
+form of a waveshaping edge-tone function can be presented as:
+
+
+
+
+                                                                               (2.56)
+
+Where x is the input differential pressure, n is the noise signal from the
+vortex-noise generator, M is an order of the polynomial,           are edge-tone
+polynomial coefficients and     are modulation coefficients.
+An operating point of the nonlinearity is modulated by the noise signal n,
+which depends on the reflected signal R. Therefore a transfer function of the
+edge-tone generator is modulated in the pitch synchronous manner,
+resulting in the a natural sound.
+
+2.6 Clarinet and flute physical models
+During the initial stage of the project physical models of clarinet and flute
+were implemented in order to practically verify the theory presented in
+papers on digital waveguide modelling. The implemented clarinet waveguide
+model is well-documented in many publications by Julius O. Smith [4] and
+Scavone [6], as well as Cook’s simple flute model [7]. Examination of both
+instrument models source code from Synthesis ToolKit [5] allowed an
+implementation in Matlab.
+Clarinet and flute are examples of a closed pipe and an open pipe wind
+instruments, respectively. Formulas for calculating resonant frequencies in
+both types of pipes, as well as the theory concerning sound generation
+mechanisms and its models can be found in previous chapters.
+Figure   2.41   presents    a   complete    system    of     the   clarinet    DWG
+implementation from the STK library. The model consists of a nonlinear
+
+
+
+                                                                                  54
+excitation mechanism, two digital delay lines joined with a low-pass
+reflection filter.
+
+
+
+
+Figure 2.41 Waveguide model of a single-reed, cylindrical-bore woodwind, such as
+                            a clarinet (after: [7])
+
+In [6] the bore is additionally divided into couple of sections interconnected
+by tone hole junctions, hence allowing pitch control in terms of various
+fingering configurations instead of changing the length of delay lines.
+However existing model implemented only three finger holes, therefore
+realistic pitch changes corresponding to the real-world clarinet behaviour
+were not possible.
+Following implementation of flute was build upon MATLAB structures and
+functions developed for clarinet model. Cook’s excitation source using
+nonlinearity and jet delay line were described in details in the previous
+chapter. One should notice that here the output from the main delay line is
+fed into the system in two places, multiplied by appropriate constant
+depending on the feedback node.
+
+
+
+
+     Figure 2.42 Block diagram of Cook's slide flute physical model (after: [7])
+
+Flute and clarinet family instruments possess about ten finger holes and
+additional register holes. However doubts about future control and CPU
+performance of such complex models emerged. Furthermore during the
+evaluation phase, the author would be limited to perform comparison tests
+
+
+
+
+                                                                                   55
+using previously recorded sound samples only or find a professional
+musicians to record unique ones.
+Instead of above, the decision was made to simulate an instrument, which
+is more easy to acquire and play – Irish tin whistle. So instead of extending
+described STK implementations with tone hole lattice models, new physical
+model being a fusion of already working components was built.
+
+
+
+
+                                                                          56
+3 Implementation of an Irish flute physical model
+
+3.1 Introduction
+The Irish whistle is an instrument most often associated with an Irish folk
+music. What makes this       particular instrument interesting is the fact that
+many professional whistle players prefer to play inexpensive whistles,
+founding their tone closer to the “heart” of the traditional Irish music, than
+more expensive varieties. Low cost of the real instrument was one of the
+factors behind the decision of choosing the tin whistle for the most detailed
+implementation and evaluation.
+This chapter describes an Irish flute physical model implementation. In the
+first section the programming environment is introduced. Afterwards the
+block diagram of the model and principal rules of operation are presented.
+Next section covers an application user interface, with a short description of
+available   model    parameters.    Section   3.4   describes   most      significant
+parameters and their impact on the stability of the model and timbre of
+generated sound. Finally the last section presents the methodology of test
+sound samples generation.
+
+
+
+3.2 Irish tin whistle construction and acoustic properties
+
+
+
+
+            Figure 3.1 Tin whistle In D scale. (source: www.google.com)
+
+The whistle consist of approx. 26 cm long (usually metal) tube which is in
+most cases cylindrical, sometimes conical. Six tone holes of different radii
+are placed along the bore. A whistle is attached to one end of the
+instrument. Basic principles of operation are the same as in case of
+recorder, transverse flute or organ pipe and were described in details in
+section 2.5.3.
+
+                                                                                  57
+         Figure 3.2 Air jet hitting the fipple hole of a tin whistle. (source: [35])
+
+Shortly, the air jet formed in the flue channel hits the sharp edge called
+labium lip and rapidly switches between propagating either through the
+instrument bore or passing out the atmosphere, hence setting up acoustic
+oscillations in a pipe accordingly to its resonant frequency.
+Different sounds can be obtained by changing the effective length of the
+resonance pipe while selecting different fingers patterns on the six finger
+holes.
+
+
+
+
+             Figure 3.3 Fingering positions for the tin whistle. (after: [35])
+
+The most common whistle type is in the key of D, which is also the key of
+the Irish folk music. Picture above presents fingering positions allowing
+playing in the D major scale. The black dots indicate closed finger hole,
+while the white dots indicate open finger holes. When all holes are closed
+instrument produces the D5 sound in a lower register (on the left hand side
+on the picture). Configuration on the right hand side, with only top hole
+open, produces the D6 sound in an upper register.
+The tin whistle generates only small number of distinct harmonics
+comparing to other instruments. Most energy is concentrated at first
+harmonic, which is followed by a series of harmonics that roll-off at
+approximately 8 dB/octave. Spectral characteristics may vary depending on
+the played note, instrument manufacturer and embouchure character.
+
+
+
+
+                                                                                       58
+3.3 Block diagram of the Tin Whistle physical model
+Physical model developed during the course of the project has its origins in
+two different physical models described in the previous chapter – STK flute
+and Scavone’s clarinet. Figure 3.4 depicts the block diagram of the Irish tin
+whistle:
+
+
+
+
+           Figure 3.4 Block diagram of the Irish tin whistle physical model
+
+Bottom part of the system is responsible for the input mouth signal
+generation and was inspired by the STK flute model [5]. Left hand side of
+the model acts as the excitation source, forming a jet and generating
+harmonics using wave shaping nonlinear function, pretty much alike as the
+one from the STK model. However nonlinear polynomial coefficients are now
+modulated using the period-synchronous noise signal generated in a similar
+manner as described in the work of Chafe [34]. Right hand side of the
+system models an open-ended bore with six tone holes and was inspired by
+the clarinet bore model in the work of Scavone [6].
+Pressure signal coming from the player’s mouth is modelled as the sum of
+an envelope, random pressure, vibrato and noise signals. Afterwards the
+differential pressure signal is calculated as the difference between the input
+pressure    and   the   pressure    incoming    from    the   bore.   Subsequently
+differential pressure enters the delay line, which simulates the jet
+propagation delay. The length of the jet delay line is adjustable and may be
+altered in order to enable overblowing. The nonlinear waveshaping function
+has two inputs, first one is the jet output and second one is the output of
+
+
+                                                                               59
+the vortex noise generator. The result of the nonlinear equation is summed
+with the scaled incoming bore pressure and enters the boundary layer filter
+responsible for the simulation of thermoviscous losses. The bore is modelled
+using seven tone hole segments, each one consisting of the tone hole
+junction and portions of delay lines on each side of the junction. The model
+uses the wave digital filter tone hole model described in [20]. Last segment
+output enters the reflectance filter, which simulates the acoustical reflection
+from the open end of the tube. Afterwards the pressure sample travels the
+similar path through seven tone hole segments and the boundary loss filter
+at the bottom of the system, finally reaching the junction between the jet
+and the resonator
+   Envelope generator:
+Envelope generator controls the amplitude contour of the generated input
+signal and has a very common form in the music synthesis world - ADSR.
+To control the shape of generated signal user may set four distinct times
+and amplitudes.
+
+
+
+
+                    Figure 3.5 Example of the ADSR envelope.
+
+Attack time is the time taken for initial run-up from zero to peak. Decay
+time is the time taken for the subsequent run down from the attack level to
+the designated sustain level. Sustain level is the level during the main
+sequence of the sound's duration. Release time is the time taken for the
+level to decay from the sustain level to zero.
+The user sets the lengths of envelope sections as the factor of global
+number of samples N. E.g. if generated sound is 1 second long, for
+sampling frequency of 44100 kHz it means that the sequence is 44100
+
+
+
+
+                                                                            60
+samples long (N=44100). To obtain the attack time equal to 441 samples,
+attack time in the application should be set to 0.1.
+   Random pressure generator
+Random pressure generator is a simple module, which roughly simulates
+the random fluctuations of a pressure incoming from the musician’s mouth.
+The user defines the standard deviation of the random signal, its amplitude,
+duration of the single section of constant amplitude and speed of the
+transition between sections. Duration and transition parameters are
+measured in number of samples and as previously user enters them as the
+factor of global number of samples.
+   Vibrato module
+Vibrato signal is a product of the FM modulation of sinusoid of few Hertz
+using the random signal.
+   Noise module
+Produces white noise signal of mean 0 and standard deviation defined by
+the user to simulate very small turbulences in the mouth pressure.
+Implementation derives from the Cook’s STK breath noise model by simply
+adding the envelope multiplied white noise to the input signal. However in
+the Irish tin whistle model an input noise module has a secondary
+importance role, as the more advanced Chafe’s noise model is used.
+   Jet delay line
+Length of the delay line is calculated in a similar manner as in the STK flute
+model:
+
+
+Complete length of the bore delay line is a sum of all its segments minus
+the delay introduced by the lumped elements e.g. the reflectance and
+boundary filters. Default Jetratio value is 0,33.
+   Vortex noise generator
+The vortex-noise generator iterative mapping function equation has a form:
+
+
+                                                                         (3.1)
+
+where n(j) is the noise value in the previous computation cycle and R is the
+reflected signal incoming from the bore.
+Coefficients ensuring chaotic behaviour of the quadratic map comes from
+the work of Chafe:
+
+                                                                           61
+Table 3.1 Coefficients of vortex-noise iterative map generator.
+
+                                Coefficient Value
+                                             0.1
+                                             -0.6
+                                             -0.6
+                                              2
+   Nonlinearity
+General form of the waveshaping edge-tone function is given by:
+
+
+
+
+                                                                          (3.2)
+
+where x is the input differential pressure, n is the noise signal from the
+vortex-noise generator, M is an order of the polynomial,          are edge-tone
+polynomial coefficients and     are modulation coefficients.
+In the tin whistle model polynomial has an order of M=3. Values of bi
+coefficients are the same as in the Cook’s model. Values of the modulation
+coefficients ci were adjusted empirically during the generation of the
+reference sound samples.
+Table 3.2 Coefficients of waveshaping nonlinear function.
+
+                              Coefficient Value
+                                               0
+                                               0
+                                              -1
+                                           -0.015
+                                               0
+                                               0
+                                               1
+                                            0.015
+   Boundary layer filter
+Thermoviscous losses are simulated using two second-order digital filters
+placed at the input and output of the junction between the bore and the
+excitation source. Filter responses were calculated using Matlab invfreqz
+function by the boundary.m m-function provided by Scavone [6]. The
+amount of the high frequencies attenuation introduced by the filters
+depends on the radius of the pipe and its length.
+   Tone hole segment
+The bore is modelled using a digital waveguide technique described in [6]
+The model can be divided into the tone hole segments with two additional
+
+
+
+                                                                            62
+segments at the beginning of the bore and at its end being responsible for
+an excitation and open-ended reflection, respectively.
+
+
+
+
+Figure 3.6 Overall structure of the bore model. (source: [37])
+
+Each tone hole segment is represented by a three-port tone hole junction
+and two delay lines coupled to the junction outputs. The preferred tone hole
+model used for reference samples generation is the wave digital filter model
+described in [20], because it does not limit the minimal geometrical length
+of the hole and enable smooth transitions between the fully open and fully
+closed state. The user may also choose between the dynamic tone hole
+model described in [6] and less advanced, discrete three-port model
+developed by Scavone and Smith [19]
+To preserve the stability of the model, hole models were extended by an
+additional gain control which simulates losses during the radiation and
+eliminates lossless reflection. Both finger hole model parameters and
+lengths of delay lines are calculated using the real instrument geometrical
+dimensions.
+   Reflection filter
+The characteristics of the reflection filter depend on the geometrical
+dimensions of the bore. Irish whistle bore radius is equal to 7,5 mm.
+Scavone in [6] provides a function which takes the pipe radius and
+calculates coefficients of an arbitrary order digital filter using the invfreqz
+function. Figure 3.7 presents the transmittance of the second-order digital
+filter corresponding to the Levine-Schwinger solution for an unflanged
+cylindrical pipe of radius 7,5 mm.
+
+
+
+
+                                                                            63
+Figure 3.7 Reflection filter calculated using openpipe.m function for pipe radius r =
+                  7.5 mm and sampling frequency fs = 44100 Hz.
+
+The filter has a low-pass characteristic with the cut-off frequency equal to 6
+kHz and slope equal to 1.5 dB/octave. Low frequencies experience an
+almost 180 degrees phase-shift. The amount of phase shift decreases as the
+frequency is increased.
+
+3.4 Graphical user interface
+In order to make the painstaking tuning process more convenient, the
+graphical user interface was created using tools provided with the Matlab.
+Figure 3.8 presents the main window of the Irish tin whistle application.
+
+
+
+
+                                                                                  64
+           Figure 3.8 Main window of the Irish flute model application.
+
+Bottom part of the application window contains graphs of the input mouth
+pressure signal and output of the system in time and frequency domain.
+Rest of the interface is designed to control the model, musician interaction
+and display options.
+
+3.4.1 Global parameters and display properties
+   Global panel
+Sets the length of a generated sound by specifying the number of samples
+N. Another parameter to control is the air temperature measured in Celsius,
+which implies the speed of sound.
+   Control panel
+Top two buttons switch on the sound playback and write to disk
+functionalities. If the “external figures” button is enabled, the program
+shows three additional windows containing the output spectrum and its
+spectrogram and an output vs. input waveform. “Plot real” button allows a
+comparison between the real and synthesized signals, by plotting additional
+spectrogram of the recorded sound and recorded vs. synthesized spectrum.
+Last option enables visualization of the random pressure component of the
+input signal.
+   Real sounds panel
+Pressing an appropriate labelled button playbacks a sound of a recorded tin
+whistle, therefore allowing convenient comparison with a sound generated
+
+
+                                                                          65
+by the model during the tuning process. Right hand side of the panel
+defines which note is displayed, if user decided to plot both recorded and
+synthesized signals using “plot real” button.
+
+3.4.2 Input signal parameters
+   Input panel
+Controls the amplitudes and various parameters of vibrato, random
+pressure and noise signals, which form the mouth pressure signal.
+   ADSR panel
+ADSR panel is responsible for setting various envelope parameters like
+duration, amplitude and linear or exponential shape of the particular
+sections.
+
+3.4.3 Physical model parameters
+   Bore sections
+Contains fields storing the lengths of seven bore sections and radius of the
+pipe measured in meters.
+   Tone holes dimensions
+Stores geometrical widths of six instrument tone holes and uniform height
+measured in meters. Similarly to the bore sections panel, tone hole
+numbering starts from a whistle mouthpiece.
+   Model panel
+Consists of four sliders representing physical model parameters controlling
+the amount of direct, jet and bore feedback. Jet ratio slider adjust the
+length of a jet and input gain regulates how much of an input mouth
+pressure signal is allowed into a system.
+   Holes fingering
+In this section user switches between the static and dynamic tone holes
+modelling method described in section 2.3 Static method is the three-port
+tone hole junction described by Scavone and Smith. If dynamic field is
+selected, the user may choose between the dynamic three-port junction
+(Inertance) or wave digital filter modelling (WDF). Depending on the
+selected option control over finger hole state is either two-state only or
+smooth. In the former case, enabled and disabled radio button represents
+fully closed tone and fully open hole, respectively. In the latter case, hole
+state ranges from 0 when fully opened and 1 when fully closed.
+
+                                                                          66
+   Other controls
+Stability of the model may be increased using the hole filter gain parameter,
+which simulates losses due to opened hole sound radiation and closed hole
+friction .
+
+
+
+
+                                                                          67
+4 Evaluation of the Irish tin whistle physical model
+
+4.1 Introduction
+In general “sound quality is a fundamentally subjective (perceptual)
+concept, but it can be approximated by objective and computational
+criteria” [38]. In an audio realm primordial testing methods are comparative
+subjective listening experiments based on the Mean Opinion Score (MOS)
+given by a representative group of volunteers or experts. Depending on the
+type of a tested device/algorithm and character of an input sound (e.g.
+speech, music) various aesthetic and quality features may be examined like
+speech intelligibility, resemblance to the original, clarity of a concert hall or
+level of a degradation introduced by an encoding and decoding processes.
+Subjective MOS tests have proven to be sufficiently accurate, but they are
+generally expensive and time-consuming.
+Before Wood’s research concerning objective test methods for a waveguide
+audio synthesis [36], there have not been any studies conducted for
+objective testing methods for any form of audio synthesis. Calibration and
+testing of a music synthesizer consists of multiple interactions between
+programmers, sound designers, testers and other specialists involved in the
+design process. First of all sound synthesizers are musical instruments, and
+music itself is a completely subjective phenomenon. There are plenty
+examples of musically useful distortions and aesthetically pleasant sounds
+having an overdriven, noisy or just very specific character. Both musicians
+and sound engineers seek for a unique, warm sound, which is very often
+non-measurable by objective means.
+In case of synthesizers using physical modeling technique, performing
+comparison tests between the real instrument and its digital counterpart
+seems to be a natural choice. Listening MOS tests and evaluation conducted
+by professional musicians can be very useful at the stage of interface design
+and model calibration. One may also conclude comparison tests concerning
+e.g. specific acoustical properties, behavior during playing or impact of
+various model parameters.
+
+
+
+
+                                                                              68
+4.2 Evaluation methodology
+This project in its initial stage assumed using both objective and subjective
+methods to evaluate how well designed model approaches the sound of the
+real tin whistle instrument. Subjective tests on the group of listeners have
+been considered to be the fundamental form of a model evaluation.
+Additional PAQM (Perceptual Audio Quality Measure) and NMR (Noise-to-
+Mask Ratio) test scores could be performed as supplementary objective
+tests. However Wood’s work showed that in some cases both PAQM and
+NMR methods fail as the objective test method for the waveguide synthesis
+[36]. Both methods did not manage to correctly classify samples of a
+plucked string produced by leading synthesizers on the market. Even worse
+classification results are expected, when comparing woodwind instruments
+sounds, because of their chaotic, peculiar character.
+Furthermore, test samples generation process revealed notable timbre
+discrepancies   between   recorded   and   synthesized   sounds.   This   fact
+confirmed previous expectations that objective evaluation methods would
+probably give very poor results and therefore should be abandoned.
+Subjective group listening tests were not performed either, mostly due to
+limited amount of time dedicated for this project. The second reason was
+an identification of audible differences between real instrument and
+synthesized sounds. Nevertheless, resignation from the timbre resemblance
+listening tests does not mean improper evaluation; there is still plenty of
+interesting model features worth investigating.
+The first part of conducted evaluation includes a detailed description of most
+interesting control parameters affecting the timbre and stability of the
+implemented model. The following section presents results of a comparison
+between a real tin whistle and its digital simulation by a pitch control,
+timbre features and responses for different excitation signals. Finally the
+last section shows some simplifications and inaccuracies of the model
+responsible for discrepancies between an Irish tin whistle and proposed
+simulation.
+
+
+
+
+                                                                           69
+4.3 Most interesting control parameters
+
+4.3.1 Model adjustments
+The scope of the tuning process was to find a best available model setup
+matching    the   timbre   and   envelope    characteristics   of   collected   real
+instrument sounds. A professional Shure KSM27 microphone and Digidesign
+Pro Tools system was used in the recording process. Each recorded sample
+consists of a approximately three seconds long sound of a single note
+played by the author on the Feadog [39] Irish whistle in key D.
+The ideal outcome of the tuning process would be finding a single set of
+parameters describing a model and an input signal valid for all possible
+fingerings. However, due to the impact of a tone hole lattice, varying
+character of the player’s mouth pressure signal entering the instrument and
+simplifications present in the model, the task of finding such universal
+configuration was not accomplished.
+Table 4.1 shows values of selected parameters resulting from model
+adjustments. The table does not include parameters, which remain constant
+for all fingerings or are responsible for an input mouth pressure signal
+generation. Complete application setup files for particular fingers positions
+can be found on the attached CD, alongside with resulting sounds from the
+model and reference sound samples of the real instrument.
+Table 4.1 Selected parameters from the configuration file.
+
+ Parameter     Bore      Jet        Input    Tone hole C1        C3
+               Feedback Feedback Gain        Filter Gain noise   noise
+ D5               -0,530     -0,510    0,920        0,930 -0,030   0,030
+ E5               -0,730     -0,630    0,950        0,920 -0,015   0,015
+ F#5              -0,680     -0,610    0,950        0,935 -0,015   0,015
+ G5               -0,500     -0,500    0,920        0,970 -0,015   0,015
+ A5               -0,520     -0,500    0,940        0,970 -0,015   0,015
+ H5               -0,480     -0,480    0,920        0,970 -0,015   0,015
+ C#6              -0,480     -0,480    0,900        0,960 -0,010   0,010
+ Average          -0,560     -0,530    0,929        0,951 -0,016   0,016
+ Min              -0,730     -0,630    0,900        0,920 -0,030   0,010
+ Max              -0,480     -0,480    0,950        0,970 -0,010   0,030
+
+
+From the table 4.1 one can see that finding one common set of parameters
+ensuring close reproduction of the tin whistle sound is a non trivial task.
+Problems are caused mostly due to the presence of the tone hole lattice
+
+
+                                                                                 70
+producing multiple reflections along the signal propagation path. The model
+behaves differently, depending on the configuration of opened and closed
+tone holes. Obtaining a whistle like sound for majority of fingerings was
+relatively simple; only slight parameter corrections were needed to increase
+the level of resemblance between synthesized and recorded sounds.
+However, for notes E5 or F#5, production of any sound while preserving the
+stability demanded significant increase of jet and bore feedbacks and
+simultaneous decrease of the tone hole radiation filter gain.
+
+4.3.2 Stability control
+The tone hole filter gain parameter is the main tool provided by the model
+ensuring its stable behavior. Default value suitable for most fingerings is
+0.97, however in case when four or more finger holes are closed, gain
+parameter needs to be decreased or model becomes unstable. Figure 4.1
+shows the spectrum of a D5 sound for the tone hole filter gain parameter
+equal to 0.92 (left) and 0.94 (right).
+
+
+
+
+Figure 4.1 D5 sound for tone hole filter gain equal to 0.92 (left) and 0.94 (right).
+
+The right hand side of the figure 4.1 shows a peak located around 11 kHz.
+Its amplitude is increasing proportionally to the filter gain parameter. For
+example for the note D5 the critical value of the filter gain is 0.94. If critical
+value is exceeded, the model becomes unstable and most of the energy in
+the system cumulates around frequency of 11 kHz as shown in the figure
+4.2. In general, the described effect is much more common for fingerings
+representing many closed finger holes and is caused by the band-pass
+frequency response of the tone hole reflectance filter.
+
+
+
+
+                                                                                       71
+Figure 4.2 Spectrogram illustrating an unstable behavior of the system.
+
+In case of difficult to produce notes like E5 or F#5, jet and bore feedback
+values need to be increased. However one has to be careful, because too
+high values might result in an unstable behavior. The same rule applies to
+parameters controlling the amplitude of the input pressure signal (vibrato
+and random pressure components and ADSR levels) and input gain factor.
+
+4.3.3 Timbre control
+Once physical model parameters are set, instrument timbre depends on the
+amplitude and character of the excitation signal. As expected, the
+implemented model acts likewise to the majority of real instruments,
+following a simple rule that increasing the amplitude of an input signal
+results in the creation of an increased number of successive harmonics.
+Figures 4.3, 4.4 and 4.5 present spectrums of output signals obtained for
+increasing input signal amplitude – starting from 0.8, through 1, finishing at
+1.1.
+
+
+
+
+                                                                           72
+Figure 4.3 Spectrum of the note D5 for the input signal amplitude equal to 0.8
+
+
+
+
+Figure 4.4 Spectrum of the note D5 for the input signal amplitude equal to 1
+
+
+
+
+                                                                                 73
+Figure 4.5 Spectrum of the note D5 for the input signal amplitude equal to 1.1
+
+Figures 4.3 to 4.5 prove that the harmonic content of produced sound
+depends on the amplitude of the excitation signal.
+Another way to vary harmonic richness is to tweak model parameters
+responsible for amount of the feedback in the system. Increasing bore or
+direct feedback factors induces extra harmonics in the generated signal. In
+other words - increasing feedback changes the “sensitivity” of the model,
+because lower input amplitudes are able to produce sounds with richer
+harmonic content.
+Another element affecting perceived timbre is a noise component. The user
+may control its amount in the generated signal either by changing
+modulation coefficients c1 and c3 or mixing some white noise with an input
+signal. Figures 4.6 and 4.7 present the spectrogram and spectrum of the
+output signal without any noise added.
+
+
+
+
+                                                                                 74
+Figure 4.6 Spectrogram of the note H5, no noise component used.
+
+
+
+
+Figure 4.7 Spectrum of the note H5, no noise component used.
+
+First method, which is adding a white noise to an input signal, does not
+produce very pleasant outcome. The injected noise, after propagating
+
+
+                                                                     75
+through a system, sounds more like a hiss; especially high frequency
+content is missing. It is audible that the noise component comes from some
+other source and does not blend with the sound produced by the
+instrument. The remedy could be applying an appropriate filter before
+mixing with other input signal components.
+Second method (Chaffe’s noise model) produces a better outcome.
+Resulting sound has a more pleasant and subtle character. Figures 4.10 and
+4.11 containing the spectrum and spectrogram of the output sound reveal
+that the characteristic shape of harmonic peaks is now better retained,
+comparing to the previous method (figure 4.8 and 4.9). When listened to,
+the energy of noise seems to be distributed in the higher frequency range
+than in the STK model.
+For majority of fingerings, the noise coefficients c1 and c3 were set to -
+0.015 and 0.015, respectively. Further increase results in harsh, unpleasant
+sound. In practice both noise injection methods can be use in a
+complementary way, since the resulting noise affects slightly different
+frequency bands.
+
+
+
+
+Figure 4.8 Spectrogram of the h5 note, white noise mixed with the input signal.
+Noise intensity equal to 0.001.
+
+
+                                                                            76
+Figure 4.9 Spectrum of the h5 note, white noise mixed with the input signal. Noise
+intensity equal to 0.001.
+
+
+
+
+Figure 4.10 Spectrogram of the h5 note, Chaffe's noise model used. C1 = -0.02, C2
+= 0.02
+
+
+
+
+                                                                               77
+Figure 4.11 Spectrum of the h5 note, Chaffe's noise model used. C1 = -0.02, C2 =
+0.02
+
+4.3.4 Overblowing
+It is possible to force an Irish whistle to play in the higher register by
+blowing harder into the instrument. The fingering remains the same as in
+the lower octave.
+Section 4.3.3 showed that blowing harder changed the frequency content,
+but did not affect the produced pitch, as in the case of the real instrument.
+However an overblowing phenomenon can be simulated by manipulating the
+length of the jet delay line.
+For fingering D5, changing the jet ratio parameter from 0.33 to 0.2 results
+in a one octave higher sound. Analogically, further decrease to 0.16 drives
+the model to a generate two octaves higher sound. Unfortunately, some
+fingerings do not produce overtones resulting from changing jet ratio
+parameter. There is also a significant error in the frequency of produced
+higher modes, however it is not surprising as the model in general exhibits
+problems with appropriate tuning. Figures 4.12 and 4.13 illustrate D6 and
+D7 overtones in time and frequency domain.
+
+
+
+
+                                                                             78
+Figure 4.12 Second oscillation mode produced for the fingering of D5 (600 Hz), 25
+Hz tuning error present
+
+
+
+
+                                                                              79
+Figure 4.13 Third oscillation mode produced for the fingering of D5 (600 Hz),
+around 90 Hz tuning error present
+
+
+
+
+                                                                          80
+4.4 Real vs. Virtual tin whistle comparison
+This section deals with the evaluation of the tin whistle model by comparing
+its sounding frequencies and timbre characteristics with the natural
+instrument. The real Irish whistle used in tests is a 26.4 cm long metal tube
+with six tone tone holes. Bore radius is equal to 7.5 mm. Tests were limited
+to the notes resulting from the first mode of oscillation only. Interesting
+features   like   cross   fingering   and   dynamic   tone   hole   states   were
+investigated. Produced sounds were compared with samples of original
+instrument in both frequency and time domain.
+
+4.4.1 Tuning
+The implemented model parameters like tone holes and bore dimensions
+have been set to match geometrical dimensions of the real instrument. The
+model is able to produce only one frequency per fingering, while the real
+instrument produces a range of frequencies depending on the blowing
+pressure   amplitude.     Table   4.2 presents   results of the     fundamental
+frequency measurements taken for natural instrument and corresponding
+values produced by the model. Measurements of the recorded sounds
+fundamental frequency are based on the spectrum graphs calculated with
+the Fast Fourier Transform in the Sound Forge audio processing software.
+Recorded samples were windowed with 32768 samples long Hamming
+window with 75 % of overlap.
+Table 4.2 Theoretical and measured fundamental frequencies from recorded and
+synthesized sounds of tin whistle in key D.
+
+Note Fundamental            Real instrument   Physical model Tuning          Error
+     frequency              fundamental       fundamental    [Hz]
+     (theoretical)[Hz]      frequency [Hz]    frequency [Hz]
+D5   587,33                 595,8-600         656,8                           58,9
+E5   659,26                 660-672           721                              55
+F#5 739,99                  753-760           818                             61,5
+G5   783,99                 790-805           883                             85,5
+A5   880                    885-904           963                             68,5
+H5   987,77                 995-1028          1039                            27,5
+C#6 1108,73                 1080-1150         1120                              -5
+
+
+The first column contains values of the reference frequency for key D notes
+taken from [40]. The second column consist of frequency ranges produced
+by the instrument for successive fingerings. The third column shows values
+of fundamental frequencies produced by the implemented model having the
+
+                                                                               81
+same virtual dimensions as its real counterpart. The last column contains
+the distance between the fundamental frequency generated by the model
+and the centre of frequency range produced by the real instrument for the
+same fingering. This distance measured in Hertz may be considered as the
+average tuning error.
+The table 4.2 shows that the only fingering producing correct results is the
+one with all finger holes open (note C#6). As expected closing successive
+tone holes decreases produced fundamental frequency, but not sufficiently
+enough. One can see that sounds produced by the implemented model are
+in general too sharp comparing to the natural instrument. The amount of
+the tuning error varies from approximately 30 Hz for note H5 to almost 85
+Hz for the note G5.
+Real woodwind instruments are able to produce sounds that are the same in
+pitch, but result from different fingerings. To get the note c#6 three
+different fingering configurations are valid. One may improve tuning
+properties of a particular note by closing additional tone holes at the far end
+of the instrument as presented in the figure 4.14. The same rule applies to
+different notes like A5, G5 or B5. The advantage of such fingerings is an
+increased ability of the instrument to keep its fundamental frequency stable.
+
+
+
+
+            Figure 4.14 Alternative fingerings producing sound C#6
+
+Cross fingering is also useful to get notes laying outside the principal major
+key. The same goal can be also achieved by a technique called “half-holing”
+(partially covering the highest open finger hole).
+After several tests the general conclusion is that the implemented model
+successfully simulate the tone hole lattice impact and is able to produce
+sounds for the same fingerings as the natural instrument, including cross-
+fingerings and half-holing features. However produced sounds are in
+general too high in pitch comparing to the natural instrument, therefore the
+implemented tone hole model should be investigated in more details in
+
+                                                                            82
+order to find the reason of detected error. Naturally in order to keep the
+model stable and able to oscillate some adjustments of parameters like
+feedback or input gain are necessary.
+
+4.4.2 Resonances and timbre
+As it was shown in the previous sections, model exhibits some tuning error.
+Therefore, before performing resonance and timbre tests, the length of the
+bore was appropriately changed to make the model and the real instrument
+play in tune in respect to each other.
+The best match between synthesized and recorded sound was found for the
+note D5. Spectrum graphs of recorded and synthesized notes D5 and A5 are
+presented in the figures 4.15 to 4.20.
+The D5 note spectrum exhibits descending series of harmonics and has a
+minimum of characteristics at 9 kHz reaching -80 dB.
+In case of note A5 the match between harmonics location and their
+amplitude is even better, but synthesized sound spectrum minimum is now
+located around 12 kHz instead of 9 kHz.
+One can also see that harmonic peaks of the recorded sound are wider
+comparing to ones produced by the physical model. The reason for that
+could be slight fluctuations of musician’s breath pressure, resulting in pitch
+fluctuations widening harmonic stripes.
+It is worth mentioning that all recorded samples have some noise
+component around 18 kHz, which is very close to the inaudible frequency
+range; hence has no impact on the quality of a recorded sound. The source
+of the detected peak is probably the air-conditioning device lately installed
+in the studio.
+
+
+
+
+                                                                           83
+Figure 4.15 Synthesized (blue) and recorded (red) note D5.
+
+
+
+
+Figure 4.16 Synthesized (blue) and recorded (red) note A5.
+
+
+
+
+                                                             84
+ Figure 4.17 Spectrogram of the recorded D5 note.
+
+
+
+
+Figure 4.18 Spectrogram of the synthesized D5 note.
+
+
+
+
+                                                      85
+ Figure 4.19 Spectrogram of the recorded A5 note.
+
+
+
+
+Figure 4.20 Spectrogram of the synthesized A5 note.
+
+
+
+
+                                                      86
+Another factor affecting the timbre of the instrument is the non-uniform
+distribution of harmonics along the frequency axis, in such a way that
+successive harmonics lay at imperfect multiples of the fundamental
+frequency. Table 4.3 contains three columns consisting of harmonics
+frequencies calculated as the perfect multiples of fundamental, measured
+from the physical model output spectrum and natural instrument output
+spectrum, respectively. The symbol “x” in the table represents harmonics
+which were non-measureable due to the noise present in the signal.
+One can see that natural instrument harmonics are in general lower in
+frequency comparing to implemented model harmonics (not including
+harmonics numbered 17 and higher). Moreover, also synthesized sound
+harmonics exhibit lower frequencies than expected comparing to reference
+resonances in column one. Greater amount of inharmonicity in the natural
+instrument sound may be the reason of its more “warm” and peculiar
+character.
+Table 4.3 Comparison of physical model and natural instrument harmonics
+frequency location for the note D5.
+
+                        Theoretic    Physical        Natural
+                        harmonic      Model        Instrument
+             Harmonic                Frequency
+              Number Frequency[Hz]          [Hz]   Frequency [Hz]
+                    1        602,9        602,9             602,9
+                    2       1205,8         1204             1203
+                    3       1808,7         1806             1803
+                    4       2411,6         2409             2404
+                    5       3014,5         3009             3007
+                    6       3617,4         3612             3607
+                    7       4220,3         4215             4210
+                    8       4823,2         4815             4810
+                    9       5426,1             x            5410
+                  10         6029              x            6013
+                  11        6631,9             x                x
+                  12        7234,8             x                x
+                  13        7837,7             x                x
+                  14        8440,6             x                x
+                  15        9043,5             x                x
+                  16        9646,4             x            9620
+                  17       10249,3             x           10301
+                  18       10852,2             x           10910
+                  19       11455,1       11111             11150
+                  20        12058        11670             12110
+
+
+                                                                     87
+4.4.3 Transient and stationary characteristics
+The ADSR envelope generator enables only basic control over time domain
+characteristics of an input signal. Therefore the task of a realistic simulation
+of a mouth pressure signal is collectively managed by random pressure,
+vibrato and turbulent noise modules. However even such multi parameter
+control of an input signal encounters problems to simulate the diversity of
+natural excitation characteristics.
+The model encounters problems when the slope of the attack envelope is
+too gentle. From the figure 4.21 and 4.22 one can see that there is an
+apparent delay between the beginning of an excitation and start of output
+oscillations. Apparently, the system will not start forming the output attack
+transient before the constant mouth pressure is applied at its input.
+Therefore selected shape of the curve is irrelevant.
+
+
+
+
+                Figure 4.21 Exponential attack of an input signal.
+
+
+
+
+                                                                             88
+ Figure 4.22 Linear attack of an input signal. The shape of the output transient is
+                the same as in case of exponential type of attack.
+
+
+
+Figure 4.23 shows the time domain plot of the recorded and synthesized D5
+note. Both sounds are 0.2 seconds long and have a gentle character of
+attack and release phases. However, due to the reasons discussed earlier,
+modelling the exact time domain shape for both sounds was impossible. The
+synthesized sound exhibits interesting amplitude modulation after reaching
+its maximum value at the end of the attack transient. The recorded
+waveform in contrary to the generated one does not exhibit the x-axis
+symmetry.
+
+
+
+
+                                                                                  89
+Figure 4.23 Recorded vs. synthesized sound - short duration, gentle attack and
+release slopes.
+
+A detailed view of the transient attack characteristics can be found in the
+figure 4.24. Time domain plots reveal that the shape of a produced wave in
+the attack phase has a very similar shape to the wave produced by the
+system in the stationary phase. From the spectrogram one can deduct that
+the attack transient waveform is richer in higher harmonics and some extra
+amount of noise, but misses an unique and peculiar character comparing to
+the rest of the obtained sound.
+An interesting behavior of attack phase harmonics can be observed on the
+recorded sound spectrogram in the figure 4.27. Frequencies greater than
+fundamental exhibit a rapid modulation of amplitude. In other words they
+seem to be competing to be the second strongest harmonic in the signal
+after the fundamental. This random behaviour is responsible for very
+peculiar character of an abrupt transient of a whistle and unfortunately
+implemented model is not able to reconstruct it.
+
+
+
+
+                                                                           90
+Figure 4.24 Tin whistle synthesized sound characterized by an abrupt attack. Red
+curve is an input signal and blue is an output signal.
+
+
+
+
+Figure 4.25 Recorded sound of the Irish whistle characterised by an abrupt attack.
+
+
+
+
+                                                                                91
+Figure 4.26 Spectrogram of synthesized tin whistle sound characterized by an
+abrupt attack.
+
+
+
+
+Figure 4.27 Spectrogram of the recorded Irish whistle sound characterised by an
+abrupt attack.
+
+
+
+                                                                            92
+As expected there are perceptible discrepancies between the recorded and
+synthesized sounds in the stationary phase. Figures 4.28 to 4.29 point out
+lack of higher harmonics in the generated signal, differences in the phase
+characteristics and too homogeneous character of neighbouring periods.
+
+
+
+
+Figure 4.28 Recorded tin whistle sound - stationary phase.
+
+
+
+
+Figure 4.29 Synthesized tin whistle sound - stationary phase.
+
+                                                                         93
+4.5 Imperfections of the tin whistle model
+The   conducted   evaluation   shows   that   the   implementation      may   be
+considered successful. The model is able to produce whistle-like sounds and
+in general appropriately reacts to different types of excitations and available
+tone hole configurations. On the other hand, conducted tests have also
+pointed out several elements of the model which can be improved.
+The process of collecting samples revealed that an Irish tin whistle is quite
+difficult instrument to play, comparing to the commonly known recorder.
+Even slight variations in the amount of the input mouth pressure cause
+significant changes in the pitch of produced sound. Hence, amateur
+musicians may encounter initial problems with the appropriate tuning while
+playing. The instrument is also prone to mouth pressure variations in the
+steady state resulting in the amplitude modulation effect, which is difficult
+to reproduce by the proposed physical model.
+As discussed in section 4.4, the generated sound is constant in pitch
+regardless of the input signal amplitude. The reason lays in the properties of
+chosen excitation model. Replacing it with the model developed by Verge or
+De La Cudra may produce more realistic results and allow overblowing
+without jet length variations. Significant advantage of more advanced
+models is the possibility to simulate an edge-tone generator of the same
+virtual dimensions as the geometrical dimensions of natural instrument.
+The reason for negligible errors in tuning may be errors in real instrument
+measurements.     However,     the   implemented    model    exhibits    serious
+differences in produced fundamental frequencies comparing to the natural
+whistle. The error increases proportionally to the number of closed tone
+holes. During tests, in order to keep the model and real instrument in tune
+in respect to each other, the length of the model bore was varied. This bore
+length manipulations can be possibly replaced by an appropriate jet length
+corrections in a function of the number of closed holes.
+The WDF tone hole model is suspected to be responsible for tuning
+problems and timbre discrepancies, even though WDF model is considered
+to be the most advanced finger hole model available. The height of Irish
+whistle holes is relatively small comparing to the height of clarinet or
+transverse flute tone holes. The acoustic properties of typical cylindrically
+shaped finger hole are different that in the couple millimetre high whistle
+
+                                                                              94
+hole and the effectiveness of WDF simulation of latter is not completely
+clear. Moreover musician fingers closing the holes, modify the ideal
+cylindrical   shape   of   the   bore   in   the   unknown   manner.   Possible
+improvements of the tone hole model are beyond the scope of this project.
+During the recording process the high pass radiation characteristics of
+instrument tone holes came to light. Ignoring that property may be one of
+the reasons behind the lack of the peculiar noise component in the
+synthesized sounds. Hence, another possible improvement is a more
+advanced simulation of the tone hole lattice sound radiation. Each open or
+partially open tone hole acts as an isotropic source of sound, therefore the
+sound produced by a natural instrument depends on the number of opened
+holes, their geometrical dimensions and distances from the sound receiver.
+In the future simple calculation of the physical model output can be
+replaced by the radiation model proposed by Scavone and van Walstjin
+[20], which includes an accurate modelling of the instrument position in
+respect to the microphone.
+
+
+
+
+                                                                            95
+5 Conclusions and future research
+
+5.1 Research summary
+The project goal formulated as the creation and evaluation of the woodwind
+instrument physical model has been met at the satisfactorily level. The
+implemented Irish whistle model is able to generate range of sounds of
+various   timbre     and   temporal   characteristics.    Chapter   4   considering
+evaluation process enlists imperfections responsible for discrepancies
+between    natural    and    synthesized    sounds,      with   some    suggestions
+considering detected problems.
+
+5.2 Recommendations and future research
+The most urgent improvements were discussed in the section 4.5. One can
+also consider extending the model with the functionality of playing a simple
+melody, by allowing fingering variations, with the accordant reshape of the
+input mouth pressure.
+The painstaking process of tuning could be greatly improved, if the model
+would be able to work in real time. Another element increasing the level of
+excitement during tuning process would be implementing a MIDI control of
+various parameters and especially a real-time input signal generation using
+the MIDI breath controller. In such environment the tone hole lattice could
+be replaced by the simple delay line of varying length. Such solution would
+eliminate tuning errors and problems with unstable behaviour of the model,
+both being caused by the tone hole modelling elements.
+
+
+
+
+                                                                                96
+6 Bibliography
+[1] Tolonen, T., Valimaki, V., Karljalainen, M. (1998) Evaluation of Modern
+Synthesis Methods, Laboratory of Acoustics and Audio Signal Processing,
+Department     of      Electrical   and   Communications        Engineering,     Helsinki
+University of Technology
+[2] Verge, M. (1995) Aeroacoustics of confined jets, with application to the
+physical modeling of recorder-like instruments, Ph.D thesis, Technische
+Universiteit Eidhoven
+[3]   Yamaha      -    The   team    and     the   technology     behind   the    sound
+http://www.yamahaproaudio.com/topics/leading_technology/addon_effects/
+index.html
+[4] Smith, J. O., Digital Waveguide Synthesis - Selected Tutorials, Papers,
+Programming           Examples,      Sound     Samples     and       Related      Links.
+https://ccrma.stanford.edu/~jos/wg.html
+[5] Scavone, G. P. , Cook, P. C. , The Synthesis ToolKit in C++ (STK).
+https://ccrma.stanford.edu/software/stk/
+[6] Scavone, G. P. (1997) An acoustic analysis of single-reed woodwind
+instruments with an emphasis on design and performance issues and digital
+waveguide modeling techniques, Ph.D thesis, CCRMA, Stanford University
+[7] Cook, P. R. (2002) Real Sound Synthesis for Interactive Applications,
+A K Peters Ltd.
+[8] Wolfe, J. How do woodwind instruments works
+http://www.phys.unsw.edu.au/jw/woodwind.html
+[9] Wolfe, J. Introduction to flute acoustics
+http://www.phys.unsw.edu.au/jw/fluteacoustics.html.
+[10] Wolfe, J. Introduction to clarinet acoustics
+http://www.phys.unsw.edu.au/jw/clarinetacoustics.html
+[11] Hirschberg, S.W. , Rienstra, A. (2004) An introduction to acoustics,
+Eindhoven University of Technology
+[12] Ystad, S. (2005) Sound modelling applied to flute sounds, CNRS
+Laboratoire de Mecanique et d’Acoustique Marseille
+[13] ISO/IEC 14496-3:1999, Information technology – Coding of audio-
+visual objects – Part 3: Audio, Subpart 5: Structured Audio, Geneva 1999
+[14] MPEG-4 Description
+
+
+                                                                                      97
+http://mpeg.chiariglione.org/standards/mpeg-4/mpeg-4.htm
+[15] Lewandowski, M. AKAI EWI USB/4000S test. „Estrada i studio
+magazine”, August 2009
+[16] Smith, J. O. D’Alembert formula derivation,
+https://ccrma.stanford.edu/~jos/pasp/Traveling_Wave_Solution_I.html
+[17] Levine, H, Schwinger, J. (1947) On the Radiation of Sound from an
+Unflanged Circular Pipe. Harvard University and Cambridge Massachusetts
+[18] Smith, J. O., Tonehole modeling.
+https://ccrma.stanford.edu/~jos/pasp/Tonehole_Modeling.html.
+[19] Smith, J. O., Scavone, G. P. (1997), The One-Filter Keefe Clarinet
+Tonehole. CCRMA, Stanford
+[20] van Walstijn, M., Scavone, G. P. (2000) The Wave Digital Tonehole
+Model, CCRMA, Stanford
+[21] Smith, J.O., Explicit Lagrange Coefficient Formulas
+https://ccrma.stanford.edu/~jos/pasp/Explicit_Lagrange_Coefficient_Formu
+las.html
+[22] Valimaki, V. (1995) Discrete-Time Modeling of Acoustic Tubes Using
+Fractional   Delay   Filters,   Laboratory   of   Acoustics   and   Audio   Signal
+Processing, Department of Electrical and Communications Engineering,
+Helsinki University of Technology
+[23] McIntyre, M.E., Schumacher, R.T., Woodhouse, J. (1983) On the
+oscillations of musical instruments
+[24] Smith, J. O. (1986) Efficient simulation of the reed-bore and bow-
+string mechanisms. ICMC papers
+[25] van Waljstin, M. (2002) Discrete time modeling of brass and reed
+instruments with application to musical sound synthesis. Ph.D thesis,
+University of Edinburgh
+[26]. Avanzini, F. (2001) Computational issues in physically-based sound
+models., Ph.D thesis, University of Padova
+[27] Smyth, T., Abel, J. and Smith, J. O., (2004) The feathered clarinet
+reed. CCRMA, Stanford
+[28] Nave, C. R., Flow controlled valve model for pipe excitation.
+http://hyperphysics.phy-astr.gsu.edu/hbase/music/edge3.html
+[29] Coltman, J. W. (1976) Jet drive mechanisms in edge tones and organ
+pipes
+
+                                                                               98
+[30] Fletcher, N.H. (1998) The nonlinear physics of musical instruments.
+Research School of Physical Sciences and Engineering, Australian National
+University.
+[31] de la Cuadra, P. (2006) Sound of osciallting air jets; physics, modelling
+and simulation in flute-like instruments.,Ph.D thesis, CCRMA, Stanford
+[32] Wawrzynek, J. (1987) VLSI concurrent computation for music
+synthesis. Ph.D thesis, California Institute of Technology
+[33] Le Brun, M. (1979) Digital Waveshaping Synthesis, Journal of the
+Audio Engineering Society, 27(4), p. 250-266
+[34] Chafe, C. (1995) Adding vortex noise to wind instrument physical
+model, ICMC recordings
+[35] Tymony, J. and others (2004) Timbral attributes for objective quality
+assessment of the Irish tin whistle, Int. Confernce of Digital Audio Effects,
+Naples
+[36] Wood, S. G. (2008) Objective test methods for digital waveguide
+synthesis.M.Sc Thesis, Brigham Young University, York
+[37] Bartsch, M. A. (1999)     A hybrid waveguide model of the transverse
+flute, J. Acoust. Soc. Am. Volume 106, Issue 4, pp. 2142-2142
+[38] Karlajainen, M. Communication acoustics lecture notes
+http://www.acoustics.hut.fi/
+[39] The official website of Irish flute manufacturer Feadog.
+http://www.feadog.ie/
+[40] Fundamental frequency tone chart
+http://www.daktik.rubikon.pl/muzyka/muzyka_tabela_czestotliwosci_tonow
+.htm
+
+
+
+
+                                                                           99
+

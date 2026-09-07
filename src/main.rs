@@ -1,4 +1,4 @@
-use cadsd::geo::Geo;
+use cadsd::Geo;
 
 fn main() {
     println!("CADSD - Didgeridoo Analysis");

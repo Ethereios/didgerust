@@ -5,8 +5,11 @@ edition = "2021"
 
 [dependencies]
 cadsd-accurate = { path = "rust-cadsd-accurate", default-features = true }
+
+# GUI dependencies (optional, enabled via feature)
 makepad-widgets = { path = "../makepad/widgets", optional = true }
 makepad-xr = { path = "../makepad/xr", optional = true }
+
 rfd = { version = "0.17", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -20,18 +23,33 @@ env_logger = "0.11"
 log = "0.4"
 plotters = "0.3"
 lazy_static = "1.4"
+# Audio processing
+cpal = { version = "0.18", optional = true }
+# Research tools
+autodiff-rs = { git = "https://github.com/ArunBabu98/autodiff-rs", optional = true }
+dfdx = { version = "0.13", optional = true }
+# SuperInstance-derived math/signal crates (optional)
+conservation-law = { git = "https://github.com/SuperInstance/conservation-law-rs", optional = true }
+lau-signal-processing = { git = "https://github.com/SuperInstance/lau-signal-processing", optional = true }
 
 [dev-dependencies]
 approx = "0.5"
 ndarray = "0.16"
+criterion = "0.5"
 
 [features]
 default = []
 gui = ["makepad-widgets", "makepad-xr", "rfd"]
+cpal-integration = ["cpal"]
+nn-integration = ["dfdx"]
+diff-tlm = ["autodiff-rs"]
+md-lif = []
+conservation-law = ["dep:conservation-law"]
+dsp = ["dep:lau-signal-processing"]
 
-[[bin]]
-name = "cadsd"
-path = "src/main.rs"
+[[bench]]
+name = "waveguide_vs_tlm"
+harness = false
 
 [[bin]]
 name = "cadsd-gui"

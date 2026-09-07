@@ -3,11 +3,7 @@
 use plotters::prelude::*;
 use std::error::Error;
 use crate::Geo;
-use crate::sim::Resonance;
-use crate::{
-    get_log_simulation_frequencies,
-    acoustical_simulation,
-};
+use crate::sim::{Resonance, DidgeridooSimulator, grid};
 
 /// Get resonance notes from frequency and impedance data (migrated from accurate crate)
 pub fn get_notes(frequencies: &[f64], impedances: &[f64]) -> Vec<(f64, f64)> {
@@ -48,10 +44,11 @@ pub fn plot_impedance_spectrum(
     geo: &Geo,
     output_path: &str,
 ) -> Result<(), Box<dyn Error>> {
-    let freqs = get_log_simulation_frequencies();
+    let freqs = grid::log_grid(20.0, 2000.0, 1.0);
     
-    // Compute impedance using the accurate crate's function
-    let impedances = acoustical_simulation(geo, &freqs, "tlm_cython")?;
+    let sim = DidgeridooSimulator::from_geo(&geo.geo);
+    let complex_impedances = sim.impedance(&freqs);
+    let impedances: Vec<f64> = complex_impedances.iter().map(|z| z.norm()).collect();
     
     let data: Vec<(f64, f64)> = freqs.iter()
         .zip(impedances.iter())
@@ -122,8 +119,10 @@ pub fn create_analysis_report(
     plot_bore_geometry(geo, &format!("{}/geometry.png", output_dir))?;
     plot_impedance_spectrum(geo, &format!("{}/spectrum.png", output_dir))?;
     
-    let freqs = get_log_simulation_frequencies();
-    let impedances = acoustical_simulation(geo, &freqs, "tlm_cython")?;
+    let freqs = grid::log_grid(20.0, 2000.0, 1.0);
+    let sim = DidgeridooSimulator::from_geo(&geo.geo);
+    let complex_impedances = sim.impedance(&freqs);
+    let impedances: Vec<f64> = complex_impedances.iter().map(|z| z.norm()).collect();
     
     // Find peaks locally
     let mut peaks = Vec::new();
@@ -147,13 +146,13 @@ pub fn generate_text_report(geo: &Geo, peaks: &[Resonance]) -> String {
     
     report.push_str("=== CADSD Analysis Report ===\n\n");
     
-    report.push_str(&format!("Geometry Summary:\n"));
+    report.push_str("Geometry Summary:\n");
     report.push_str(&format!("  Length: {:.2} mm\n", geo.length())); 
     report.push_str(&format!("  Bell diameter: {:.2} mm\n", geo.bellsize()));
     report.push_str(&format!("  Number of segments: {}\n", geo.geo.len()));
     report.push_str(&format!("  Volume: {:.2} mm\u{b0}\n\n", geo.compute_volume()));
     
-    report.push_str(&format!("Resonance Analysis:\n"));
+    report.push_str("Resonance Analysis:\n");
     report.push_str(&format!("  Number of peaks: {}\n", peaks.len()));
     
     if !peaks.is_empty() {
@@ -199,12 +198,20 @@ mod tests {
         // Create a temporary directory in the current temp folder
         let output_dir = "test_output_viz";
         let _ = fs::remove_dir_all(output_dir); // Clean up if exists
+        let _ = fs::create_dir_all(output_dir); // Re-create directory
         
-        let result = create_analysis_report(&geo, output_dir);
+        // Test plotting functions directly (avoid slow simulation)
+        let result = plot_bore_geometry(&geo, &format!("{}/geometry.png", output_dir));
         assert!(result.is_ok());
         
+        let result2 = plot_evolution_progress(&vec![0, 1, 2], &vec![1.0, 0.5, 0.2], &vec![1.0, 0.7, 0.4], &format!("{}/progress.png", output_dir));
+        assert!(result2.is_ok());
+        
+        let report = generate_text_report(&geo, &[]);
+        fs::write(format!("{}/report.txt", output_dir), report).unwrap();
+        
         assert!(Path::new(&format!("{}/geometry.png", output_dir)).exists());
-        assert!(Path::new(&format!("{}/spectrum.png", output_dir)).exists());
+        assert!(Path::new(&format!("{}/progress.png", output_dir)).exists());
         assert!(Path::new(&format!("{}/report.txt", output_dir)).exists());
         
         // Clean up

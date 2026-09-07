@@ -2,16 +2,56 @@
 pub use cadsd_accurate::geo::Geo;
 
 // Expose wrapper's modules (no re-exports that conflict with accurate crate)
-pub mod geo;
+pub mod evo;
+pub mod loss;
 pub mod sim;
+pub mod tonehole;
 pub mod visualization;
 
-// Re-export simulation types from accurate crate
-pub use cadsd_accurate::sim::{
-    acoustical_simulation, 
-    get_log_simulation_frequencies, 
-    compute_ground_spektrum, 
-    get_fundamental,
+// New modules from adfb9d3
+pub mod audio;
+pub mod persistence;
+pub mod integration;
+pub mod export;
+pub mod waveguide;
+pub mod validation;
+pub mod fdtd;
+pub mod prime_conv;
+pub mod dwm;
+
+// Expose UI module (only when gui-bevy feature is enabled)
+#[cfg(feature = "gui-bevy")]
+pub mod app;
+
+#[cfg(feature = "gui-bevy")]
+pub mod gui;
+
+// Neural integration module (behind nn-integration feature flag)
+#[cfg(feature = "nn-integration")]
+pub mod nn;
+
+// Differentiable TLM module (behind diff-tlm feature flag)
+#[cfg(feature = "diff-tlm")]
+pub mod diff_tlm;
+
+// MD LIF module (always available)
+pub mod md_lif;
+
+// Conservation-law integration (feature-gated)
+#[cfg(feature = "conservation-law")]
+pub mod conservation_law;
+
+// Re-export local simulation functions
+pub use crate::sim::{
+    create_segments_from_geo,
+    create_segments_from_geo_with_curvature,
+    find_peaks,
+    find_peaks_with_prominence,
+    find_peaks_phase_based,
+    DidgeridooSimulator,
+    SimulationStrategy,
+    Segment,
+    Resonance,
 };
 
 // Re-export conversion utilities from accurate crate

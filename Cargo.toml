@@ -5,9 +5,8 @@ edition = "2021"
 
 [dependencies]
 cadsd-accurate = { path = "rust-cadsd-accurate", default-features = true }
-bevy = { version = "0.19", optional = true }
-bevy_egui = { version = "0.41", optional = true }
-egui_plot = { version = "0.36", optional = true }
+makepad-widgets = { path = "../makepad/widgets", optional = true }
+makepad-xr = { path = "../makepad/xr", optional = true }
 rfd = { version = "0.17", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -28,7 +27,7 @@ ndarray = "0.16"
 
 [features]
 default = []
-gui-bevy = ["bevy", "bevy_egui", "egui_plot", "rfd"]
+gui = ["makepad-widgets", "makepad-xr", "rfd"]
 
 [[bin]]
 name = "cadsd"
@@ -37,4 +36,4 @@ path = "src/main.rs"
 [[bin]]
 name = "cadsd-gui"
 path = "src/bin/gui.rs"
-required-features = ["gui-bevy"]
+required-features = ["gui"]

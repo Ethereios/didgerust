@@ -1,883 +1,560 @@
-use bevy::prelude::*;
-use bevy_egui::{EguiPlugin, EguiContexts, egui};
-use egui_plot::{Plot, Line, PlotPoints, VLine};
+pub use makepad_widgets::*;
+pub use makepad_xr::scene::*;
 
-use cadsd_accurate::conv::{note_name, freq_to_note};
-use cadsd_accurate::sim::{get_log_simulation_frequencies};
-use cadsd_accurate::integration::{DefaultSimulator, DefaultOptimizer};
 use cadsd_accurate::geo::Geo;
-use rfd::FileDialog;
-use std::fs;
-use std::sync::mpsc;
-use std::thread;
-use std::sync::Arc;
+use cadsd_accurate::sim::{acoustical_simulation, get_fundamental};
+use cadsd_accurate::conv::{note_name, freq_to_note};
 
-#[derive(Debug)]
-enum BackgroundTaskResult {
-    Simulation {
-        frequencies: Vec<f64>,
-        impedances: Vec<f64>,
-        fundamental: Option<f64>,
-        resonance_notes: Vec<(f64, f64)>,
-        tairua_loss: f64,
-    },
-    SimulationError(String),
-    OptimizationProgress {
-        generation: usize,
-        total_generations: usize,
-        best_loss: f64,
-    },
-    OptimizationSuccess {
-        design: cadsd_accurate::inverse_design::DesignResult,
-        frequencies: Vec<f64>,
-        impedances: Vec<f64>,
-    },
-    OptimizationError(String),
-}
+app_main!(App);
 
-#[derive(Resource)]
-struct BackgroundChannels {
-    sender: mpsc::Sender<BackgroundTaskResult>,
-}
+script_mod! {
+    use mod.prelude.widgets.*;
+    use mod.widgets.*;
+    use mod.math.*;
+    use mod.shader.*;
+    use mod.draw;
+    use mod.geom;
 
-impl BackgroundChannels {
-    fn new(sender: mpsc::Sender<BackgroundTaskResult>) -> Self {
-        Self { sender }
-    }
-}
+    mod.draw.DrawPhysMesh = mod.std.set_type_default() do #(DrawPhysMesh::script_shader(vm)){
+        alpha_blend: false
+        backface_culling: true
+        vertex_pos: vertex_position(vec4f)
+        fb0: fragment_output(0, vec4f)
+        draw_call: uniform_buffer(draw.DrawCallUniforms)
+        draw_pass: uniform_buffer(draw.DrawPassUniforms)
+        draw_list: uniform_buffer(draw.DrawListUniforms)
+        geom: vertex_buffer(geom.IcoVertex, geom.IcoGeom)
+        u_light_dir: uniform(vec3(-0.35, 0.84, 0.42))
+        u_fill_dir: uniform(vec3(0.58, 0.35, -0.62))
+        v_world_clip: varying(vec4f)
+        v_world: varying(vec3f)
+        v_normal: varying(vec3f)
 
-#[derive(Resource, Debug)]
-pub struct CadsdState {
-    pub length: f32,
-    pub top_diameter: f32,
-    pub bottom_diameter: f32,
-    pub segments: usize,
-    pub bore_style: String,
-    pub bore_curve: f32,
-    pub enable_mouthpiece: bool,
-    pub mouthpiece_type: String,
-    pub mouthpiece_length: f32,
-    pub mouthpiece_diameter: f32,
-    pub enable_holes: bool,
-    pub hole_count: usize,
-    pub hole_positions: Vec<f32>,
-    pub hole_diameters: Vec<f32>,
-    pub wall_thickness: f32,
-    pub temperature: f32,
-    pub frequencies: Vec<f64>,
-    pub impedances: Vec<f64>,
-    pub fundamental_freq: Option<f64>,
-    pub resonance_notes: Vec<(f64, f64)>,
-    pub target_frequency: f64,
-    pub tairua_loss_value: f64,
-    pub show_wireframe: bool,
-    pub mesh_rotation_enabled: bool,
-    pub mesh_rotation_speed: f32,
-    pub color_scheme: String,
-    pub is_simulating: bool,
-    pub last_error: Option<String>,
-    pub sim_message: String,
-    pub pending_optimization: bool,
-    pub optimization_progress: f32,
-    pub opt_population_size: usize,
-    pub opt_generations: usize,
-    pub opt_bore_shape: String,
-    pub opt_min_length: f32,
-    pub opt_max_length: f32,
-    pub opt_min_bell: f32,
-    pub opt_max_bell: f32,
-    pub opt_toots_input: String,
-    pub active_tab: String,
-}
+        active_camera_world_pos: fn() -> vec3f {
+            let camera_world = self.draw_pass.camera_inv * vec4(0.0, 0.0, 0.0, 1.0)
+            return vec3(
+                camera_world.x / max(camera_world.w, 0.00001),
+                camera_world.y / max(camera_world.w, 0.00001),
+                camera_world.z / max(camera_world.w, 0.00001)
+            )
+        }
 
-impl Default for CadsdState {
-    fn default() -> Self {
-        Self {
-            length: 950.0,
-            top_diameter: 35.0,
-            bottom_diameter: 85.0,
-            segments: 50,
-            bore_style: "cone".to_string(),
-            bore_curve: 0.0,
-            enable_mouthpiece: false,
-            mouthpiece_type: "reed".to_string(),
-            mouthpiece_length: 50.0,
-            mouthpiece_diameter: 35.0,
-            enable_holes: false,
-            hole_count: 0,
-            hole_positions: vec![],
-            hole_diameters: vec![],
-            wall_thickness: 4.0,
-            temperature: 20.0,
-            frequencies: vec![],
-            impedances: vec![],
-            fundamental_freq: None,
-            resonance_notes: vec![],
-            target_frequency: 65.41,
-            tairua_loss_value: 0.0,
-            show_wireframe: false,
-            mesh_rotation_enabled: false,
-            mesh_rotation_speed: 30.0,
-            color_scheme: "wood".to_string(),
-            is_simulating: false,
-            last_error: None,
-            sim_message: "Ready. Click 'Run Simulation'".to_string(),
-            pending_optimization: false,
-            optimization_progress: 0.0,
-            opt_population_size: 40,
-            opt_generations: 30,
-            opt_bore_shape: "any".to_string(),
-            opt_min_length: 1000.0,
-            opt_max_length: 2000.0,
-            opt_min_bell: 40.0,
-            opt_max_bell: 100.0,
-            opt_toots_input: "".to_string(),
-            active_tab: "forward".to_string(),
+        vertex: fn() {
+            let local_pos = vec3(
+                self.geom.pos.x * self.scale.x,
+                self.geom.pos.y * self.scale.y,
+                self.geom.pos.z * self.scale.z
+            )
+            let local_normal = normalize(vec3(
+                self.geom.normal.x / max(self.scale.x, 0.00001),
+                self.geom.normal.y / max(self.scale.y, 0.00001),
+                self.geom.normal.z / max(self.scale.z, 0.00001)
+            ))
+            let model_view = self.draw_list.view_transform * self.transform
+            let world = model_view * vec4(local_pos.x, local_pos.y, local_pos.z, 1.0)
+            let world_normal = normalize((model_view * vec4(local_normal.x, local_normal.y, local_normal.z, 0.0)).xyz)
+            self.v_world = world.xyz
+            self.v_normal = world_normal
+            self.v_world_clip = vec4(world.x, world.y, world.z, 1.0)
+            let view_pos = self.draw_pass.camera_view * world
+            self.vertex_pos = self.draw_pass.camera_projection * view_pos
+        }
+
+        pixel: fn() {
+            let normal = normalize(self.v_normal)
+            let view_dir = normalize(self.active_camera_world_pos() - self.v_world)
+            let key = max(dot(normal, normalize(self.u_light_dir)), 0.0)
+            let fill = max(dot(normal, normalize(self.u_fill_dir)), 0.0)
+            let rim = pow(max(1.0 - max(dot(normal, view_dir), 0.0), 0.0), 2.5)
+            let lit = 0.18 + key * 0.72 + fill * 0.20 + rim * 0.22
+            let color = self.color.xyz * lit + vec3(0.04, 0.05, 0.07) * rim
+            return vec4(color, self.color.w)
+        }
+
+        fragment: fn() {
+            self.fb0 = depth_clip(self.v_world_clip, self.pixel(), self.depth_clip)
         }
     }
-}
 
-fn main() {
-    let state = CadsdState::default();
-    let (tx, rx) = mpsc::channel();
-    
-    let mut app = App::new();
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window {
-            title: "CADSD - Didgeridoo Analyzer".into(),
-            resolution: (1280.0, 720.0).into(),
-            ..default()
-        }),
-        ..default()
-    }));
-    app.add_plugins(EguiPlugin);
-    app.insert_resource(ClearColor(Color::srgb(0.07, 0.07, 0.10)));
-    app.insert_resource(state);
-    app.insert_resource(BackgroundChannels::new(tx));
-    app.add_systems(Startup, setup);
-    app.add_systems(Update, ui_system);
-    app.add_systems(Update, poll_background_tasks);
-    app.run();
-}
-
-fn setup(mut commands: Commands) {
-    commands.spawn(Camera3d::default());
-    commands.spawn(DirectionalLight {
-        illuminance: 15000.0,
-        ..default()
-    });
-}
-
-fn create_geometry(state: &CadsdState) -> Geo {
-    let n = state.segments.max(2);
-    let mut points = Vec::with_capacity(n);
-    for i in 0..n {
-        let t = i as f64 / (n - 1) as f64;
-        let x = t * state.length as f64;
-        let d = match state.bore_style.as_str() {
-            "exponential" => {
-                let ratio = state.top_diameter as f64 / state.bottom_diameter as f64;
-                state.top_diameter as f64 * ratio.powf(t)
-            }
-            "cylinder" => state.top_diameter as f64,
-            _ => {
-                state.top_diameter as f64 + t * (state.bottom_diameter as f64 - state.top_diameter as f64)
-            }
-        };
-        points.push([x, d]);
+    mod.widgets.BoreViewportBase = #(BoreViewport::register_widget(vm))
+    mod.widgets.BoreViewport = set_type_default() do mod.widgets.BoreViewportBase{
+        width: Fill
+        height: Fill
+        clear_color: #x0b1016
+        draw_bg: mod.draw.DrawXrSceneTexture{}
+        draw_mesh: mod.draw.DrawPhysMesh{
+            backface_culling: true
+        }
+        camera: mod.widgets.XrCamera{
+            fov_y: 45.0
+            desktop_target: vec3(0.5, 0.25, 0.7)
+            distance: 12.0
+            distance_min: 3.0
+            distance_max: 50.0
+            wheel_zoom_step: 0.1
+        }
     }
-    Geo::new(points)
-}
 
-fn start_simulation(state: &mut CadsdState, tx: &mpsc::Sender<BackgroundTaskResult>) {
-    let freqs = get_log_simulation_frequencies();
-    let geo = create_geometry(state);
-    
-    state.is_simulating = true;
-    state.sim_message = "Starting simulation...".to_string();
-    state.last_error = None;
-    
-    let tx_clone = tx.clone();
-    thread::spawn(move || {
-        match cadsd_accurate::sim::acoustical_simulation(&geo, &freqs, "tlm_python") {
-            Ok(impedances) => {
-                let (fundamental, _) = cadsd_accurate::sim::get_fundamental(&geo, "tlm_python", 20.0)
-                    .unwrap_or((65.41, 1.0));
-                
-                let mut resonance_notes = vec![];
-                for i in 1..impedances.len()-1 {
-                    if impedances[i] > impedances[i-1] && impedances[i] > impedances[i+1] {
-                        resonance_notes.push((freqs[i], impedances[i]));
-                    }
-                }
-                
-                let _ = tx_clone.send(BackgroundTaskResult::Simulation {
-                    frequencies: freqs,
-                    impedances,
-                    fundamental: Some(fundamental),
-                    resonance_notes,
-                    tairua_loss: 0.0,
-                });
-            }
-            Err(e) => {
-                let _ = tx_clone.send(BackgroundTaskResult::SimulationError(e.to_string()));
-            }
-        }
-    });
-}
+    startup() do #(App::script_component(vm)){
+        ui: Root{
+            main_window := Window{
+                window.inner_size: vec2(1200, 760)
+                body +: {
+                    app_view := SolidView{
+                        width: Fill
+                        height: Fill
+                        flow: Down
+                        draw_bg +: {color: #x0d1116}
 
-fn start_optimization(state: &mut CadsdState, tx: &mpsc::Sender<BackgroundTaskResult>) {
-    let tx_clone = tx.clone();
-    
-    let target_frequency = state.target_frequency;
-    let opt_bore_shape = state.opt_bore_shape.clone();
-    let opt_min_length = state.opt_min_length;
-    let opt_max_length = state.opt_max_length;
-    let opt_min_bell = state.opt_min_bell;
-    let opt_max_bell = state.opt_max_bell;
-    let opt_toots_input = state.opt_toots_input.clone();
-    let opt_population_size = state.opt_population_size;
-    let opt_generations = state.opt_generations;
-    
-    state.is_simulating = true;
-    state.sim_message = "Initializing evolutionary designer...".to_string();
-    state.last_error = None;
-    
-    thread::spawn(move || {
-        let mut target = cadsd_accurate::evo::TargetSound::new(target_frequency as f64);
-        let bore_shape = match opt_bore_shape.as_str() {
-            "cylindrical" => cadsd_accurate::evo::BoreShapePreference::Cylindrical,
-            "conical" => cadsd_accurate::evo::BoreShapePreference::Conical,
-            "flared" => cadsd_accurate::evo::BoreShapePreference::Flared,
-            _ => cadsd_accurate::evo::BoreShapePreference::Any,
-        };
-        target = target.with_bore_shape(bore_shape);
-        target = target.with_length_range(opt_min_length as f64, opt_max_length as f64);
-        target = target.with_bell_range(opt_min_bell as f64, opt_max_bell as f64);
-        
-        if !opt_toots_input.trim().is_empty() {
-            for part in opt_toots_input.split(',') {
-                if let Ok(freq) = part.trim().parse::<f64>() {
-                    target = target.with_toot(freq);
-                }
-            }
-        }
-        
-        let tx_progress = tx_clone.clone();
-        let progress_cb = Arc::new(move |gen: usize, best_loss: f64| {
-            let _ = tx_progress.send(BackgroundTaskResult::OptimizationProgress {
-                generation: gen,
-                total_generations: opt_generations,
-                best_loss,
-            });
-        });
-        
-        let opt = DefaultOptimizer;
-        match opt.optimize(target, opt_population_size, opt_generations, Some(progress_cb)) {
-            Ok(result) => {
-                let sim = DefaultSimulator;
-                let mut frequencies = Vec::with_capacity(513);
-                let step = (2000.0 - 20.0) / 512.0;
-                for i in 0..=512 {
-                    frequencies.push(20.0 + i as f64 * step);
-                }
-                let impedances = sim.simulate(&result.geometry, &frequencies).unwrap_or_default();
-                
-                let _ = tx_clone.send(BackgroundTaskResult::OptimizationSuccess {
-                    design: result,
-                    frequencies,
-                    impedances,
-                });
-            }
-            Err(e) => {
-                let _ = tx_clone.send(BackgroundTaskResult::OptimizationError(e.to_string()));
-            }
-        }
-    });
-}
+                        header := SolidView{
+                            width: Fill
+                            height: 44.0
+                            flow: Right
+                            align: Align{x: 0.0 y: 0.5}
+                            padding: Inset{left: 14.0 right: 14.0}
+                            spacing: 12.0
+                            draw_bg +: {color: #x171d24}
 
-fn ui_system(
-    mut contexts: EguiContexts,
-    mut state: ResMut<CadsdState>,
-    channels: Res<BackgroundChannels>,
-) {
-    let ctx = contexts.ctx_mut();
-    
-    let mut visuals = egui::Visuals::dark();
-    visuals.widgets.noninteractive.bg_fill = egui::Color32::from_rgb(18, 18, 22);
-    visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(26, 28, 36);
-    visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(45, 52, 68);
-    visuals.widgets.active.bg_fill = egui::Color32::from_rgb(60, 80, 120);
-    ctx.set_visuals(visuals);
-    
-    egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-        ui.horizontal(|ui| {
-            ui.heading("CADSD");
-            ui.vertical(|ui| {
-                ui.style_mut().spacing.item_spacing = egui::vec2(4.0, 1.0);
-                ui.small("Computer-Aided Didgeridoo Sound Design");
-            });
-            
-            ui.separator();
-            
-            ui.selectable_value(&mut state.active_tab, "forward".to_string(), "Forward Design");
-            ui.selectable_value(&mut state.active_tab, "inverse".to_string(), "Inverse Design");
-            ui.selectable_value(&mut state.active_tab, "analysis".to_string(), "Analysis");
-            ui.selectable_value(&mut state.active_tab, "export".to_string(), "Export");
-            ui.selectable_value(&mut state.active_tab, "settings".to_string(), "Settings");
-            
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.small("v0.1.0");
-            });
-        });
-    });
-    
-    egui::SidePanel::left("controls_panel")
-        .default_width(300.0)
-        .show(ctx, |ui| {
-            match state.active_tab.as_str() {
-                "forward" => show_forward_design_panel(ui, &mut state, &channels.sender),
-                "inverse" => show_inverse_design_panel(ui, &mut state, &channels.sender),
-                "analysis" => show_analysis_panel(ui, &mut state),
-                "export" => show_export_panel(ui, &mut state),
-                "settings" => show_settings_panel(ui, &mut state),
-                _ => {}
-            }
-        });
-    
-    if !state.impedances.is_empty() {
-        egui::TopBottomPanel::bottom("spectrum_panel")
-            .default_height(280.0)
-            .show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    ui.heading("Impedance Spectrum");
-                    if let Some(fund) = state.fundamental_freq {
-                        ui.separator();
-                        ui.label(format!(
-                            "Fundamental: {:.2} Hz ({})",
-                            fund,
-                            note_name(freq_to_note(fund))
-                        ));
-                    }
-                });
-                
-                let points: Vec<[f64; 2]> = state
-                    .frequencies
-                    .iter()
-                    .zip(state.impedances.iter())
-                    .map(|(&f, &z)| [f, z])
-                    .collect();
-                
-                let line = Line::new("Impedance", PlotPoints::from(points))
-                    .color(egui::Color32::from_rgb(100, 150, 255));
-                
-                Plot::new("impedance_plot")
-                    .view_aspect(2.0)
-                    .allow_zoom(true)
-                    .allow_scroll(true)
-                    .show(ui, |plot_ui| {
-                        plot_ui.line(line);
-                        
-                        if let Some(fund) = state.fundamental_freq {
-                            plot_ui.vline(VLine::new(fund));
+                            title := H3{
+                                text: "CADSD - Didgeridoo Analyzer"
+                                draw_text +: {color: #xdfe7ee}
+                            }
+                            hint := Label{
+                                text: "drag: orbit  wheel: zoom"
+                                draw_text +: {color: #x8391a0}
+                            }
                         }
-                    });
-            });
-    }
-    
-    egui::CentralPanel::default().show(ctx, |ui| {
-        ui.heading("CADSD - Didgeridoo Analyzer");
-        ui.add_space(10.0);
-        
-        ui.label(&format!(
-            "Geometry: {}mm {} | Temp: {:.0}C | Wall: {:.0}mm",
-            state.length, state.bore_style, state.temperature, state.wall_thickness
-        ));
-        
-        if state.is_simulating {
-            ui.spinner();
-            ui.label(&state.sim_message);
-        }
-        
-        ui.add_space(10.0);
-        ui.separator();
-        
-        if !state.impedances.is_empty() {
-            ui.label(&format!(
-                "Impedance spectrum computed: {} frequency points",
-                state.frequencies.len()
-            ));
-            if let Some(freq) = state.fundamental_freq {
-                ui.label(format!(
-                    "Peak frequency: {:.1} Hz ({})",
-                    freq,
-                    note_name(freq_to_note(freq))
-                ));
-            }
-        } else {
-            ui.label("Click 'Run Simulation' in the Forward Design panel");
-        }
-    });
-}
 
-fn poll_background_tasks(
-    channels: Res<BackgroundChannels>,
-    mut state: ResMut<CadsdState>,
-) {
-    while let Ok(msg) = channels.sender.try_recv() {
-        match msg {
-            BackgroundTaskResult::Simulation {
-                frequencies,
-                impedances,
-                fundamental,
-                resonance_notes,
-                tairua_loss,
-            } => {
-                state.is_simulating = false;
-                state.frequencies = frequencies;
-                state.impedances = impedances;
-                state.fundamental_freq = fundamental;
-                state.resonance_notes = resonance_notes;
-                state.tairua_loss_value = tairua_loss;
-                state.sim_message = format!(
-                    "Complete - Found {} resonances",
-                    state.resonance_notes.len()
-                );
-                state.last_error = None;
-            }
-            BackgroundTaskResult::SimulationError(err) => {
-                state.is_simulating = false;
-                state.last_error = Some(err);
-                state.sim_message = "Simulation failed".to_string();
-            }
-            BackgroundTaskResult::OptimizationProgress {
-                generation,
-                total_generations,
-                best_loss,
-            } => {
-                state.optimization_progress = (generation + 1) as f32 / total_generations as f32;
-                state.sim_message = format!(
-                    "Evolving... Gen {}/{} (Best Loss: {:.4})",
-                    generation + 1,
-                    total_generations,
-                    best_loss
-                );
-            }
-            BackgroundTaskResult::OptimizationSuccess {
-                design,
-                frequencies,
-                impedances,
-            } => {
-                state.is_simulating = false;
-                state.optimization_progress = 0.0;
-                
-                let best_geo = &design.geometry;
-                if let (Some(first), Some(last)) = (best_geo.geo.first(), best_geo.geo.last()) {
-                    state.length = best_geo.length() as f32;
-                    state.segments = best_geo.geo.len().saturating_sub(1).max(1);
-                    state.top_diameter = first[1] as f32;
-                    state.bottom_diameter = last[1] as f32;
-                    let is_cyl = (state.top_diameter - state.bottom_diameter).abs() < 0.1;
-                    state.bore_style = if is_cyl {
-                        "cylinder".to_string()
-                    } else {
-                        "cone".to_string()
-                    };
-                }
-                
-                state.fundamental_freq = Some(design.fundamental_freq);
-                state.resonance_notes = design.resonances;
-                state.tairua_loss_value = design.loss;
-                state.frequencies = frequencies;
-                state.impedances = impedances;
-                
-                state.sim_message = format!(
-                    "Optimization Complete! Loss: {:.4}",
-                    design.loss
-                );
-                state.last_error = None;
-            }
-            BackgroundTaskResult::OptimizationError(err) => {
-                state.is_simulating = false;
-                state.optimization_progress = 0.0;
-                state.last_error = Some(err);
-                state.sim_message = "Optimization failed".to_string();
-            }
-        }
-    }
-}
+                        content := View{
+                            width: Fill
+                            height: Fill
+                            flow: Right
+                            spacing: 4
+                            padding: 8
+                            draw_bg +: {color: #x12161d}
 
-fn show_forward_design_panel(ui: &mut egui::Ui, state: &mut CadsdState, tx: &mpsc::Sender<BackgroundTaskResult>) {
-    ui.heading("Forward Design");
-    ui.separator();
-    ui.small("Define geometry -> Simulate acoustics");
-    ui.separator();
-    
-    ui.heading("Base Didgeridoo");
-    
-    egui::ComboBox::new(egui::Id::new("bore_style"), "Bore style")
-        .selected_text(&state.bore_style)
-        .show_ui(ui, |ui| {
-            ui.selectable_value(&mut state.bore_style, "cone".to_string(), "Cone (TLM)");
-            ui.selectable_value(&mut state.bore_style, "cylinder".to_string(), "Cylinder (Waveguide)");
-            ui.selectable_value(&mut state.bore_style, "exponential".to_string(), "Exponential (Complex)");
-        });
-    
-    ui.add_enabled_ui(!state.is_simulating, |ui| {
-        ui.add(egui::Slider::new(&mut state.length, 500.0..=3000.0)
-            .text("Length (mm)")
-            .step_by(10.0));
-        
-        ui.add(egui::Slider::new(&mut state.top_diameter, 10.0..=50.0)
-            .text("Mouth Diameter (mm)")
-            .step_by(0.5));
-        
-        ui.add(egui::Slider::new(&mut state.bottom_diameter, 20.0..=100.0)
-            .text("Bell Diameter (mm)")
-            .step_by(0.5));
-        
-        ui.add(egui::Slider::new(&mut state.segments, 5..=500usize).text("Segments"));
-    });
-    
-    ui.separator();
-    
-    ui.collapsing("Mouthpiece", |ui| {
-        ui.checkbox(&mut state.enable_mouthpiece, "Enable mouthpiece");
-        if state.enable_mouthpiece {
-            egui::ComboBox::new(egui::Id::new("mouthpiece_type"), "Mouthpiece type")
-                .selected_text(&state.mouthpiece_type)
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut state.mouthpiece_type, "reed".to_string(), "Reed (clarinet/sax)");
-                    ui.selectable_value(&mut state.mouthpiece_type, "embouchure_hole".to_string(), "Embouchure (flute)");
-                    ui.selectable_value(&mut state.mouthpiece_type, "fipple".to_string(), "Fipple (recorder)");
-                    ui.selectable_value(&mut state.mouthpiece_type, "cup".to_string(), "Cup (brass)");
-                });
-            
-            ui.add(egui::Slider::new(&mut state.mouthpiece_length, 20.0..=150.0)
-                .text("Mouthpiece Length (mm)")
-                .step_by(5.0));
-            
-            ui.add(egui::Slider::new(&mut state.mouthpiece_diameter, 10.0..=50.0)
-                .text("Mouthpiece Diameter (mm)")
-                .step_by(0.5));
-        }
-    });
-    
-    ui.separator();
-    
-    ui.collapsing("Finger Holes", |ui| {
-        ui.checkbox(&mut state.enable_holes, "Enable holes");
-        if state.enable_holes {
-            ui.add(egui::Slider::new(&mut state.hole_count, 0usize..=12).text("Number of holes"));
-            if state.hole_positions.len() != state.hole_count {
-                let mut new_positions = Vec::with_capacity(state.hole_count);
-                let mut new_diameters = Vec::with_capacity(state.hole_count);
-                for i in 0..state.hole_count {
-                    let pos = if i < state.hole_positions.len() {
-                        state.hole_positions[i]
-                    } else {
-                        ((i + 1) as f32) * state.length / ((state.hole_count + 1) as f32)
-                    };
-                    let dia = if i < state.hole_diameters.len() {
-                        state.hole_diameters[i]
-                    } else {
-                        10.0
-                    };
-                    new_positions.push(pos);
-                    new_diameters.push(dia);
-                }
-                state.hole_positions = new_positions;
-                state.hole_diameters = new_diameters;
-            }
-            for i in 0..state.hole_count {
-                ui.horizontal(|ui| {
-                    ui.label(format!("Hole {}:", i + 1));
-                    ui.add(egui::Slider::new(&mut state.hole_positions[i], 0.0..=state.length)
-                        .text("Pos (mm)")
-                        .step_by(1.0));
-                    ui.add(egui::Slider::new(&mut state.hole_diameters[i], 5.0..=30.0)
-                        .text("Dia (mm)")
-                        .step_by(0.5));
-                });
-            }
-        }
-    });
-    
-    ui.separator();
-    
-    ui.heading("Simulation");
-    
-    if state.is_simulating {
-        ui.horizontal(|ui| {
-            ui.spinner();
-            ui.label(&state.sim_message);
-        });
-    } else if let Some(error) = &state.last_error {
-        ui.colored_label(egui::Color32::RED, format!("Error: {}", error));
-    } else if !state.impedances.is_empty() {
-        ui.colored_label(egui::Color32::GREEN, "Complete");
-    }
-    
-    if ui.button(if state.is_simulating { "Running..." } else { "Run Simulation" }).clicked() && !state.is_simulating {
-        start_simulation(state, tx);
-    }
-    
-    ui.separator();
-    
-    if !state.impedances.is_empty() {
-        ui.heading("Results");
-        if let Some(freq) = state.fundamental_freq {
-            ui.label(format!(
-                "Fundamental: {:.1} Hz ({})",
-                freq,
-                note_name(freq_to_note(freq))
-            ));
-        }
-        ui.label(format!("Resonances found: {}", state.resonance_notes.len()));
-        for (i, res) in state.resonance_notes.iter().take(5).enumerate() {
-            ui.label(format!("{}. {:.1} Hz (Z={:.1})", i + 1, res.0, res.1));
-        }
-    }
-}
+                            sidebar := SolidView{
+                                width: 320
+                                height: Fill
+                                flow: Down
+                                spacing: 10
+                                padding: 10
+                                draw_bg +: {color: #x171d24}
 
-fn show_inverse_design_panel(ui: &mut egui::Ui, state: &mut CadsdState, tx: &mpsc::Sender<BackgroundTaskResult>) {
-    ui.heading("Inverse Design");
-    ui.separator();
-    ui.small("Define target sound & constraints -> Optimize geometry");
-    ui.separator();
-    
-    ui.add_enabled_ui(!state.is_simulating, |ui| {
-        ui.heading("Target Sound");
-        
-        ui.add(egui::Slider::new(&mut state.target_frequency, 40.0..=200.0)
-            .text("Fundamental (Hz)")
-            .step_by(0.1));
-        ui.small(format!("Note: {}", note_name(freq_to_note(state.target_frequency))));
-        
-        ui.horizontal(|ui| {
-            ui.label("Preferred Shape:");
-            egui::ComboBox::new(egui::Id::new("opt_bore_shape"), "Shape")
-                .selected_text(match state.opt_bore_shape.as_str() {
-                    "cylindrical" => "Cylindrical",
-                    "conical" => "Conical",
-                    "flared" => "Flared",
-                    _ => "Any",
-                })
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut state.opt_bore_shape, "any".to_string(), "Any");
-                    ui.selectable_value(&mut state.opt_bore_shape, "cylindrical".to_string(), "Cylindrical");
-                    ui.selectable_value(&mut state.opt_bore_shape, "conical".to_string(), "Conical");
-                    ui.selectable_value(&mut state.opt_bore_shape, "flared".to_string(), "Flared");
-                });
-        });
-        
-        ui.label("Target Toots (comma-separated Hz):");
-        ui.text_edit_singleline(&mut state.opt_toots_input);
-        ui.small("Example: 196.0, 261.6");
-        
-        ui.separator();
-        ui.heading("Constraints");
-        
-        ui.label("Length Range (mm):");
-        ui.add(egui::Slider::new(&mut state.opt_min_length, 500.0..=2500.0).text("Min Length"));
-        ui.add(egui::Slider::new(&mut state.opt_max_length, 500.0..=2500.0).text("Max Length"));
-        if state.opt_min_length > state.opt_max_length {
-            state.opt_max_length = state.opt_min_length;
-        }
-        
-        ui.label("Bell Diameter Range (mm):");
-        ui.add(egui::Slider::new(&mut state.opt_min_bell, 30.0..=150.0).text("Min Bell"));
-        ui.add(egui::Slider::new(&mut state.opt_max_bell, 30.0..=150.0).text("Max Bell"));
-        if state.opt_min_bell > state.opt_max_bell {
-            state.opt_max_bell = state.opt_min_bell;
-        }
-        
-        ui.separator();
-        ui.heading("Search Parameters");
-        ui.add(egui::Slider::new(&mut state.opt_population_size, 10..=100).text("Population"));
-        ui.add(egui::Slider::new(&mut state.opt_generations, 5..=100).text("Generations"));
-    });
-    
-    ui.separator();
-    
-    if state.is_simulating {
-        ui.vertical(|ui| {
-            ui.horizontal(|ui| {
-                ui.add(egui::Spinner::new().size(16.0));
-                ui.label(&state.sim_message);
-            });
-            ui.add(egui::ProgressBar::new(state.optimization_progress)
-                .text(format!("{:.1}%", state.optimization_progress * 100.0))
-                .animate(true));
-        });
-    } else if let Some(error) = &state.last_error {
-        ui.colored_label(egui::Color32::RED, format!("Error: {}", error));
-    } else if state.tairua_loss_value > 0.0 {
-        ui.colored_label(egui::Color32::GREEN, format!("Complete. Loss: {:.4}", state.tairua_loss_value));
-    }
-    
-    ui.add_enabled_ui(!state.is_simulating, |ui| {
-        if ui.button(if state.is_simulating { "Optimizing..." } else { "Run Optimization" }).clicked() && !state.is_simulating {
-            start_optimization(state, tx);
-        }
-    });
-}
+                                section_title := Label{
+                                    width: Fill
+                                    height: 24
+                                    text: "Geometry"
+                                    draw_text +: {color: #xdfe7ee, font_size: 14}
+                                }
 
-fn show_analysis_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
-    ui.heading("Analysis");
-    ui.separator();
-    
-    if state.resonance_notes.is_empty() {
-        ui.label("Run a simulation first to see analysis");
-        return;
-    }
-    
-    ui.heading("Resonance Peaks");
-    
-    egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
-        for (i, (freq, amp)) in state.resonance_notes.iter().enumerate() {
-            ui.horizontal(|ui| {
-                ui.label(format!("{}", i + 1));
-                ui.label(format!("{:.2} Hz", freq));
-                ui.label(format!("({})", note_name(freq_to_note(*freq))));
-                ui.small(format!("imp: {:.2e}", amp));
-            });
-        }
-    });
-    
-    ui.separator();
-    ui.heading("Harmonic Analysis");
-    
-    if let Some(fund) = state.fundamental_freq {
-        ui.small(format!(
-            "Fundamental: {:.2} Hz ({})",
-            fund,
-            note_name(freq_to_note(fund))
-        ));
-        
-        for (i, (freq, _)) in state.resonance_notes.iter().take(8).enumerate() {
-            let ratio = freq / fund;
-            let expected = (i + 1) as f64;
-            let deviation = (ratio - expected) / expected * 100.0;
-            
-            ui.horizontal(|ui| {
-                ui.small(format!("H{}", i + 1));
-                ui.small(format!("{:.2}x", ratio));
-                ui.small(format!("{:+.1}%", deviation));
-            });
-        }
-    }
-}
+                                bore_style_label := Label{
+                                    width: Fill
+                                    height: 18
+                                    text: "Bore style"
+                                    draw_text +: {color: #xa0a0a0}
+                                }
 
-fn show_export_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
-    ui.heading("Export");
-    ui.separator();
-    
-    ui.heading("Export Geometry");
-    ui.horizontal(|ui| {
-        if ui.button("JSON").clicked() {
-            let geo = create_geometry(state);
-            if let Ok(json) = serde_json::to_string_pretty(&geo.geo) {
-                if let Some(path) = FileDialog::new()
-                    .add_filter("JSON", &["json"])
-                    .set_file_name("geometry.json")
-                    .save_file()
-                {
-                    let _ = fs::write(&path, json);
-                    state.sim_message = format!("Exported to {}", path.display());
+                                bore_style_dropdown := DropDown{
+                                    width: Fill
+                                    height: 28
+                                    labels: ["Cone", "Cylinder", "Exponential"]
+                                    selected_item: 0
+                                }
+
+                                length_label := Label{
+                                    width: Fill
+                                    height: 18
+                                    text: "Length (mm)"
+                                    draw_text +: {color: #xa0a0a0}
+                                }
+                                length_value := Label{
+                                    width: Fill
+                                    height: 18
+                                    text: "950"
+                                    draw_text +: {color: #xaaffaa}
+                                }
+                                length_slider := Slider{
+                                    width: Fill
+                                    height: 18
+                                    min: 500.0
+                                    max: 3000.0
+                                    step: 10.0
+                                    default: 950.0
+                                }
+
+                                top_label := Label{
+                                    width: Fill
+                                    height: 18
+                                    text: "Top diameter (mm)"
+                                    draw_text +: {color: #xa0a0a0}
+                                }
+                                top_value := Label{
+                                    width: Fill
+                                    height: 18
+                                    text: "35.0"
+                                    draw_text +: {color: #xaaaaff}
+                                }
+                                top_slider := Slider{
+                                    width: Fill
+                                    height: 18
+                                    min: 10.0
+                                    max: 50.0
+                                    step: 0.5
+                                    default: 35.0
+                                }
+
+                                bell_label := Label{
+                                    width: Fill
+                                    height: 18
+                                    text: "Bell diameter (mm)"
+                                    draw_text +: {color: #xa0a0a0}
+                                }
+                                bell_value := Label{
+                                    width: Fill
+                                    height: 18
+                                    text: "85.0"
+                                    draw_text +: {color: #xaaaaff}
+                                }
+                                bell_slider := Slider{
+                                    width: Fill
+                                    height: 18
+                                    min: 20.0
+                                    max: 100.0
+                                    step: 0.5
+                                    default: 85.0
+                                }
+
+                                segments_label := Label{
+                                    width: Fill
+                                    height: 18
+                                    text: "Segments"
+                                    draw_text +: {color: #xa0a0a0}
+                                }
+                                segments_value := Label{
+                                    width: Fill
+                                    height: 18
+                                    text: "50"
+                                    draw_text +: {color: #xaaaaff}
+                                }
+                                segments_slider := Slider{
+                                    width: Fill
+                                    height: 18
+                                    min: 5.0
+                                    max: 200.0
+                                    step: 1.0
+                                    default: 50.0
+                                }
+
+                                run_button := Button{
+                                    width: Fill
+                                    height: 36
+                                    text: "Run Simulation"
+                                }
+
+                                running_label := Label{
+                                    width: Fill
+                                    height: 18
+                                    text: "Ready"
+                                    draw_text +: {color: #xffaa00}
+                                }
+
+                                fundamental_label := Label{
+                                    width: Fill
+                                    height: 20
+                                    text: "Fundamental: -"
+                                    draw_text +: {color: #x88cc88}
+                                }
+
+                                resonances_label := Label{
+                                    width: Fill
+                                    height: 20
+                                    text: "Resonances: -"
+                                    draw_text +: {color: #x88cc88}
+                                }
+                            }
+
+                            viewport := mod.widgets.BoreViewport{}
+                        }
+                    }
                 }
             }
         }
-        if ui.button("TXT").clicked() {
-            let geo = create_geometry(state);
-            let mut txt = String::new();
-            for pt in &geo.geo {
-                txt.push_str(&format!("{:.6}\t{:.6}\n", pt[0], pt[1]));
-            }
-            if let Some(path) = FileDialog::new()
-                .add_filter("TXT", &["txt"])
-                .set_file_name("geometry.txt")
-                .save_file()
-            {
-                let _ = fs::write(&path, txt);
-                state.sim_message = format!("Exported to {}", path.display());
-            }
-        }
-        if ui.button("OBJ").clicked() {
-            let geo = create_geometry(state);
-            let mut obj = String::from("# CADSD Geometry - Exported by GUI\n");
-            for (i, pt) in geo.geo.iter().enumerate() {
-                obj.push_str(&format!("v {:.6} 0.0 {:.6}\n", pt[0], pt[1]));
-                if i > 0 {
-                    obj.push_str(&format!("l {} {}\n", i, i + 1));
-                }
-            }
-            if let Some(path) = FileDialog::new()
-                .add_filter("OBJ", &["obj"])
-                .set_file_name("geometry.obj")
-                .save_file()
-            {
-                let _ = fs::write(&path, obj);
-                state.sim_message = format!("Exported to {}", path.display());
-            }
-        }
-    });
-    
-    ui.separator();
-    ui.heading("Export Simulation Data");
-    
-    if state.impedances.is_empty() {
-        ui.label("No simulation data. Run simulation first.");
-    } else if ui.button("CSV (Impedance)").clicked() {
-        let mut csv = String::new();
-        csv.push_str("frequency_hz,impedance_magnitude\n");
-        for (f, z) in state.frequencies.iter().zip(state.impedances.iter()) {
-            csv.push_str(&format!("{:.6},{:.6}\n", f, z));
-        }
-        if let Some(path) = FileDialog::new()
-            .add_filter("CSV", &["csv"])
-            .set_file_name("impedance.csv")
-            .save_file()
-        {
-            let _ = fs::write(&path, csv);
-            state.sim_message = format!("Exported to {}", path.display());
-        }
     }
-    
-    ui.separator();
-    ui.heading("Current Design");
-    ui.label(&format!("Length: {:.1} mm", state.length));
-    ui.label(&format!("Mouth: {:.1} mm", state.top_diameter));
-    ui.label(&format!("Bell: {:.1} mm", state.bottom_diameter));
-    ui.label(&format!("Segments: {}", state.segments));
 }
 
-fn show_settings_panel(ui: &mut egui::Ui, state: &mut CadsdState) {
-    ui.heading("Settings");
-    ui.separator();
-    
-    ui.heading("Visualization");
-    ui.checkbox(&mut state.mesh_rotation_enabled, "Enable mesh rotation");
-    if state.mesh_rotation_enabled {
-        ui.add(egui::Slider::new(&mut state.mesh_rotation_speed, 0.0..=180.0)
-            .text("Rotation speed (deg/s)")
-            .step_by(5.0));
+#[derive(Script, ScriptHook, Debug)]
+#[repr(C)]
+pub struct DrawPhysMesh {
+    #[rust(vec3(-0.35, 0.84, 0.42))]
+    light_dir: Vec3f,
+    #[rust(vec3(0.58, 0.35, -0.62))]
+    fill_dir: Vec3f,
+    #[deref]
+    draw_vars: DrawVars,
+    #[live]
+    color: Vec4f,
+    #[live]
+    transform: Mat4f,
+    #[live(vec3(1.0, 1.0, 1.0))]
+    scale: Vec3f,
+    #[live(1.0)]
+    depth_clip: f32,
+}
+
+impl DrawPhysMesh {
+    fn apply_uniforms(&mut self, cx: &mut CxDraw) {
+        let light_dir = self.light_dir.normalize();
+        let fill_dir = self.fill_dir.normalize();
+        self.draw_vars.set_uniform(cx.cx, live_id!(u_light_dir), &[light_dir.x, light_dir.y, light_dir.z]);
+        self.draw_vars.set_uniform(cx.cx, live_id!(u_fill_dir), &[fill_dir.x, fill_dir.y, fill_dir.z]);
     }
-    ui.label("Color scheme:");
-    egui::ComboBox::new(egui::Id::new("color_scheme"), "Scheme")
-        .selected_text(&state.color_scheme)
-        .show_ui(ui, |ui| {
-            ui.selectable_value(&mut state.color_scheme, "wood".to_string(), "Wood");
-            ui.selectable_value(&mut state.color_scheme, "metal".to_string(), "Metal");
-            ui.selectable_value(&mut state.color_scheme, "custom".to_string(), "Custom");
-        });
-    
-    ui.separator();
-    ui.heading("Audio");
-    ui.add(egui::Slider::new(&mut state.temperature, 0.0..=40.0)
-        .text("Temperature (C)")
-        .step_by(1.0));
-    ui.add(egui::Slider::new(&mut state.wall_thickness, 1.0..=10.0)
-        .text("Wall thickness (mm)")
-        .step_by(0.5));
+
+    fn draw(&mut self, cx: &mut CxDraw, geometry_id: GeometryId) {
+        self.draw_vars.geometry_id = Some(geometry_id);
+        self.apply_uniforms(cx);
+        if self.draw_vars.can_instance() {
+            let new_area = cx.add_instance(&self.draw_vars);
+            self.draw_vars.area = cx.update_area_refs(self.draw_vars.area, new_area);
+        }
+    }
+}
+
+fn build_bore_geometry(segments: &[(f32, f32)]) -> (Vec<u32>, Vec<f32>) {
+    let mut indices = Vec::new();
+    let mut vertices = Vec::new();
+    let rings = segments.len();
+    for (i, &(x, d)) in segments.iter().enumerate() {
+        let radius = d * 0.5;
+        let y = x * 0.01;
+        for j in 0..24 {
+            let theta = (j as f32) * std::f32::consts::TAU / 24.0;
+            let cx_ = radius * theta.cos();
+            let cz = radius * theta.sin();
+            vertices.extend_from_slice(&[cx_, y, cz, 1.0, theta.cos(), 0.0, theta.sin(), 0.0]);
+        }
+        if i + 1 < rings {
+            for j in 0..24u32 {
+                let next = (j + 1) % 24;
+                let a = (i as u32) * 24 + j;
+                let b = (i as u32) * 24 + next;
+                let c = ((i + 1) as u32) * 24 + next;
+                let d_ = ((i + 1) as u32) * 24 + j;
+                indices.extend_from_slice(&[a, b, c, a, c, d_]);
+            }
+        }
+    }
+    (indices, vertices)
+}
+
+fn make_segments(length: f32, top: f32, bell: f32, style: u32, n: usize) -> Vec<(f32, f32)> {
+    (0..n).map(|i| {
+        let t = if n > 1 { i as f32 / (n - 1) as f32 } else { 0.0 };
+        let x = length * t;
+        let d = match style {
+            0 => top + (bell - top) * t,
+            1 => top,
+            _ => top * (bell / top).powf(t),
+        };
+        (x, d)
+    }).collect()
+}
+
+#[derive(Script, ScriptHook, WidgetRef, WidgetRegister)]
+pub struct BoreViewport {
+    #[uid]
+    uid: WidgetUid,
+    #[source]
+    source: ScriptObjectRef,
+    #[walk]
+    walk: Walk,
+    #[layout]
+    layout: Layout,
+    #[live]
+    draw_bg: DrawXrSceneTexture,
+    #[live]
+    draw_mesh: DrawPhysMesh,
+    #[live(vec4(0.043, 0.063, 0.086, 1.0))]
+    clear_color: Vec4f,
+    #[live]
+    camera: XrCamera,
+    #[new]
+    pass: DrawPass,
+    #[new]
+    draw_list: DrawList,
+    #[new]
+    color_texture: Texture,
+    #[new]
+    depth_texture: Texture,
+    #[rust]
+    area: Area,
+    #[rust(false)]
+    initialized: bool,
+    #[rust]
+    geometry: Option<Geometry>,
+    #[rust]
+    last_hash: u64,
+}
+
+impl BoreViewport {
+    fn ensure_initialized(&mut self, cx: &mut Cx) {
+        if self.initialized { return; }
+        self.initialized = true;
+        self.color_texture = Texture::new_with_format(cx, TextureFormat::RenderBGRAu8 { size: TextureSize::Auto, initial: true });
+        self.depth_texture = Texture::new_with_format(cx, TextureFormat::DepthD32 { size: TextureSize::Auto, initial: true });
+        self.pass.set_color_texture(cx, &self.color_texture, DrawPassClearColor::ClearWith(self.clear_color));
+        self.pass.set_depth_texture(cx, &self.depth_texture, DrawPassClearDepth::ClearWith(1.0));
+        cx.passes[self.pass.draw_pass_id()].keep_camera_matrix = true;
+
+        let segs = make_segments(950.0, 35.0, 85.0, 0, 50);
+        let (indices, vertices) = build_bore_geometry(&segs);
+        let geometry = Geometry::new(cx);
+        geometry.update(cx, indices, vertices);
+        self.geometry = Some(geometry);
+        self.last_hash = 0;
+    }
+
+    pub fn update_bore(&mut self, cx: &mut Cx, length: f32, top: f32, bell: f32, style: u32, n: usize) {
+        let hash = (length.to_bits() as u64 ^ ((top.to_bits() as u64) << 1) ^ ((bell.to_bits() as u64) << 2) ^ ((style as u64) << 3) ^ ((n as u64) << 4))
+            .wrapping_mul(0x517cc1b727265a95);
+        if hash == self.last_hash { return; }
+        self.last_hash = hash;
+
+        let segs = make_segments(length, top, bell, style, n);
+        let (indices, vertices) = build_bore_geometry(&segs);
+        if let Some(ref mut geom) = self.geometry {
+            geom.update(cx, indices, vertices);
+        }
+        self.area.redraw(cx);
+    }
+
+    fn draw_scene(&mut self, cx: &mut Cx3d, scene_state: SceneState3D) {
+        self.draw_list.begin_always(cx);
+        cx.begin_scene_3d(scene_state);
+        let previous_world = cx.set_scene_world_transform_3d(Mat4f::identity());
+        if let Some(ref mut geometry) = self.geometry {
+            self.draw_mesh.transform = Mat4f::identity();
+            self.draw_mesh.scale = vec3(1.0, 1.0, 1.0);
+            self.draw_mesh.color = vec4(0.7, 0.75, 0.8, 1.0);
+            self.draw_mesh.depth_clip = 0.0;
+            self.draw_mesh.draw(cx, geometry.geometry_id());
+        }
+        if let Some(previous_world) = previous_world {
+            let _ = cx.set_scene_world_transform_3d(previous_world);
+        }
+        cx.end_scene_3d();
+        self.draw_list.end(cx);
+    }
+}
+
+impl WidgetNode for BoreViewport {
+    fn widget_uid(&self) -> WidgetUid { self.uid }
+    fn walk(&mut self, _cx: &mut Cx) -> Walk { self.walk }
+    fn area(&self) -> Area { self.area }
+    fn redraw(&mut self, cx: &mut Cx) { self.area.redraw(cx); }
+}
+
+impl Widget for BoreViewport {
+    fn handle_event(&mut self, cx: &mut Cx, event: &Event, _scope: &mut Scope) {
+        self.camera.handle_desktop_interaction(cx, event);
+    }
+
+    fn draw_walk(&mut self, cx: &mut Cx2d, _scope: &mut Scope, walk: Walk) -> DrawStep {
+        let rect = cx.walk_turtle_with_area(&mut self.area, walk);
+        if rect.size.x <= 1.0 || rect.size.y <= 1.0 { return DrawStep::done(); }
+
+        self.ensure_initialized(cx.cx);
+        self.camera.set_desktop_viewport_rect(rect);
+        self.pass.set_size(cx, rect.size);
+        self.pass.set_color_texture(cx, &self.color_texture, DrawPassClearColor::ClearWith(self.clear_color));
+        self.pass.set_depth_texture(cx, &self.depth_texture, DrawPassClearDepth::ClearWith(1.0));
+
+        cx.make_child_pass(&self.pass);
+        cx.begin_pass(&self.pass, None);
+        if let Some(scene_state) = self.camera.desktop_scene_state(rect, cx.time()) {
+            let cx3d = &mut Cx3d::new(cx.cx);
+            self.draw_scene(cx3d, scene_state);
+        }
+        cx.end_pass(&self.pass);
+
+        self.draw_bg.set_scene_texture(&self.color_texture);
+        self.draw_bg.draw_abs(cx, rect);
+        self.area = self.draw_bg.area();
+        cx.set_pass_area(&self.pass, self.area);
+        DrawStep::done()
+    }
+}
+
+#[derive(Script, ScriptHook)]
+pub struct App {
+    #[live]
+    ui: WidgetRef,
+}
+
+impl MatchEvent for App {
+    fn handle_actions(&mut self, cx: &mut Cx, actions: &Actions) {
+        let mut needs_viewport_update = false;
+        let mut length = 950.0;
+        let mut top = 35.0;
+        let mut bell = 85.0;
+        let mut style = 0u32;
+        let mut segments = 50usize;
+
+        if let Some(v) = self.ui.slider(cx, ids!(length_slider)).slided(actions) {
+            length = v;
+            self.ui.label(cx, ids!(length_value)).set_text(cx, &format!("{:.0}", v));
+            needs_viewport_update = true;
+        }
+        if let Some(v) = self.ui.slider(cx, ids!(top_slider)).slided(actions) {
+            top = v;
+            self.ui.label(cx, ids!(top_value)).set_text(cx, &format!("{:.1}", v));
+            needs_viewport_update = true;
+        }
+        if let Some(v) = self.ui.slider(cx, ids!(bell_slider)).slided(actions) {
+            bell = v;
+            self.ui.label(cx, ids!(bell_value)).set_text(cx, &format!("{:.1}", v));
+            needs_viewport_update = true;
+        }
+        if let Some(v) = self.ui.slider(cx, ids!(segments_slider)).slided(actions) {
+            segments = v as usize;
+            self.ui.label(cx, ids!(segments_value)).set_text(cx, &format!("{}", segments));
+            needs_viewport_update = true;
+        }
+        if let Some(v) = self.ui.drop_down(cx, ids!(bore_style_dropdown)).selected(actions) {
+            style = v as u32;
+            needs_viewport_update = true;
+        }
+
+        if needs_viewport_update {
+            if let Some(mut vp) = self.ui.widget(cx, ids!(viewport)).borrow_mut::<BoreViewport>() {
+                vp.update_bore(cx, length as f32, top as f32, bell as f32, style, segments);
+            }
+        }
+
+        if self.ui.button(cx, ids!(run_button)).clicked(actions) {
+            self.ui.label(cx, ids!(running_label)).set_text(cx, "Simulating...");
+            std::thread::spawn(move || {
+                let geo = Geo::make_cone(950.0, 35.0, 85.0, 50);
+                let freqs: Vec<f64> = (20..=5000).map(|f| f as f64 * 0.1).collect();
+                if let Ok(impedances) = acoustical_simulation(&geo, &freqs, "tlm_python") {
+                    let (fundamental, _) = get_fundamental(&geo, "tlm_python", 20.0).unwrap_or((65.41, 1.0));
+                    let note = note_name(freq_to_note(fundamental));
+                    log!("Simulation done: {:.1} Hz ({})", fundamental, note);
+                }
+            });
+        }
+    }
+}
+
+impl AppMain for App {
+    fn script_mod(vm: &mut ScriptVm) -> ScriptValue {
+        makepad_widgets::script_mod(vm);
+        makepad_xr::script_mod(vm);
+        self::script_mod(vm)
+    }
+
+    fn handle_event(&mut self, cx: &mut Cx, event: &Event) {
+        self.match_event(cx, event);
+        self.ui.handle_event(cx, event, &mut Scope::empty());
+    }
 }

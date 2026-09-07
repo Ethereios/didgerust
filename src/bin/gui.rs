@@ -165,8 +165,63 @@ section_title := Label{
                                 bore_style_dropdown := DropDown{
                                     width: Fill
                                     height: 28
-                                    labels: ["Cone", "Cylinder", "Exponential"]
+                                    labels: ["Cone", "Cylinder", "Exponential", "Kigali", "Mbeya"]
                                     selected_item: 0
+                                }
+
+                                mouthpiece_type_label := Label{
+                                    width: Fill
+                                    height: 18
+                                    text: "Mouthpiece type"
+                                    draw_text +: {color: #xa0a0a0}
+                                }
+                                mouthpiece_type_dropdown := DropDown{
+                                    width: Fill
+                                    height: 28
+                                    labels: ["None", "Reed", "Embouchure hole", "Fipple", "Cup"]
+                                    selected_item: 0
+                                }
+
+                                mouthpiece_length_label := Label{
+                                    width: Fill
+                                    height: 18
+                                    text: "Mouthpiece length (mm)"
+                                    draw_text +: {color: #xa0a0a0}
+                                }
+                                mouthpiece_length_value := Label{
+                                    width: Fill
+                                    height: 18
+                                    text: "0.0"
+                                    draw_text +: {color: #xaaaaff}
+                                }
+                                mouthpiece_length_slider := Slider{
+                                    width: Fill
+                                    height: 18
+                                    min: 0.0
+                                    max: 100.0
+                                    step: 0.5
+                                    default: 0.0
+                                }
+
+                                mouthpiece_diameter_label := Label{
+                                    width: Fill
+                                    height: 18
+                                    text: "Mouthpiece diameter (mm)"
+                                    draw_text +: {color: #xa0a0a0}
+                                }
+                                mouthpiece_diameter_value := Label{
+                                    width: Fill
+                                    height: 18
+                                    text: "0.0"
+                                    draw_text +: {color: #xaaaaff}
+                                }
+                                mouthpiece_diameter_slider := Slider{
+                                    width: Fill
+                                    height: 18
+                                    min: 0.0
+                                    max: 50.0
+                                    step: 0.5
+                                    default: 0.0
                                 }
 
                                 length_label := Label{
@@ -528,6 +583,9 @@ impl MatchEvent for App {
         let mut style = 0u32;
         let mut bore_curve = 0.0f32;
         let mut segments = 50usize;
+        let mut mouthpiece_type = 0u32;
+        let mut mouthpiece_length = 0.0f32;
+        let mut mouthpiece_diameter = 0.0f32;
 
         if let Some(v) = self.ui.slider(cx, ids!(length_slider)).slided(actions) {
             length = v;
@@ -556,6 +614,20 @@ impl MatchEvent for App {
         }
         if let Some(v) = self.ui.drop_down(cx, ids!(bore_style_dropdown)).selected(actions) {
             style = v as u32;
+            needs_viewport_update = true;
+        }
+        if let Some(v) = self.ui.drop_down(cx, ids!(mouthpiece_type_dropdown)).selected(actions) {
+            mouthpiece_type = v as u32;
+            needs_viewport_update = true;
+        }
+        if let Some(v) = self.ui.slider(cx, ids!(mouthpiece_length_slider)).slided(actions) {
+            mouthpiece_length = v as f32;
+            self.ui.label(cx, ids!(mouthpiece_length_value)).set_text(cx, &format!("{:.1}", v));
+            needs_viewport_update = true;
+        }
+        if let Some(v) = self.ui.slider(cx, ids!(mouthpiece_diameter_slider)).slided(actions) {
+            mouthpiece_diameter = v as f32;
+            self.ui.label(cx, ids!(mouthpiece_diameter_value)).set_text(cx, &format!("{:.1}", v));
             needs_viewport_update = true;
         }
 

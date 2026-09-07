@@ -148,12 +148,12 @@ section_title := Label{
                                      draw_text +: {color: #xdfe7ee, font_size: 14}
                                  }
 
-                                 mouthpiece_toggle := Toggle{
-                                     width: Fill
-                                     height: 24
-                                     text: "Mouthpiece"
-                                     selected: false
-                                 }
+mouthpiece_toggle := Toggle{
+                                      width: Fill
+                                      height: 24
+                                      text: "Mouthpiece"
+                                      value: false
+                                  }
 
                                  bore_style_label := Label{
                                     width: Fill

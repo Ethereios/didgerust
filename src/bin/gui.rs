@@ -4,6 +4,7 @@ pub use makepad_xr::scene::*;
 use cadsd_accurate::geo::Geo;
 use cadsd_accurate::sim::{acoustical_simulation, get_fundamental};
 use cadsd_accurate::conv::{note_name, freq_to_note};
+use makepad_render::scene::set_pass_camera;
 
 app_main!(App);
 
@@ -83,14 +84,14 @@ script_mod! {
         clear_color: #x0b1016
         draw_bg: mod.draw.DrawXrSceneTexture{}
         draw_mesh: mod.draw.DrawPhysMesh{
-            backface_culling: true
+            backface_culling: false
         }
         camera: mod.widgets.XrCamera{
             fov_y: 45.0
-            desktop_target: vec3(0.5, 0.25, 0.7)
-            distance: 12.0
-            distance_min: 3.0
-            distance_max: 50.0
+            desktop_target: vec3(0.0, 47.5, 0.0)
+            distance: 70.0
+            distance_min: 10.0
+            distance_max: 150.0
             wheel_zoom_step: 0.1
         }
     }
@@ -143,7 +144,7 @@ script_mod! {
 
 section_title := Label{
                                      width: Fill
-                                     height: 24
+                                     height: 40
                                      text: "Geometry"
                                      draw_text +: {color: #xdfe7ee, font_size: 14}
                                  }
@@ -155,12 +156,12 @@ section_title := Label{
                                     draw_text +: {color: #xa0a0a0}
                                 }
 
-                                bore_style_dropdown := DropDown{
-                                    width: Fill
-                                    height: 28
-                                    labels: ["Cone", "Cylinder", "Exponential"]
-                                    selected_item: 0
-                                }
+bore_style_dropdown := DropDown{
+                                     width: Fill
+                                     height: 28
+                                     labels: ["Cone", "Kigali", "Mbeya"]
+                                     selected_item: 0
+                                 }
 
                                 length_label := Label{
                                     width: Fill
@@ -168,20 +169,20 @@ section_title := Label{
                                     text: "Length (mm)"
                                     draw_text +: {color: #xa0a0a0}
                                 }
-                                length_value := Label{
-                                    width: Fill
-                                    height: 18
-                                    text: "950"
-                                    draw_text +: {color: #xaaaaff}
-                                }
-                                length_slider := Slider{
-                                    width: Fill
-                                    height: 18
-                                    min: 500.0
-                                    max: 3000.0
-                                    step: 10.0
-                                    default: 950.0
-                                }
+length_value := TextInput{
+                                     width: 80
+                                     height: 18
+                                     text: "950"
+                                     draw_text +: {color: #xaaaaff, font_size: 14}
+                                 }
+length_slider := Slider{
+                                      width: Fill
+                                      height: 40
+                                      min: 500.0
+                                      max: 3000.0
+                                      step: 10.0
+                                      default: 950.0
+                                  }
 
                                 top_label := Label{
                                     width: Fill
@@ -189,20 +190,20 @@ section_title := Label{
                                     text: "Top diameter (mm)"
                                     draw_text +: {color: #xa0a0a0}
                                 }
-                                top_value := Label{
-                                    width: Fill
-                                    height: 18
-                                    text: "35.0"
-                                    draw_text +: {color: #aaaaff}
-                                }
-                                top_slider := Slider{
-                                    width: Fill
-                                    height: 18
-                                    min: 10.0
-                                    max: 50.0
-                                    step: 0.5
-                                    default: 35.0
-                                }
+top_value := TextInput{
+                                     width: 80
+                                     height: 18
+                                     text: "35.0"
+                                     draw_text +: {color: #xaaaaff, font_size: 14}
+                                 }
+                                 top_slider := Slider{
+                                     width: Fill
+                                     height: 40
+                                     min: 10.0
+                                     max: 50.0
+                                     step: 0.5
+                                     default: 35.0
+                                 }
 
                                 bell_label := Label{
                                     width: Fill
@@ -210,20 +211,20 @@ section_title := Label{
                                     text: "Bell diameter (mm)"
                                     draw_text +: {color: #xa0a0a0}
                                 }
-                                bell_value := Label{
-                                    width: Fill
-                                    height: 18
-                                    text: "85.0"
-                                    draw_text +: {color: #aaaaff}
-                                }
-                                bell_slider := Slider{
-                                    width: Fill
-                                    height: 18
-                                    min: 20.0
-                                    max: 100.0
-                                    step: 0.5
-                                    default: 85.0
-                                }
+bell_value := TextInput{
+                                     width: 80
+                                     height: 18
+                                     text: "85.0"
+                                     draw_text +: {color: #aaaaff, font_size: 14}
+                                 }
+                                 bell_slider := Slider{
+                                     width: Fill
+                                     height: 40
+                                     min: 20.0
+                                     max: 100.0
+                                     step: 0.5
+                                     default: 85.0
+                                 }
 
                                 segments_label := Label{
                                     width: Fill
@@ -231,20 +232,20 @@ section_title := Label{
                                     text: "Segments"
                                     draw_text +: {color: #xa0a0a0}
                                 }
-segments_value := Label{
-                                    width: Fill
-                                    height: 18
-                                    text: "50"
-                                    draw_text +: {color: #xaaaaff}
-                                }
-                                segments_slider := Slider{
-                                    width: Fill
-                                    height: 18
-                                    min: 5.0
-                                    max: 200.0
-                                    step: 1.0
-                                    default: 50.0
-                                }
+segments_value := TextInput{
+                                     width: 80
+                                     height: 18
+                                     text: "50"
+                                     draw_text +: {color: #xaaaaff, font_size: 14}
+                                 }
+                                 segments_slider := Slider{
+                                     width: Fill
+                                     height: 40
+                                     min: 5.0
+                                     max: 200.0
+                                     step: 1.0
+                                     default: 50.0
+                                 }
 
                                 bore_curve_label := Label{
                                     width: Fill
@@ -252,20 +253,20 @@ segments_value := Label{
                                     text: "Bore curve"
                                     draw_text +: {color: #xa0a0a0}
                                 }
-                                bore_curve_value := Label{
-                                    width: Fill
-                                    height: 18
-                                    text: "0.0"
-                                    draw_text +: {color: #xaaaaff}
-                                }
-                                bore_curve_slider := Slider{
-                                    width: Fill
-                                    height: 18
-                                    min: -2.0
-                                    max: 2.0
-                                    step: 0.1
-                                    default: 0.0
-                                }
+bore_curve_value := TextInput{
+                                     width: 80
+                                     height: 18
+                                     text: "0.0"
+                                     draw_text +: {color: #xaaaaff, font_size: 14}
+                                 }
+                                 bore_curve_slider := Slider{
+                                     width: Fill
+                                     height: 40
+                                     min: -2.0
+                                     max: 2.0
+                                     step: 0.1
+                                     default: 0.0
+                                 }
 
                                 run_button := Button{
                                     width: Fill
@@ -346,8 +347,8 @@ fn build_bore_geometry(segments: &[(f32, f32)]) -> (Vec<u32>, Vec<f32>) {
     let mut vertices = Vec::new();
     let rings = segments.len();
     for (i, &(x, d)) in segments.iter().enumerate() {
-        let radius = d * 0.5;
-        let y = x * 0.01;
+        let radius = d * 0.05;
+        let y = x * 0.1;
         for j in 0..24 {
             let theta = (j as f32) * std::f32::consts::TAU / 24.0;
             let cx_ = radius * theta.cos();
@@ -424,6 +425,9 @@ impl BoreViewport {
         self.pass.set_depth_texture(cx, &self.depth_texture, DrawPassClearDepth::ClearWith(1.0));
         cx.passes[self.pass.draw_pass_id()].keep_camera_matrix = true;
 
+        self.camera.orbit_yaw = 0.72;
+        self.camera.orbit_pitch = -0.34;
+
         let segs = make_segments(950.0, 35.0, 85.0, 0, 0.0, 50);
         let (indices, vertices) = build_bore_geometry(&segs);
         let geometry = Geometry::new(cx);
@@ -490,6 +494,7 @@ impl Widget for BoreViewport {
         cx.make_child_pass(&self.pass);
         cx.begin_pass(&self.pass, None);
         if let Some(scene_state) = self.camera.desktop_scene_state(rect, cx.time()) {
+            set_pass_camera(cx.cx, &self.pass, &scene_state);
             let cx3d = &mut Cx3d::new(cx.cx);
             self.draw_scene(cx3d, scene_state);
         }

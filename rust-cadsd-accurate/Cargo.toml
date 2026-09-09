@@ -39,44 +39,15 @@ clap = { version = "4.0", features = ["derive"], optional = false }
 bevy = { version = "0.19", features = ["default"], optional = true }
 bevy_egui = { version = "0.41", optional = true }
 egui_plot = { version = "0.36", optional = true }
-rfd = { version = "0.15", optional = true }
-plotly = { version = "0.10", optional = true }
-# DidgeLab GUI (modern egui-based app)
-eframe = { version = "0.27", optional = true }
-# GPUI-based GUI (alternative to Bevy+egui) - DISABLED for now
+rfd = { version = "0.17", optional = true }
+makepad-widgets = { path = "../../makepad/widgets", optional = true }
+makepad-xr = { path = "../../makepad/xr", optional = true }
+makepad-render = { path = "../../makepad/libs/render", optional = true }
 
 [features]
 default = ["visualization", "cli"]
 visualization = []
 cli = []
-gui = ["gui-bevy"]
-gui-bevy = ["bevy", "bevy_egui", "egui_plot", "dep:rfd"]  # Bevy 3D + egui GUI
-gui-gpui = []  # GPUI GUI (alternative)
-
-[[bin]]
-name = "cadsd"
-path = "src/main.rs"
-
-[[bin]]
-name = "cadsd-gui"
-path = "src/gpui_main.rs"
-required-features = ["gui-gpui"]
-
-[[bin]]
-name = "didgelab-demo"
-path = "src/didgelab_demo.rs"
-
-[[bin]]
-name = "didgerust"
-path = "src/didgerust_bin.rs"
-required-features = ["gui-bevy"]
-
-[[bin]]
-name = "test-window"
-path = "src/test_window.rs"
-required-features = ["gui-bevy"]
-
-[[bin]]
-name = "test-egui"
-path = "src/test_egui.rs"
-required-features = ["gui-bevy"]
+gui = ["makepad-widgets", "makepad-xr", "makepad-render"]
+gui-bevy = ["bevy", "bevy_egui", "egui_plot"]
+gui-gpui = []

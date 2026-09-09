@@ -19,12 +19,8 @@ pub mod fdtd;
 pub mod prime_conv;
 pub mod dwm;
 
-// Expose UI module (only when gui-bevy feature is enabled)
-#[cfg(feature = "gui-bevy")]
-pub mod app;
-
-#[cfg(feature = "gui-bevy")]
-pub mod gui;
+// MD LIF module (always available)
+pub mod md_lif;
 
 // Neural integration module (behind nn-integration feature flag)
 #[cfg(feature = "nn-integration")]
@@ -33,9 +29,6 @@ pub mod nn;
 // Differentiable TLM module (behind diff-tlm feature flag)
 #[cfg(feature = "diff-tlm")]
 pub mod diff_tlm;
-
-// MD LIF module (always available)
-pub mod md_lif;
 
 // Conservation-law integration (feature-gated)
 #[cfg(feature = "conservation-law")]

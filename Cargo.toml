@@ -9,6 +9,7 @@ cadsd-accurate = { path = "rust-cadsd-accurate", default-features = true }
 # GUI dependencies (optional, enabled via feature)
 makepad-widgets = { path = "../makepad/widgets", optional = true }
 makepad-xr = { path = "../makepad/xr", optional = true }
+makepad-render = { path = "../makepad/libs/render", optional = true }
 
 rfd = { version = "0.17", optional = true }
 serde = { version = "1.0", features = ["derive"] }
@@ -39,7 +40,7 @@ criterion = "0.5"
 
 [features]
 default = []
-gui = ["makepad-widgets", "makepad-xr", "rfd"]
+gui = ["makepad-widgets", "makepad-xr", "makepad-render", "rfd"]
 cpal-integration = ["cpal"]
 nn-integration = ["dfdx"]
 diff-tlm = ["autodiff-rs"]

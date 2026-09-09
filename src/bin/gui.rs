@@ -2,9 +2,10 @@ pub use makepad_widgets::*;
 pub use makepad_xr::scene::*;
 
 use cadsd_accurate::geo::Geo;
-use cadsd_accurate::sim::{acoustical_simulation, get_fundamental};
+use cadsd_accurate::sim::{acoustical_simulation, get_log_simulation_frequencies};
 use cadsd_accurate::conv::{note_name, freq_to_note};
 use makepad_render::scene::set_pass_camera;
+use std::sync::mpsc;
 
 app_main!(App);
 
@@ -135,168 +136,300 @@ script_mod! {
                             draw_bg +: {color: #x12161d}
 
                             sidebar := SolidView{
-                                width: 320
+                                  width: 320
+                                  height: Fill
+                                  flow: Down
+                                  spacing: 10
+                                  padding: 10
+                                  draw_bg +: {color: #x171d24}
+
+                                  scroller := ScrollYView{
+                                      width: Fill
+                                      height: Fill
+                                      flow: Down
+                                      spacing: 10
+                                      padding: 0
+
+                                      section_title := Label{
+                                          width: Fill
+                                          height: 40
+                                          text: "Geometry"
+                                          draw_text +: {color: #xdfe7ee, font_size: 14}
+                                      }
+
+                                      bore_style_label := Label{
+                                          width: Fill
+                                          height: 18
+                                          text: "Bore style"
+                                          draw_text +: {color: #xa0a0a0}
+                                      }
+
+                                      bore_style_dropdown := DropDown{
+                                          width: Fill
+                                          height: 28
+                                          labels: ["Cone", "Kigali", "Mbeya"]
+                                          selected_item: 0
+                                      }
+
+                                      length_label := Label{
+                                          width: Fill
+                                          height: 18
+                                          text: "Length (mm)"
+                                          draw_text +: {color: #xa0a0a0}
+                                      }
+
+                                      length_value := TextInput{
+                                          width: 80
+                                          height: 18
+                                          text: "950"
+                                          draw_text +: {color: #xaaaaff, font_size: 14}
+                                      }
+
+                                      length_slider := Slider{
+                                          width: Fill
+                                          height: 40
+                                          min: 500.0
+                                          max: 3000.0
+                                          step: 10.0
+                                          default: 950.0
+                                      }
+
+                                      top_label := Label{
+                                          width: Fill
+                                          height: 18
+                                          text: "Top diameter (mm)"
+                                          draw_text +: {color: #xa0a0a0}
+                                      }
+
+                                      top_value := TextInput{
+                                          width: 80
+                                          height: 18
+                                          text: "35.0"
+                                          draw_text +: {color: #xaaaaff, font_size: 14}
+                                      }
+
+                                      top_slider := Slider{
+                                          width: Fill
+                                          height: 40
+                                          min: 10.0
+                                          max: 50.0
+                                          step: 0.5
+                                          default: 35.0
+                                      }
+
+                                      bell_label := Label{
+                                          width: Fill
+                                          height: 18
+                                          text: "Bell diameter (mm)"
+                                          draw_text +: {color: #xa0a0a0}
+                                      }
+
+                                      bell_value := TextInput{
+                                          width: 80
+                                          height: 18
+                                          text: "85.0"
+                                          draw_text +: {color: #aaaaff, font_size: 14}
+                                      }
+
+                                      bell_slider := Slider{
+                                          width: Fill
+                                          height: 40
+                                          min: 20.0
+                                          max: 100.0
+                                          step: 0.5
+                                          default: 85.0
+                                      }
+
+                                      segments_label := Label{
+                                          width: Fill
+                                          height: 18
+                                          text: "Segments"
+                                          draw_text +: {color: #xa0a0a0}
+                                      }
+
+                                      segments_value := TextInput{
+                                          width: 80
+                                          height: 18
+                                          text: "50"
+                                          draw_text +: {color: #xaaaaff, font_size: 14}
+                                      }
+
+                                      segments_slider := Slider{
+                                          width: Fill
+                                          height: 40
+                                          min: 5.0
+                                          max: 200.0
+                                          step: 1.0
+                                          default: 50.0
+                                      }
+
+                                      bore_curve_label := Label{
+                                          width: Fill
+                                          height: 18
+                                          text: "Bore curve"
+                                          draw_text +: {color: #xa0a0a0}
+                                      }
+
+                                      bore_curve_value := TextInput{
+                                          width: 80
+                                          height: 18
+                                          text: "0.0"
+                                          draw_text +: {color: #xaaaaff, font_size: 14}
+                                      }
+
+                                      bore_curve_slider := Slider{
+                                          width: Fill
+                                          height: 40
+                                          min: -2.0
+                                          max: 2.0
+                                          step: 0.1
+                                          default: 0.0
+                                      }
+
+                                      run_button := Button{
+                                          width: Fill
+                                          height: 36
+                                          text: "Run Simulation"
+                                      }
+
+                                      running_label := Label{
+                                          width: Fill
+                                          height: 18
+                                          text: "Ready"
+                                          draw_text +: {color: #xffaa00}
+                                      }
+
+                                      fundamental_label := Label{
+                                          width: Fill
+                                          height: 20
+                                          text: "Fundamental: -"
+                                          draw_text +: {color: #x88cc88}
+                                      }
+
+                                      resonances_label := Label{
+                                          width: Fill
+                                          height: 20
+                                          text: "Resonances: -"
+                                          draw_text +: {color: #x88cc88}
+                                      }
+                                  }
+                              }
+
+                            main_area := View{
+                                width: Fill
                                 height: Fill
                                 flow: Down
-                                spacing: 10
-                                padding: 10
-                                draw_bg +: {color: #x171d24}
+                                spacing: 4
+                                padding: 0
+                                draw_bg +: {color: #x12161d}
 
-section_title := Label{
-                                     width: Fill
-                                     height: 40
-                                     text: "Geometry"
-                                     draw_text +: {color: #xdfe7ee, font_size: 14}
-                                 }
+                                viewport := mod.widgets.BoreViewport{
 
-                                 bore_style_label := Label{
+                                    height: 400}
+
+                                impedance_preview := View{
                                     width: Fill
-                                    height: 18
-                                    text: "Bore style"
-                                    draw_text +: {color: #xa0a0a0}
+                                    height: 300
+                                    flow: Down
+                                    spacing: 4
+                                    padding: 8
+                                    draw_bg +: {color: #x171d24}
+
+                                    impedance_title := Label{
+                                        width: Fill
+                                        height: 20
+                                        text: "Impedance Spectrum"
+                                        draw_text +: {color: #xdfe7ee}
+                                    }
+
+                                    impedance_chart := mod.widgets.LineChart{
+                                        width: Fill
+                                        height: Fill
+                                        draw_bg +: {color: #x12161d}
+                                    }
                                 }
 
-bore_style_dropdown := DropDown{
-                                     width: Fill
-                                     height: 28
-                                     labels: ["Cone", "Kigali", "Mbeya"]
-                                     selected_item: 0
-                                 }
-
-                                length_label := Label{
+                                geometry_summary := View{
                                     width: Fill
-                                    height: 18
-                                    text: "Length (mm)"
-                                    draw_text +: {color: #xa0a0a0}
-                                }
-length_value := TextInput{
-                                     width: 80
-                                     height: 18
-                                     text: "950"
-                                     draw_text +: {color: #xaaaaff, font_size: 14}
-                                 }
-length_slider := Slider{
-                                      width: Fill
-                                      height: 40
-                                      min: 500.0
-                                      max: 3000.0
-                                      step: 10.0
-                                      default: 950.0
-                                  }
+                                    height: 200
+                                    flow: Down
+                                    spacing: 4
+                                    padding: 8
+                                    draw_bg +: {color: #x171d24}
 
-                                top_label := Label{
-                                    width: Fill
-                                    height: 18
-                                    text: "Top diameter (mm)"
-                                    draw_text +: {color: #xa0a0a0}
-                                }
-top_value := TextInput{
-                                     width: 80
-                                     height: 18
-                                     text: "35.0"
-                                     draw_text +: {color: #xaaaaff, font_size: 14}
-                                 }
-                                 top_slider := Slider{
-                                     width: Fill
-                                     height: 40
-                                     min: 10.0
-                                     max: 50.0
-                                     step: 0.5
-                                     default: 35.0
-                                 }
+                                    geo_summary_title := Label{
+                                        width: Fill
+                                        height: 20
+                                        text: "Geometry Summary"
+                                        draw_text +: {color: #xdfe7ee}
+                                    }
 
-                                bell_label := Label{
-                                    width: Fill
-                                    height: 18
-                                    text: "Bell diameter (mm)"
-                                    draw_text +: {color: #xa0a0a0}
-                                }
-bell_value := TextInput{
-                                     width: 80
-                                     height: 18
-                                     text: "85.0"
-                                     draw_text +: {color: #aaaaff, font_size: 14}
-                                 }
-                                 bell_slider := Slider{
-                                     width: Fill
-                                     height: 40
-                                     min: 20.0
-                                     max: 100.0
-                                     step: 0.5
-                                     default: 85.0
-                                 }
+                                    geo_summary_grid := View{
+                                        width: Fill
+                                        height: Fill
+                                        flow: Right
+                                        spacing: 8
+                                        padding: 4
 
-                                segments_label := Label{
-                                    width: Fill
-                                    height: 18
-                                    text: "Segments"
-                                    draw_text +: {color: #xa0a0a0}
-                                }
-segments_value := TextInput{
-                                     width: 80
-                                     height: 18
-                                     text: "50"
-                                     draw_text +: {color: #xaaaaff, font_size: 14}
-                                 }
-                                 segments_slider := Slider{
-                                     width: Fill
-                                     height: 40
-                                     min: 5.0
-                                     max: 200.0
-                                     step: 1.0
-                                     default: 50.0
-                                 }
+                                        geo_col1 := View{
+                                            width: Fill
+                                            height: Fill
+                                            flow: Down
+                                            spacing: 4
 
-                                bore_curve_label := Label{
-                                    width: Fill
-                                    height: 18
-                                    text: "Bore curve"
-                                    draw_text +: {color: #xa0a0a0}
-                                }
-bore_curve_value := TextInput{
-                                     width: 80
-                                     height: 18
-                                     text: "0.0"
-                                     draw_text +: {color: #xaaaaff, font_size: 14}
-                                 }
-                                 bore_curve_slider := Slider{
-                                     width: Fill
-                                     height: 40
-                                     min: -2.0
-                                     max: 2.0
-                                     step: 0.1
-                                     default: 0.0
-                                 }
+                                            geo_length := Label{width: Fill, height: 18, text: "Length: - mm", draw_text +: {color: #xdfe7ee}}
+                                            geo_bell := Label{width: Fill, height: 18, text: "Bell: - mm", draw_text +: {color: #xdfe7ee}}
+                                            geo_volume := Label{width: Fill, height: 18, text: "Volume: - mm³", draw_text +: {color: #xdfe7ee}}
+                                        }
 
-                                run_button := Button{
-                                    width: Fill
-                                    height: 36
-                                    text: "Run Simulation"
+                                        geo_col2 := View{
+                                            width: Fill
+                                            height: Fill
+                                            flow: Down
+                                            spacing: 4
+
+                                            geo_taper := Label{width: Fill, height: 18, text: "Taper ratio: -", draw_text +: {color: #xdfe7ee}}
+                                            geo_segments := Label{width: Fill, height: 18, text: "Segments: -", draw_text +: {color: #xdfe7ee}}
+                                            geo_max_d := Label{width: Fill, height: 18, text: "Max diameter: - mm", draw_text +: {color: #xdfe7ee}}
+                                        }
+                                    }
                                 }
 
-                                running_label := Label{
+                                resonance_analysis := View{
                                     width: Fill
-                                    height: 18
-                                    text: "Ready"
-                                    draw_text +: {color: #xffaa00}
-                                }
+                                    height: 250
+                                    flow: Down
+                                    spacing: 4
+                                    padding: 8
+                                    draw_bg +: {color: #x171d24}
 
-                                fundamental_label := Label{
-                                    width: Fill
-                                    height: 20
-                                    text: "Fundamental: -"
-                                    draw_text +: {color: #x88cc88}
-                                }
+                                    resonance_title := Label{
+                                        width: Fill
+                                        height: 20
+                                        text: "Resonance Analysis"
+                                        draw_text +: {color: #xdfe7ee}
+                                    }
 
-                                resonances_label := Label{
-                                    width: Fill
-                                    height: 20
-                                    text: "Resonances: -"
-                                    draw_text +: {color: #x88cc88}
+                                    resonance_list := View{
+                                        width: Fill
+                                        height: Fill
+                                        flow: Down
+                                        spacing: 2
+
+                                        resonance_header := View{
+                                            width: Fill
+                                            height: 20
+                                            flow: Right
+                                            spacing: 8
+                                            rh_peak := Label{width: 50, height: 18, text: "Peak", draw_text +: {color: #xa0a0a0}}
+                                            rh_freq := Label{width: 100, height: 18, text: "Freq (Hz)", draw_text +: {color: #xa0a0a0}}
+                                            rh_note := Label{width: 100, height: 18, text: "Note", draw_text +: {color: #xa0a0a0}}
+                                            rh_cents := Label{width: 80, height: 18, text: "Cents", draw_text +: {color: #xa0a0a0}}
+                                            rh_harmonic := Label{width: 80, height: 18, text: "Harmonic", draw_text +: {color: #xa0a0a0}}
+                                        }
+                                    }
                                 }
                             }
-
-                            viewport := mod.widgets.BoreViewport{}
                         }
                     }
                 }
@@ -512,6 +645,34 @@ impl Widget for BoreViewport {
 pub struct App {
     #[live]
     ui: WidgetRef,
+    #[rust]
+    impedance_data: Vec<DataPoint>,
+    #[rust]
+    fundamental_freq: f32,
+    #[rust]
+    sim_rx: Option<mpsc::Receiver<SimResult>>,
+    #[rust]
+    peaks: Vec<(f64, f64)>,
+    #[rust]
+    geo_length: f32,
+    #[rust]
+    geo_bell: f32,
+    #[rust]
+    geo_volume: f32,
+    #[rust]
+    geo_taper: f32,
+    #[rust]
+    geo_segments: f32,
+    #[rust]
+    geo_max_d: f32,
+}
+
+struct SimResult {
+    data: Vec<DataPoint>,
+    fundamental: f64,
+    note: String,
+    resonance_count: usize,
+    peaks: Vec<(f64, f64)>,
 }
 
 impl MatchEvent for App {
@@ -558,18 +719,106 @@ impl MatchEvent for App {
             if let Some(mut vp) = self.ui.widget(cx, ids!(viewport)).borrow_mut::<BoreViewport>() {
                 vp.update_bore(cx, length as f32, top as f32, bell as f32, style, bore_curve, segments);
             }
+            self.geo_length = length as f32;
+            self.geo_bell = bell as f32;
+            let max_d = bell.max(top);
+            self.geo_max_d = max_d as f32;
+            let taper = if top > 0.0 { top / bell } else { 0.0 };
+            self.geo_taper = taper as f32;
+            self.geo_segments = segments as f32;
+            let r1 = (top / 2.0) as f64;
+            let r2 = (bell / 2.0) as f64;
+            let h = length as f64;
+            self.geo_volume = (std::f64::consts::PI * (r1 * r1 + r1 * r2 + r2 * r2) * h / 3.0) as f32;
+        }
+
+        if let Some(rx) = self.sim_rx.take() {
+            match rx.try_recv() {
+                Ok(result) => {
+                    self.impedance_data = result.data;
+                    self.fundamental_freq = result.fundamental as f32;
+                    self.peaks = result.peaks;
+                    if let Some(mut chart) = self.ui.widget(cx, ids!(impedance_chart)).borrow_mut::<LineChart>() {
+                        chart.set_data(self.impedance_data.clone());
+                    }
+                    self.ui.label(cx, ids!(fundamental_label)).set_text(cx, &format!("Fundamental: {:.1} Hz ({})", result.fundamental, result.note));
+                    self.ui.label(cx, ids!(resonances_label)).set_text(cx, &format!("Resonances: {}", result.resonance_count));
+                    self.ui.label(cx, ids!(running_label)).set_text(cx, "Ready");
+
+                    self.ui.label(cx, ids!(geo_length)).set_text(cx, &format!("Length: {:.0} mm", length));
+                    self.ui.label(cx, ids!(geo_bell)).set_text(cx, &format!("Bell: {:.1} mm", bell));
+                    self.ui.label(cx, ids!(geo_volume)).set_text(cx, &format!("Volume: {:.0} mm³", self.geo_volume));
+                    self.ui.label(cx, ids!(geo_taper)).set_text(cx, &format!("Taper ratio: {:.2}", self.geo_taper));
+                    self.ui.label(cx, ids!(geo_segments)).set_text(cx, &format!("Segments: {:.0}", self.geo_segments));
+                    self.ui.label(cx, ids!(geo_max_d)).set_text(cx, &format!("Max diameter: {:.1} mm", self.geo_max_d));
+
+                    let resonance_text: String = self.peaks.iter()
+                        .take(10)
+                        .map(|(f, z)| format!("{:.1} Hz ({:.0} Pa)\n", f, z))
+                        .collect();
+                    self.ui.label(cx, ids!(resonance_list)).set_text(cx, &resonance_text);
+                }
+                Err(mpsc::TryRecvError::Empty) => {
+                    self.sim_rx = Some(rx);
+                }
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    self.ui.label(cx, ids!(running_label)).set_text(cx, "Simulation failed");
+                }
+            }
         }
 
         if self.ui.button(cx, ids!(run_button)).clicked(actions) {
+            if self.sim_rx.is_some() {
+                return;
+            }
             self.ui.label(cx, ids!(running_label)).set_text(cx, "Simulating...");
+            let (tx, rx) = mpsc::channel();
+            self.sim_rx = Some(rx);
+
             std::thread::spawn(move || {
-                let geo = Geo::make_cone(950.0, 35.0, 85.0, 50);
-                let freqs: Vec<f64> = (20..=5000).map(|f| f as f64 * 0.1).collect();
-                if let Ok(_impedances) = acoustical_simulation(&geo, &freqs, "tlm_python") {
-                    let (fundamental, _) = get_fundamental(&geo, "tlm_python", 20.0).unwrap_or((65.41, 1.0));
-                    let note = note_name(freq_to_note(fundamental));
-                    log!("Simulation done: {:.1} Hz ({})", fundamental, note);
-                }
+                let geo = match style {
+                    0 => Geo::make_cone(length as f64, top as f64, bell as f64, segments),
+                    1 => Geo::make_kigali(length as f64, top as f64, bell as f64, bore_curve as f64, segments),
+                    2 => Geo::make_mbeya(length as f64, top as f64, bell as f64, bore_curve as f64, segments),
+                    _ => Geo::make_cone(length as f64, top as f64, bell as f64, segments),
+                };
+                let freqs = get_log_simulation_frequencies();
+                let impedances = match acoustical_simulation(&geo, &freqs, "tlm_python") {
+                    Ok(impedances) => impedances,
+                    Err(_) => {
+                        let _ = tx.send(SimResult {
+                            data: Vec::new(),
+                            fundamental: 0.0,
+                            note: "Simulation error".to_string(),
+                            resonance_count: 0,
+                            peaks: Vec::new(),
+                        });
+                        return;
+                    }
+                };
+
+                let peaks: Vec<(f64, f64)> = freqs.iter().zip(impedances.iter()).enumerate()
+                    .filter_map(|(i, (f, z))| {
+                        if i > 0 && i + 1 < impedances.len() && *z > impedances[i - 1] && *z > impedances[i + 1] {
+                            Some((*f, *z))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                let fundamental = peaks.iter().find(|(f, _)| *f > 20.0).map(|(f, _)| *f).unwrap_or(0.0);
+                let note = if fundamental > 0.0 { note_name(freq_to_note(fundamental)) } else { "—".to_string() };
+
+                let data: Vec<DataPoint> = freqs.iter().zip(impedances.iter()).map(|(f, z)| DataPoint { x: *f, y: *z }).collect();
+
+                let _ = tx.send(SimResult {
+                    data,
+                    fundamental,
+                    note,
+                    resonance_count: peaks.len(),
+                    peaks,
+                });
             });
         }
     }

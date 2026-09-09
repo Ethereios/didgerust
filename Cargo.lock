@@ -680,6 +680,7 @@ dependencies = [
  "lau-signal-processing",
  "lazy_static",
  "log 0.4.33",
+ "makepad-render",
  "makepad-widgets",
  "makepad-xr",
  "nalgebra 0.32.6",
@@ -2765,6 +2766,20 @@ name = "makepad-futures-legacy"
 version = "1.0.0"
 
 [[package]]
+name = "makepad-game-math"
+version = "0.1.0"
+
+[[package]]
+name = "makepad-game-sim"
+version = "0.1.0"
+dependencies = [
+ "makepad-box3d",
+ "makepad-game-math",
+ "makepad-live-id",
+ "makepad-math",
+]
+
+[[package]]
 name = "makepad-gif"
 version = "0.1.0"
 dependencies = [
@@ -2918,6 +2933,15 @@ dependencies = [
 [[package]]
 name = "makepad-regex"
 version = "0.1.0"
+
+[[package]]
+name = "makepad-render"
+version = "0.1.0"
+dependencies = [
+ "makepad-draw",
+ "makepad-fast-inflate",
+ "makepad-game-sim",
+]
 
 [[package]]
 name = "makepad-script"

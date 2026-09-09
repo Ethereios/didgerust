@@ -410,23 +410,11 @@ script_mod! {
                                         draw_text +: {color: #xdfe7ee}
                                     }
 
-                                    resonance_list := View{
+                                    resonance_list := Label{
                                         width: Fill
-                                        height: Fill
-                                        flow: Down
-                                        spacing: 2
-
-                                        resonance_header := View{
-                                            width: Fill
-                                            height: 20
-                                            flow: Right
-                                            spacing: 8
-                                            rh_peak := Label{width: 50, height: 18, text: "Peak", draw_text +: {color: #xa0a0a0}}
-                                            rh_freq := Label{width: 100, height: 18, text: "Freq (Hz)", draw_text +: {color: #xa0a0a0}}
-                                            rh_note := Label{width: 100, height: 18, text: "Note", draw_text +: {color: #xa0a0a0}}
-                                            rh_cents := Label{width: 80, height: 18, text: "Cents", draw_text +: {color: #xa0a0a0}}
-                                            rh_harmonic := Label{width: 80, height: 18, text: "Harmonic", draw_text +: {color: #xa0a0a0}}
-                                        }
+                                        height: Fit
+                                        text: ""
+                                        draw_text +: {font_size: 11, color: #xb0b0b0}
                                     }
                                 }
                             }

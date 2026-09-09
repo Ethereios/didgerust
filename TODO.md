@@ -17,12 +17,18 @@ Status levels: 🔄 partial, ❌ missing, ⚠️ needs improvement.
 - **Prime-conv ML** — 🔄 `PrimeConvBlock` forward pass in `src/prime_conv/`. Build training pipeline; generate dataset from TLM; train surrogate for top-5 peaks.
 - **DWM prototypes** — 🔄 2-D/3-D mesh in `src/dwm/`. Integrate with `DidgeridooSimulator` as alternative strategy; validate against TLM.
 
-### GUI / UX
+### GUI / UX (Makepad)
 
 - **GUI tonehole editor** — ⚠️ Sliders work; no drag-and-drop on bore preview.
 - **3-D bore preview** — ⚠️ Wireframe exists in `src/app.rs::draw_bore_gizmos`. Add camera controls, zoom, rotation.
 - **Optimizer loop** — ⚠️ Buttons log only; no real async execution with progress callbacks.
 - **Frequency grid** — ⚠️ Linear by default; log grid not cents-based everywhere.
+- **Mouthpiece controls** — ❌ Not wired into Makepad GUI; available in backend state but no UI.
+- **Hole editor** — ❌ Not wired into Makepad GUI; available in backend state but no UI.
+- **Loss breakdown preview** — ❌ Not implemented; Tairua loss components not exposed in GUI.
+- **Cross-section view** — ❌ Not implemented; bore profile not shown as 2D diameter-vs-position plot.
+- **Bore curve preview** — ❌ Kigali/Mbeya profiles render but curve slider has no visual feedback on profile shape.
+- **Export functions** — ❌ No CSV/JSON/PNG export from Makepad GUI.
 
 ## Missing Implementations
 
@@ -55,3 +61,16 @@ Status levels: 🔄 partial, ❌ missing, ⚠️ needs improvement.
 - **CLI for experimental features** — `src/bin/cli.rs` exposes all experimental modules to non-Rust users.
 - **Persistence** — JSON save/load for settings, checkpoints, project state.
 - **Geometry ops** — cone, cylinder, bubble, stretch, scale, volume, Kigali, Mbeya.
+
+### Makepad GUI (working)
+
+- **Geometry controls** — Length, top/bell diameter, segments sliders
+- **Bore style dropdown** — Cone, Kigali, Mbeya (exponential/cylinder available in backend but not in dropdown)
+- **Bore curve slider** — -2.0 to 2.0 (affects Kigali/Mbeya power parameter)
+- **3D viewport** — Real-time bore geometry with orbit/zoom controls (XrCamera)
+- **Run simulation button** — Background thread execution
+- **Results display** — Fundamental frequency, resonance count
+- **Impedance spectrum chart** — LineChart widget rendering impedance spectrum
+- **Geometry summary preview** — Length, bell, volume, taper ratio, segments, max diameter
+- **Resonance analysis preview** — Top 10 peaks with frequency and impedance values
+- **Profile selection in simulation thread** — Cone/Kigali/Mbeya properly routed to `Geo::make_*` builders

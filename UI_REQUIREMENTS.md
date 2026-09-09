@@ -16,7 +16,7 @@ This document defines the full UI requirements for the CADSD Makepad-based GUI, 
 - Results display (fundamental frequency, resonance count)
 - Makepad-based GPU rendering
 
-### State Variables Already Present (from app.rs)
+### State Variables Already Present (from App struct in Makepad GUI)
 The following parameters already exist in the backend state but may not have UI controls:
 
 **Geometry State:**
@@ -215,13 +215,13 @@ The following parameters already exist in the backend state but may not have UI 
 ## Simulation Parameters
 
 ### Simulation Method
-- Dropdown: TLM (Python), TLM (Cython), Digital Waveguide, Complex Impedance
+- Dropdown: TLM, Digital Waveguide, Complex Impedance
 - Frequency range: fmin/fmax sliders (20-5000Hz)
 - Grid resolution: slider (1-100 cents per semitone)
 
 ### Loss Modeling
 - Viscothermal losses: toggle
-- Radiation impedance model: dropdown (Geipel, spherical, placeholder)
+- Radiation impedance model: dropdown (Levine-Schwinger IIR, spherical, placeholder)
 - Boundary conditions: radio buttons (open end / closed end)
 
 ### Advanced Settings

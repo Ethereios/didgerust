@@ -6,13 +6,31 @@ This document defines the feature roadmap for the CADSD Makepad-based GUI, organ
 
 ## Current State (Working)
 
+### Flexible UI Shell (Makepad 2.0)
+
+The active GUI uses a split-shell layout:
+
+- **Sidebar**: `ScrollYView` with strategy radios, mutation radio, budget slider, export geometry, compare strategies. Fixed width (`Fill`), height `Fit`.
+- **Main Area**: `View` with `flow: Down` containing fixed-height panels arranged vertically. Each panel has `height: Fit` to avoid circular dependency.
+- **Panel Structure**:
+  - Top row: Geometry controls + Simulation controls
+  - Middle: Results area (impedance chart, resonance table)
+  - Bottom: Optimizer panel + sidebar toggle
+
+This layout ensures every container has `height: Fit` (the #1 bug preventer) and the root container has `width: Fill` with no fixed pixel widths.
+
+**Backend Integration**:
+- Parameters live in `App` struct (`src/bin/gui.rs`)
+- Background simulation uses `std::thread::spawn` with result channels
+- `needs_viewport_update` flag triggers `vp.update_bore()` when params change
+
 ### Already Implemented in UI State
-- **Hole/side hole controls**: `enable_holes`, `hole_count`, `hole_positions`, `hole_diameters` - present in `app.rs`
-- **Mouthpiece types**: `"none"`, `"reed"`, `"embouchure_hole"`, `"fipple"`, `"cup"` - present in `app.rs`
-- **Bore curve parameter**: `bore_curve: f32` - already in `app.rs`
-- **Advanced parameters**: `wall_thickness`, `temperature` - present in `app.rs`
-- **Visualization options**: `show_3d`, `show_wireframe`, `show_cross_section`, `mesh_rotation_enabled`, `mesh_rotation_speed`, `color_scheme`, `active_tab` - all present in `app.rs`
-- **Optimization controls**: `enable_optimization`, `opt_population_size`, `opt_generations`, `opt_bore_shape`, `opt_toots_input` - present in `app.rs`
+- **Hole/side hole controls**: `enable_holes`, `hole_count`, `hole_positions`, `hole_diameters` - present in `App` struct (`src/bin/gui.rs`)
+- **Mouthpiece types**: `"none"`, `"reed"`, `"embouchure_hole"`, `"fipple"`, `"cup"` - present in `App` struct (`src/bin/gui.rs`)
+- **Bore curve parameter**: `bore_curve: f32` - already in `App` struct (`src/bin/gui.rs`)
+- **Advanced parameters**: `wall_thickness`, `temperature` - present in `App` struct (`src/bin/gui.rs`)
+- **Visualization options**: `show_3d`, `show_wireframe`, `show_cross_section`, `mesh_rotation_enabled`, `mesh_rotation_speed`, `color_scheme`, `active_tab` - all present in `App` struct (`src/bin/gui.rs`)
+- **Optimization controls**: `enable_optimization`, `opt_population_size`, `opt_generations`, `opt_bore_shape`, `opt_toots_input` - present in `App` struct (`src/bin/gui.rs`)
 
 ### GUI Controls Already Working
 - 3D viewport with bore geometry
@@ -37,7 +55,7 @@ This document defines the feature roadmap for the CADSD Makepad-based GUI, organ
 
 **Backend Integration**:
 - Draw from `frequencies: Vec<f64>` and `impedances: Vec<f64>` state
-- Use Makepad's `egui_plot` or direct chart rendering
+- Use Makepad `LineChart` widget or custom drawing
 
 ### Preview Window 2: Resonance Analysis
 
@@ -280,3 +298,59 @@ All parameters live in `AppState` (or `App` struct in Makepad port):
 - [ ] Multi-part joint definition works
 - [ ] Custom profile save/load
 - [ ] Export geometry with modifications
+
+## 10. Current Makepad GUI State and Future UI Needs (Addendum)
+
+This addendum records the actual state of the new Makepad GUI and the future features that must be planned for now so the UI does not need to be rebuilt later. The older roadmap sections above are kept as historical context.
+
+### What the current GUI already has
+
+The current Makepad GUI is the active UI. It already contains:
+
+- Geometry controls: length, top diameter, bell diameter, segments, bore curve, and a bore-style dropdown.
+- A 3-D viewport that redraws the bore in real time.
+- A run button that starts a background simulation.
+- A simple impedance chart.
+- A few labels for geometry summary and resonance count.
+- A small resonance-analysis header.
+
+### What is missing but must be planned for now
+
+The following features are research-driven future work. They are not yet in the backend, but the UI should reserve space for them now:
+
+- Mouthpiece and finger-hole controls.
+- Loss breakdown preview.
+- Cross-section view.
+- Export functions.
+- Optimization panel.
+- Phase overlay on the impedance chart.
+- Bent-shape correction preview.
+- Differentiable TLM / Adam optimization.
+- Neural surrogate training panel.
+- Time-domain synthesis with audio output.
+- Multi-fidelity validation with FDTD.
+
+### Design rule
+
+Do not change the existing layout just to fit one new backend feature. Add new panels or extend existing panels with stable IDs. The GUI should be a shell that can accept new backend modules later.
+
+### Future UI requirements
+
+- Reserve a sidebar area for simulation method and loss-component controls.
+- Keep the impedance chart capable of showing magnitude and phase.
+- Keep the resonance panel able to show a structured table later.
+- Keep a cross-section panel slot even if the backend does not support it yet.
+- Keep an optimizer panel slot even if the optimizer is not wired yet.
+
+### Future backend features that need UI slots
+
+| Future backend feature | UI slot to reserve now | Why it matters |
+|------------------------|------------------------|----------------|
+| Mouthpiece / finger holes | Sidebar panel | Backend state is not present yet |
+| Loss breakdown | Optimizer panel | Future loss components |
+| Cross-section view | Main area panel | Future 2-D backend |
+| Phase overlay | Impedance chart | Future complex impedance |
+| Differentiable TLM | Optimizer panel | Future gradient-based design |
+| Neural surrogate | Training panel | Future ML backend |
+| Time-domain synthesis | Audio panel | Future `cpal` backend |
+| Multi-fidelity validation | Validation panel | Future FDTD/FEM backend |

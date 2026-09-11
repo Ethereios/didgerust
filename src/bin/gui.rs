@@ -164,12 +164,12 @@ script_mod! {
                                           draw_text +: {color: #xa0a0a0}
                                       }
 
-                                      bore_style_dropdown := DropDown{
-                                          width: Fill
-                                          height: 28
-                                          labels: ["Cone", "Kigali", "Mbeya"]
-                                          selected_item: 0
-                                      }
+bore_style_dropdown := DropDown{
+                                           width: Fill
+                                           height: 28
+                                           labels: ["Cone", "Cylinder", "Exponential", "Kigali", "Mbeya"]
+                                           selected_item: 0
+                                       }
 
                                       length_label := Label{
                                           width: Fill
@@ -270,50 +270,182 @@ script_mod! {
                                           draw_text +: {color: #xa0a0a0}
                                       }
 
-                                      bore_curve_value := TextInput{
-                                          width: 80
-                                          height: 18
-                                          text: "0.0"
-                                          draw_text +: {color: #xaaaaff, font_size: 14}
-                                      }
+                                       bore_curve_value := TextInput{
+                                           width: 80
+                                           height: 18
+                                           text: "0.0"
+                                           draw_text +: {color: #xaaaaff, font_size: 14}
+                                       }
 
-                                      bore_curve_slider := Slider{
-                                          width: Fill
-                                          height: 40
-                                          min: -2.0
-                                          max: 2.0
-                                          step: 0.1
-                                          default: 0.0
-                                      }
+bore_curve_slider := Slider{
+                                            width: Fill
+                                            height: 40
+                                            min: -2.0
+                                            max: 2.0
+                                            step: 0.1
+                                            default: 1.0
+                                        }
 
-                                      run_button := Button{
-                                          width: Fill
-                                          height: 36
-                                          text: "Run Simulation"
-                                      }
+                                       geo_profile := Label{
+                                           width: Fill
+                                           height: 18
+                                           text: "Profile: Cone"
+                                           draw_text +: {color: #x88cc88}
+                                       }
 
-                                      running_label := Label{
-                                          width: Fill
-                                          height: 18
-                                          text: "Ready"
-                                          draw_text +: {color: #xffaa00}
-                                      }
+                                       bubble_section := View{
+                                           width: Fill
+                                           height: Fit
+                                           flow: Down
+                                           spacing: 4
+                                           padding: 4
+                                           draw_bg +: {color: #x2d2d2d}
 
-                                      fundamental_label := Label{
-                                          width: Fill
-                                          height: 20
-                                          text: "Fundamental: -"
-                                          draw_text +: {color: #x88cc88}
-                                      }
+                                           bubble_title := Label{
+                                               width: Fill
+                                               height: 18
+                                               text: "Bubbles (pos, width, height) mm"
+                                               draw_text +: {color: #xdfe7ee}
+                                           }
 
-                                      resonances_label := Label{
-                                          width: Fill
-                                          height: 20
-                                          text: "Resonances: -"
-                                          draw_text +: {color: #x88cc88}
-                                      }
-                                  }
-                              }
+                                           bubble_add_row := View{
+                                               width: Fill
+                                               height: 20
+                                               flow: Right
+                                               spacing: 4
+
+                                               bubble_pos_input := TextInput{
+                                                   width: 60
+                                                   height: 18
+                                                   text: "400"
+                                                   draw_text +: {color: #xaaaaff, font_size: 12}
+                                               }
+                                               bubble_width_input := TextInput{
+                                                   width: 60
+                                                   height: 18
+                                                   text: "20"
+                                                   draw_text +: {color: #xaaaaff, font_size: 12}
+                                               }
+                                               bubble_height_input := TextInput{
+                                                   width: 60
+                                                   height: 18
+                                                   text: "5"
+                                                   draw_text +: {color: #xaaaaff, font_size: 12}
+                                               }
+                                               bubble_add_button := Button{
+                                                   width: 60
+                                                   height: 24
+                                                   text: "Add Bubble"
+                                               }
+                                               bubble_remove_button := Button{
+                                                   width: 60
+                                                   height: 24
+                                                   text: "Remove"
+                                               }
+                                           }
+
+                                           bubble_count := Label{
+                                               width: Fill
+                                               height: 18
+                                               text: "Bubbles: 0"
+                                               draw_text +: {color: #x88cc88}
+                                           }
+                                       }
+
+                                       segment_ops_section := View{
+                                           width: Fill
+                                           height: Fit
+                                           flow: Down
+                                           spacing: 4
+                                           padding: 4
+                                           draw_bg +: {color: #x2d2d2d}
+
+                                           seg_ops_title := Label{
+                                               width: Fill
+                                               height: 18
+                                               text: "Segment Ops (move, sort)"
+                                               draw_text +: {color: #xdfe7ee}
+                                           }
+
+                                           seg_ops_row := View{
+                                               width: Fill
+                                               height: 20
+                                               flow: Right
+                                               spacing: 4
+
+                                               seg_start_input := TextInput{
+                                                   width: 50
+                                                   height: 18
+                                                   text: "0"
+                                                   draw_text +: {color: #xaaaaff, font_size: 12}
+                                               }
+                                               seg_end_input := TextInput{
+                                                   width: 50
+                                                   height: 18
+                                                   text: "0"
+                                                   draw_text +: {color: #xaaaaff, font_size: 12}
+                                               }
+                                               seg_offset_input := TextInput{
+                                                   width: 60
+                                                   height: 18
+                                                   text: "0"
+                                                   draw_text +: {color: #xaaaaff, font_size: 12}
+                                               }
+                                                seg_move_button := Button{
+                                                    width: 60
+                                                    height: 24
+                                                    text: "Move"
+                                                }
+                                                seg_sort_button := Button{
+                                                    width: 60
+                                                    height: 24
+                                                    text: "Sort"
+                                                }
+                                            }
+                                        }
+
+                                        // Segment Editor toggle and list
+                                        segment_editor_toggle := Button{
+                                            width: Fill
+                                            height: 24
+                                            text: if self.show_segment_editor { "Hide Segment Editor" } else { "Show Segment Editor" }
+                                        }
+
+                                        segment_editor_list := Label{
+                                            width: Fill
+                                            height: Fit
+                                            text: "Segments: 0"
+                                            draw_text +: {color: #x88cc88, font_size: 12}
+                                        }
+
+                                        run_button := Button{
+                                           width: Fill
+                                           height: 36
+                                           text: "Run Simulation"
+                                       }
+
+                                       running_label := Label{
+                                           width: Fill
+                                           height: 18
+                                           text: "Ready"
+                                           draw_text +: {color: #xffaa00}
+                                       }
+
+                                       fundamental_label := Label{
+                                           width: Fill
+                                           height: 20
+                                           text: "Fundamental: -"
+                                           draw_text +: {color: #x88cc88}
+                                       }
+
+                                       resonances_label := Label{
+                                           width: Fill
+                                           height: 20
+                                           text: "Resonances: -"
+                                           draw_text +: {color: #x88cc88}
+                                       }
+                                   }
+                               }
 
                             main_area := View{
                                 width: Fill
@@ -324,8 +456,8 @@ script_mod! {
                                 draw_bg +: {color: #x12161d}
 
                                 viewport := mod.widgets.BoreViewport{
-
-                                    height: 400}
+                                    height: 400
+                                }
 
                                 impedance_preview := View{
                                     width: Fill
@@ -500,6 +632,24 @@ fn make_segments(length: f32, top: f32, bell: f32, style: u32, bore_curve: f32, 
     geo.geo.iter().map(|pt| (pt[0] as f32, pt[1] as f32)).collect()
 }
 
+fn geo_hash(geo: &Geo) -> u64 {
+    let mut h: u64 = 0;
+    for pt in &geo.geo {
+        h = h.wrapping_mul(0x517cc1b727265a95).wrapping_add(pt[0].to_bits());
+        h = h.wrapping_mul(0x517cc1b727265a95).wrapping_add(pt[1].to_bits());
+    }
+    h
+}
+
+fn create_base_geo(length: f32, top: f32, bell: f32, style: u32, bore_curve: f32, n: usize) -> Geo {
+    match style {
+        0 => Geo::make_cone(length as f64, top as f64, bell as f64, n),
+        1 => Geo::make_kigali(length as f64, top as f64, bell as f64, bore_curve as f64, n),
+        2 => Geo::make_mbeya(length as f64, top as f64, bell as f64, bore_curve as f64, n),
+        _ => Geo::make_cone(length as f64, top as f64, bell as f64, n),
+    }
+}
+
 #[derive(Script, ScriptHook, WidgetRef, WidgetRegister)]
 pub struct BoreViewport {
     #[uid]
@@ -558,16 +708,21 @@ impl BoreViewport {
     }
 
     pub fn update_bore(&mut self, cx: &mut Cx, length: f32, top: f32, bell: f32, style: u32, bore_curve: f32, n: usize) {
-        let hash = (length.to_bits() as u64 ^ ((top.to_bits() as u64) << 1) ^ ((bell.to_bits() as u64) << 2) ^ ((style as u64) << 3) ^ ((bore_curve.to_bits() as u64) << 4) ^ ((n as u64) << 5))
-            .wrapping_mul(0x517cc1b727265a95);
+        let geo = create_base_geo(length, top, bell, style, bore_curve, n);
+        self.update_bore_geo(cx, &geo);
+    }
+
+    pub fn update_bore_geo(&mut self, cx: &mut Cx, geo: &Geo) {
+        let hash = geo_hash(geo);
         if hash == self.last_hash { return; }
         self.last_hash = hash;
 
-        let segs = make_segments(length, top, bell, style, bore_curve, n);
+        let segs: Vec<(f32, f32)> = geo.geo.iter().map(|pt| (pt[0] as f32, pt[1] as f32)).collect();
         let (indices, vertices) = build_bore_geometry(&segs);
         if let Some(ref mut geom) = self.geometry {
             geom.update(cx, indices, vertices);
         }
+
         self.area.redraw(cx);
     }
 
@@ -653,6 +808,16 @@ pub struct App {
     geo_segments: f32,
     #[rust]
     geo_max_d: f32,
+    #[rust]
+    segments_list: Vec<[f32; 2]>,
+    #[rust]
+    show_segment_editor: bool,
+    #[rust]
+    current_geo: Option<Geo>,
+    #[rust]
+    bubbles: Vec<(f32, f32, f32)>,
+    #[rust]
+    bubble_count: usize,
 }
 
 struct SimResult {
@@ -702,10 +867,82 @@ impl MatchEvent for App {
             style = v as u32;
             needs_viewport_update = true;
         }
+        let profile_name = match style {
+            0 => "Cone",
+            1 => "Cylinder",
+            2 => "Exponential",
+            3 => "Kigali",
+            4 => "Mbeya",
+            _ => "Cone",
+        };
+        self.ui.label(cx, ids!(geo_profile)).set_text(cx, &format!("Profile: {}", profile_name));
+
+        if self.ui.button(cx, ids!(bubble_add_button)).clicked(actions) {
+            let pos_str = self.ui.text_input(cx, ids!(bubble_pos_input)).text();
+            let width_str = self.ui.text_input(cx, ids!(bubble_width_input)).text();
+            let height_str = self.ui.text_input(cx, ids!(bubble_height_input)).text();
+            if let (Ok(pos), Ok(width), Ok(height)) =
+                (pos_str.parse::<f32>(), width_str.parse::<f32>(), height_str.parse::<f32>())
+            {
+                self.bubbles.push((pos, width, height));
+                self.bubble_count = self.bubbles.len();
+                needs_viewport_update = true;
+            }
+        }
+        if self.ui.button(cx, ids!(bubble_remove_button)).clicked(actions) {
+            self.bubbles.pop();
+            self.bubble_count = self.bubbles.len();
+            needs_viewport_update = true;
+        }
+        if self.ui.button(cx, ids!(seg_move_button)).clicked(actions) {
+            if let Some(ref mut geo) = self.current_geo {
+                let start_str = self.ui.text_input(cx, ids!(seg_start_input)).text();
+                let end_str = self.ui.text_input(cx, ids!(seg_end_input)).text();
+                let offset_str = self.ui.text_input(cx, ids!(seg_offset_input)).text();
+                if let (Ok(start), Ok(end), Ok(offset)) =
+                    (start_str.parse::<usize>(), end_str.parse::<usize>(), offset_str.parse::<f64>())
+                {
+                    geo.move_segments_x(start, end, offset);
+                    needs_viewport_update = true;
+                }
+            }
+        }
+        if self.ui.button(cx, ids!(seg_sort_button)).clicked(actions) {
+            if let Some(ref mut geo) = self.current_geo {
+                geo.sort_segments();
+                needs_viewport_update = true;
+            }
+        }
+        if self.ui.button(cx, ids!(segment_editor_toggle)).clicked(actions) {
+            self.show_segment_editor = !self.show_segment_editor;
+            let btn = self.ui.button(cx, ids!(segment_editor_toggle));
+            btn.set_text(cx, if self.show_segment_editor { "Hide Segment Editor" } else { "Show Segment Editor" });
+        }
+
+        // Update segments list and label from current_geo
+        if let Some(ref geo) = self.current_geo {
+            let segs: Vec<[f32; 2]> = geo.geo.iter()
+                .map(|pt| [pt[0] as f32, pt[1] as f32])
+                .collect();
+            self.segments_list = segs;
+        }
+        let seg_text: String = self.segments_list.iter()
+            .enumerate()
+            .map(|(_i, s)| format!("[{:.0}, {:.0}]", s[0], s[1]))
+            .collect::<Vec<_>>()
+            .join("  ");
+        self.ui.label(cx, ids!(segment_editor_list)).set_text(cx, &format!("{}: {}", self.segments_list.len(), seg_text));
+
+        self.ui.label(cx, ids!(bubble_count)).set_text(cx, &format!("Bubbles: {}", self.bubble_count));
 
         if needs_viewport_update {
             if let Some(mut vp) = self.ui.widget(cx, ids!(viewport)).borrow_mut::<BoreViewport>() {
-                vp.update_bore(cx, length as f32, top as f32, bell as f32, style, bore_curve, segments);
+                let mut geo = create_base_geo(length as f32, top as f32, bell as f32, style, bore_curve, segments);
+                for &(pos, width, height) in &self.bubbles {
+                    geo.make_bubble(pos as f64, width as f64, height as f64);
+                }
+                self.current_geo = Some(geo.copy());
+                vp.update_bore_geo(cx, self.current_geo.as_ref().unwrap());
             }
             self.geo_length = length as f32;
             self.geo_bell = bell as f32;
@@ -763,13 +1000,15 @@ impl MatchEvent for App {
             let (tx, rx) = mpsc::channel();
             self.sim_rx = Some(rx);
 
+            // Clone the current geometry for the simulation thread; fallback to default if none set
+            let sim_geo = if let Some(ref geo) = self.current_geo {
+                geo.copy()
+            } else {
+                create_base_geo(950.0, 35.0, 85.0, 0, 0.0, 50)
+            };
+
             std::thread::spawn(move || {
-                let geo = match style {
-                    0 => Geo::make_cone(length as f64, top as f64, bell as f64, segments),
-                    1 => Geo::make_kigali(length as f64, top as f64, bell as f64, bore_curve as f64, segments),
-                    2 => Geo::make_mbeya(length as f64, top as f64, bell as f64, bore_curve as f64, segments),
-                    _ => Geo::make_cone(length as f64, top as f64, bell as f64, segments),
-                };
+                let geo = sim_geo;  // Use the pre-computed geometry with bubbles
                 let freqs = get_log_simulation_frequencies();
                 let impedances = match acoustical_simulation(&geo, &freqs, "tlm_python") {
                     Ok(impedances) => impedances,

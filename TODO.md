@@ -26,8 +26,9 @@ Status levels: 🔄 partial, ❌ missing, ⚠️ needs improvement.
 - **Mouthpiece controls** — ❌ Not wired into Makepad GUI; available in backend state but no UI.
 - **Hole editor** — ❌ Not wired into Makepad GUI; available in backend state but no UI.
 - **Loss breakdown preview** — ❌ Not implemented; Tairua loss components not exposed in GUI.
-- **Cross-section view** — ❌ Not implemented; bore profile not shown as 2D diameter-vs-position plot.
-- **Bore curve preview** — ❌ Kigali/Mbeya profiles render but curve slider has no visual feedback on profile shape.
+- **Cross-section view** — ⚠️ 2D diameter-vs-position plot not yet implemented in GUI; segments available in backend Geo format.
+- **Bore curve preview** — ✅ Kigali/Mbeya profiles now render correctly with power-law taper; curve slider has visual feedback via profile label; all 5 bore styles supported (Cone, Cylinder, Exponential, Kigali, Mbeya)
+- **Segment Editor** — ⚠️ Segment editor toggle, bubble insertion (position/width/height inputs, Add/Remove buttons), and segment operations (move/sort with start/end/offset inputs) now wired into Makepad GUI
 - **Export functions** — ❌ No CSV/JSON/PNG export from Makepad GUI.
 
 ## Missing Implementations
@@ -49,8 +50,8 @@ Status levels: 🔄 partial, ❌ missing, ⚠️ needs improvement.
 
 ### Testing
 
-- **File I/O tests for persistence** — ❌ No tests for `AppSettings`, `ProjectState`, `OptimizerCheckpoint` save/load with real files.
-- **CLI command tests** — ❌ No automated tests for `src/bin/cli.rs` commands.
+- **Geo bubble shape/simulation validation** — ✅ Added 4 tests in `rust-cadsd-accurate/src/geo/mod.rs`: `test_make_bubble_shape_continuity`, `test_make_bubble_volume_increase`, `test_make_bubble_simulation_valid`, `test_make_bubble_numerical_stability`. Confirmed `Geo::make_bubble` sinusoidal profile matches `KigaliGenome::make_bubble` in `src/evo/mod.rs`.
+- **Slow test suite** — ✅ Fixed infinite loop in `get_log_simulation_frequencies_with_points` (sim/mod.rs:266) that caused tests to hang. Refactored TairuaLoss, FundamentalFrequencyLoss, and MultiObjectiveLoss to use single acoustic simulation per call instead of 3 redundant simulations. All 32 lib tests now pass in ~11s (was 60s+ timeout). Full frequency grid preserved — no accuracy compromise.
 
 ## Completed (fully working)
 
@@ -61,11 +62,12 @@ Status levels: 🔄 partial, ❌ missing, ⚠️ needs improvement.
 - **CLI for experimental features** — `src/bin/cli.rs` exposes all experimental modules to non-Rust users.
 - **Persistence** — JSON save/load for settings, checkpoints, project state.
 - **Geometry ops** — cone, cylinder, bubble, stretch, scale, volume, Kigali, Mbeya.
+- **Geo::make_bubble consistency** — Fixed from triangular to sinusoidal profile (10 sample points) matching `KigaliGenome::make_bubble`. Fixed unsorted geometry bug from bubble insertion. Added shape continuity, volume, simulation, and numerical stability tests.
 
 ### Makepad GUI (working)
 
 - **Geometry controls** — Length, top/bell diameter, segments sliders
-- **Bore style dropdown** — Cone, Kigali, Mbeya (exponential/cylinder available in backend but not in dropdown)
+- **Bore style dropdown** — ✅ Fixed: Cone, Cylinder, Exponential, Kigali, Mbeya all available in dropdown
 - **Bore curve slider** — -2.0 to 2.0 (affects Kigali/Mbeya power parameter)
 - **3D viewport** — Real-time bore geometry with orbit/zoom controls (XrCamera)
 - **Run simulation button** — Background thread execution

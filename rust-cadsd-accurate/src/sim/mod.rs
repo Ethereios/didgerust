@@ -259,24 +259,39 @@ pub fn get_log_simulation_frequencies() -> Vec<f64> {
 
 /// Get logarithmic simulation frequencies with parameters (same as Python)
 pub fn get_log_simulation_frequencies_with_params(fmin: f64, fmax: f64, grid_size: f64) -> Vec<f64> {
+    get_log_simulation_frequencies_with_points(fmin, fmax, grid_size, 1200)
+}
+
+/// Get logarithmic simulation frequencies with custom points per octave
+pub fn get_log_simulation_frequencies_with_points(fmin: f64, fmax: f64, grid_size: f64, points_per_octave: usize) -> Vec<f64> {
     let mut frequencies = Vec::new();
     let stepsize = grid_size / 1200.0;
     let start_freq = fmin;
-    let mut end_freq = start_freq;
     let mut octave = 0;
     
-    while end_freq < fmax {
-        let notes: Vec<f64> = (0..1200).map(|n| {
+    loop {
+        let mut notes_added = 0;
+        let notes: Vec<f64> = (0..points_per_octave).map(|n| {
             let note_step = n as f64 * stepsize;
             start_freq * 2.0f64.powf(note_step + octave as f64)
         }).collect();
         
-        frequencies.extend(notes.into_iter().filter(|&f| f <= fmax));
-        end_freq = *frequencies.last().unwrap_or(&fmax);
+        for f in notes {
+            if f > fmax {
+                break;
+            }
+            frequencies.push(f);
+            notes_added += 1;
+        }
+        
+        if notes_added == 0 {
+            break;
+        }
+        
         octave += 1;
     }
     
-    frequencies.into_iter().filter(|&f| f <= fmax).collect()
+    frequencies
 }
 
 /// Compute ground spectrum (same interface as Python)
@@ -297,14 +312,36 @@ pub fn compute_ground_spektrum(geo: &Geo, simulation_method: &str) -> Result<Vec
 
 /// Get fundamental frequency (same interface as Python)
 pub fn get_fundamental(geo: &Geo, simulation_method: &str, min_peak_f: f64) -> Result<(f64, f64), CadsdError> {
-    let freqs = get_log_simulation_frequencies();
-    let impedances = acoustical_simulation(geo, &freqs, simulation_method)?;
+    get_fundamental_with_frequencies(geo, simulation_method, min_peak_f, get_log_simulation_frequencies())
+}
+
+/// Find fundamental frequency from pre-computed impedance data
+pub fn find_fundamental(frequencies: &[f64], impedances: &[f64], min_peak_f: f64) -> Option<(f64, f64)> {
+    let mut peaks = Vec::new();
+    for i in 1..impedances.len() - 1 {
+        if impedances[i] > impedances[i-1] && impedances[i] > impedances[i+1] {
+            peaks.push((frequencies[i], impedances[i]));
+        }
+    }
+    
+    for (freq, imp) in peaks {
+        if freq > min_peak_f {
+            return Some((freq, imp));
+        }
+    }
+    
+    None
+}
+
+/// Get fundamental frequency with custom frequency grid
+pub fn get_fundamental_with_frequencies(geo: &Geo, simulation_method: &str, min_peak_f: f64, frequencies: Vec<f64>) -> Result<(f64, f64), CadsdError> {
+    let impedances = acoustical_simulation(geo, &frequencies, simulation_method)?;
     
     // Find peaks
     let mut peaks = Vec::new();
     for i in 1..impedances.len() - 1 {
         if impedances[i] > impedances[i-1] && impedances[i] > impedances[i+1] {
-            peaks.push((freqs[i], impedances[i], i));
+            peaks.push((frequencies[i], impedances[i], i));
         }
     }
     
@@ -322,7 +359,7 @@ pub fn get_fundamental(geo: &Geo, simulation_method: &str, min_peak_f: f64) -> R
 mod tests {
     use super::*;
     use crate::geo::Geo;
-    use approx::assert_abs_diff_eq;
+    
     
     #[test]
     fn test_acoustical_simulation_basic() {

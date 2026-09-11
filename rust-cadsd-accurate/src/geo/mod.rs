@@ -86,29 +86,45 @@ impl Geo {
         }
     }
     
-    /// Insert a bulge (bubble) at position pos with given width and height (same as Python)
+    /// Insert a bulge (bubble) at position pos with given width and height.
+    /// Uses a sinusoidal profile (10 sample points) for smooth diameter transitions,
+    /// consistent with KigaliGenome::make_bubble in the evo module.
+    /// Height > 0 creates a bulge (wider bore), height < 0 creates a constriction.
     pub fn make_bubble(&mut self, pos: f64, width: f64, height: f64) {
-        let mut index = 0;
-        for i in 0..self.geo.len() - 1 {
-            if self.geo[i + 1][0] > pos {
-                index = i;
-                break;
-            }
+        if width <= 0.0 || height == 0.0 {
+            return;
         }
         
-        let left = self.geo[0..=index].to_vec();
-        let right = self.geo[index + 1..].to_vec();
+        let half_width = width / 2.0;
+        let left_edge = pos - half_width;
+        let right_edge = pos + half_width;
         
-        let new_geo = [
-            left,
-            vec![
-                [pos - width / 2.0, self.geo[index][1]],
-                [pos, height],
-                [pos + width / 2.0, self.geo[index + 1][1]],
-            ],
-            right,
-        ].concat();
+        // Keep segments before the bubble (excluding points inside bubble range)
+        let left: Vec<[f64; 2]> = self.geo.iter().copied()
+            .filter(|p| p[0] <= left_edge)
+            .collect();
         
+        // Keep segments after the bubble (excluding points inside bubble range)
+        let right: Vec<[f64; 2]> = self.geo.iter().copied()
+            .filter(|p| p[0] >= right_edge)
+            .collect();
+        
+        // Interpolate base diameter at bubble edges
+        let base_diam_left = self.diameter_at_x(left_edge);
+        let base_diam_right = self.diameter_at_x(right_edge);
+        
+        // Sinusoidal bulge with 10 sample points for smooth transitions
+        let n_bubble_points = 10;
+        let mut bubble_points = Vec::new();
+        for i in 0..n_bubble_points {
+            let t = i as f64 / (n_bubble_points - 1) as f64;
+            let bubble_pos = left_edge + t * width;
+            let base_diam = base_diam_left + (base_diam_right - base_diam_left) * t;
+            let bulge = height * (PI * t).sin();
+            bubble_points.push([bubble_pos, base_diam + bulge]);
+        }
+        
+        let new_geo = [left, bubble_points, right].concat();
         self.geo = new_geo;
     }
     
@@ -379,6 +395,99 @@ mod tests {
         let mut geo = Geo::make_cone(1000.0, 32.0, 60.0, 10);
         geo.make_bubble(500.0, 100.0, 20.0);
         assert!(geo.geo.len() > 10);
+    }
+    
+    #[test]
+    fn test_make_bubble_shape_continuity() {
+        let geo = Geo::make_cone(1000.0, 32.0, 60.0, 10);
+        let base_diam = |x: f64| geo.diameter_at_x(x);
+        
+        let mut geo2 = geo.clone();
+        geo2.make_bubble(500.0, 100.0, 20.0);
+        
+        // Bubble spans [450, 550]; at edges bulge=0, diameter should match base cone
+        let edge_diam_450 = geo2.diameter_at_x(450.0);
+        let base_diam_450 = base_diam(450.0);
+        assert!((edge_diam_450 - base_diam_450).abs() < 1.0,
+            "diam at 450: {} vs base: {}", edge_diam_450, base_diam_450);
+        
+        let edge_diam_550 = geo2.diameter_at_x(550.0);
+        let base_diam_550 = base_diam(550.0);
+        assert!((edge_diam_550 - base_diam_550).abs() < 1.0,
+            "diam at 550: {} vs base: {}", edge_diam_550, base_diam_550);
+        
+        // At center (500), diameter should be expanded by ~height (sinusoid peak)
+        let center_diam = geo2.diameter_at_x(500.0);
+        let base_center = base_diam(500.0);
+        assert!(center_diam > base_center,
+            "center {} not > base {}", center_diam, base_center);
+    }
+    
+    #[test]
+    fn test_make_bubble_volume_increase() {
+        let mut geo = Geo::make_cone(1000.0, 32.0, 60.0, 10);
+        let volume_before = geo.compute_volume();
+        
+        geo.make_bubble(500.0, 100.0, 20.0);
+        
+        let volume_after = geo.compute_volume();
+        assert!(volume_after > volume_before);
+        
+        let mut geo2 = Geo::make_cone(1000.0, 32.0, 60.0, 10);
+        let volume_before2 = geo2.compute_volume();
+        
+        geo2.make_bubble(500.0, 100.0, -15.0);
+        
+        let volume_after2 = geo2.compute_volume();
+        assert!(volume_after2 < volume_before2);
+    }
+    
+    #[test]
+    fn test_make_bubble_simulation_valid() {
+        let geo = Geo::make_cone(1000.0, 32.0, 60.0, 10);
+        let freqs = vec![50.0, 100.0, 200.0, 400.0, 800.0, 1600.0];
+        
+        let result_before = crate::acoustical_simulation(&geo, &freqs, "tlm_python");
+        assert!(result_before.is_ok());
+        let imp_before = result_before.unwrap();
+        assert!(imp_before.iter().all(|&z| z.is_finite() && z >= 0.0));
+        
+        let mut geo_with_bubble = geo.clone();
+        geo_with_bubble.make_bubble(500.0, 80.0, 15.0);
+        
+        let result_after = crate::acoustical_simulation(&geo_with_bubble, &freqs, "tlm_python");
+        assert!(result_after.is_ok());
+        let imp_after = result_after.unwrap();
+        assert!(imp_after.iter().all(|&z| z.is_finite() && z >= 0.0));
+    }
+    
+    #[test]
+    fn test_make_bubble_numerical_stability() {
+        let geo = Geo::make_cone(1500.0, 32.0, 65.0, 20);
+        
+        let test_cases = vec![
+            (200.0, 50.0, 10.0),
+            (750.0, 100.0, 20.0),
+            (1300.0, 80.0, 15.0),
+            (750.0, 200.0, 30.0),
+            (750.0, 50.0, -10.0),
+        ];
+        
+        let freqs = vec![50.0, 100.0, 200.0, 400.0, 800.0, 1600.0];
+        
+        for &(pos, width, height) in &test_cases {
+            let mut geo_test = geo.clone();
+            geo_test.make_bubble(pos, width, height);
+            
+            let result = crate::acoustical_simulation(&geo_test, &freqs, "tlm_python");
+            assert!(result.is_ok(), "Simulation failed for bubble at pos={}, width={}, height={}", pos, width, height);
+            
+            let spectrum = result.unwrap();
+            for z in &spectrum {
+                assert!(z.is_finite(), "Impedance must be finite for bubble at pos={}, width={}, height={}", pos, width, height);
+                assert!(*z >= 0.0, "Impedance must be non-negative");
+            }
+        }
     }
 
     #[test]

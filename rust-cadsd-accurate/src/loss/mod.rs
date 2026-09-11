@@ -4,7 +4,7 @@
 //! with a focus on the Tairua composite loss function that matches the Python DidgeLab implementation.
 
 use crate::geo::Geo;
-use crate::sim::{acoustical_simulation, get_log_simulation_frequencies, get_fundamental};
+use crate::sim::{acoustical_simulation, find_fundamental, get_log_simulation_frequencies};
 use crate::evo::TargetSound;
 
 /// Main Tairua loss function that combines multiple acoustic criteria
@@ -50,10 +50,10 @@ impl TairuaLoss {
         self
     }
     
-    /// Compute the total loss for a given geometry
-    pub fn compute_loss(&self, geo: &Geo) -> Result<f64, String> {
+/// Compute the total loss for a given geometry
+pub fn compute_loss(&self, geo: &Geo) -> Result<f64, String> {
         let frequencies = get_log_simulation_frequencies();
-        let _impedances = match acoustical_simulation(geo, &frequencies, "tlm_python") {
+        let impedances = match acoustical_simulation(geo, &frequencies, "tlm_python") {
             Ok(imp) => imp,
             Err(e) => return Err(format!("Simulation failed: {}", e)),
         };
@@ -62,7 +62,7 @@ impl TairuaLoss {
         
         // Fundamental frequency loss
         if let Some(target_freq) = self.target_frequency {
-            if let Ok((fundamental, _)) = get_fundamental(geo, "tlm_python", 20.0) {
+            if let Some((fundamental, _)) = find_fundamental(&frequencies, &impedances, 20.0) {
                 let freq_diff = (fundamental - target_freq).abs();
                 let fundamental_loss = (freq_diff / self.frequency_tolerance).powi(2);
                 total_loss += self.weight_fundamental * fundamental_loss;
@@ -70,14 +70,6 @@ impl TairuaLoss {
         }
         
         // Peak detection and harmonic alignment loss
-        // Note: We can't use impedances anymore since it's been renamed to _impedances
-        // So we recompute the simulation to get the impedances
-        let frequencies = get_log_simulation_frequencies();
-        let impedances = match acoustical_simulation(geo, &frequencies, "tlm_python") {
-            Ok(imp) => imp,
-            Err(e) => return Err(format!("Simulation failed: {}", e)),
-        };
-        
         let peak_indices = self.find_peaks(&impedances);
         if !peak_indices.is_empty() {
             let peak_frequencies: Vec<f64> = peak_indices.iter()
@@ -137,12 +129,12 @@ impl FundamentalFrequencyLoss {
     
     pub fn compute_loss(&self, geo: &Geo) -> Result<f64, String> {
         let frequencies = get_log_simulation_frequencies();
-        let _impedances = match acoustical_simulation(geo, &frequencies, "tlm_python") {
+        let impedances = match acoustical_simulation(geo, &frequencies, "tlm_python") {
             Ok(imp) => imp,
             Err(e) => return Err(format!("Simulation failed: {}", e)),
         };
         
-        if let Ok((fundamental, _)) = get_fundamental(geo, "tlm_python", 20.0) {
+        if let Some((fundamental, _)) = find_fundamental(&frequencies, &impedances, 20.0) {
             let diff = (fundamental - self.target_frequency).abs();
             Ok((diff / self.tolerance).powi(2))
         } else {
@@ -287,7 +279,7 @@ impl DidgeLabLoss {
         let mut total_loss = 0.0;
         
         // 1. Fundamental frequency loss
-        if let Ok((fundamental, fund_imp)) = get_fundamental(geo, "tlm_python", 20.0) {
+        if let Some((fundamental, fund_imp)) = find_fundamental(&frequencies, &impedances, 20.0) {
             let freq_diff = (fundamental - self.target_sound.fundamental_freq).abs();
             let fundamental_loss = (freq_diff / self.frequency_tolerance).powi(2);
             

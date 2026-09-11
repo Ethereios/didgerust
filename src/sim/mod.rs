@@ -251,8 +251,8 @@ pub fn ap(m: &Matrix2<Complex<f64>>, n: &Matrix2<Complex<f64>>) -> Matrix2<Compl
     m * n
 }
 
-/// Radiation impedance at the open end of a tube using the Geipel approximation
-/// for an unflanged pipe. This is frequency-dependent and complex-valued.
+/// Radiation impedance at the open end of a tube using the Levine-Schwinger IIR
+/// approximation for an unflanged pipe. This is frequency-dependent and complex-valued.
 pub fn za(freq_hz: f64, r: f64, rho: f64, c: f64, nu: f64) -> Complex<f64> {
     // Levine-Schwinger IIR approximation for unflanged pipe radiation impedance
     // From:

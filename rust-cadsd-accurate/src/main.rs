@@ -225,9 +225,9 @@ mod tests {
     #[test]
     fn test_note_conversions() {
         // Test that note conversions are accurate
-        let d1_note = -31; // D1
-        let d1_freq = note_to_freq(d1_note);
-        assert!((d1_freq - 73.4).abs() < 1.0); // Should be around 73.4 Hz
+        let d2_note = 38; // D2 ~73.4 Hz
+        let d2_freq = note_to_freq(d2_note);
+        assert!((d2_freq - 73.4).abs() < 1.0); // Should be around 73.4 Hz
         
         let a4_note = 69; // A4
         let a4_freq = note_to_freq(a4_note);

@@ -16,7 +16,7 @@ pub mod ui;
 pub use geo::Geo;
 
 pub use conv::{note_to_freq, freq_to_note, note_name, freq_to_note_and_cent, freq_to_wavelength, cent_diff};
-pub use sim::{acoustical_simulation, get_log_simulation_frequencies, compute_ground_spektrum, get_fundamental};
+pub use sim::{acoustical_simulation, get_log_simulation_frequencies, get_log_simulation_frequencies_with_params, get_log_simulation_frequencies_with_points, get_fundamental, get_fundamental_with_frequencies, compute_ground_spektrum};
 pub use analysis::{get_notes, plot_bore, plot_impedance_spectrum};
 pub use loss::DidgeLabLoss;
 pub use inverse_design::{InverseDesigner, DesignResult};

@@ -1,9 +1,9 @@
 pub use makepad_widgets::*;
 pub use makepad_xr::scene::*;
 
+use cadsd_accurate::conv::{freq_to_note, note_name};
 use cadsd_accurate::geo::Geo;
 use cadsd_accurate::sim::{acoustical_simulation, get_log_simulation_frequencies};
-use cadsd_accurate::conv::{note_name, freq_to_note};
 use makepad_render::scene::set_pass_camera;
 use std::sync::mpsc;
 
@@ -418,6 +418,128 @@ bore_curve_slider := Slider{
                                             draw_text +: {color: #x88cc88, font_size: 12}
                                         }
 
+                                        mouthpiece_section := View{
+                                            width: Fill
+                                            height: Fit
+                                            flow: Down
+                                            spacing: 4
+                                            padding: 4
+                                            draw_bg +: {color: #x2d2d2d}
+                                            new_batch: true
+
+                                            mp_title := Label{
+                                                width: Fill
+                                                height: 18
+                                                text: "Mouthpiece"
+                                                draw_text +: {color: #xdfe7ee}
+                                            }
+
+                                            mp_toggle := Button{
+                                                width: Fill
+                                                height: 24
+                                                text: if self.enable_mouthpiece { "Disable Mouthpiece" } else { "Enable Mouthpiece" }
+                                            }
+
+                                            mp_type_dropdown := DropDown{
+                                                width: Fill
+                                                height: 28
+                                                labels: ["None", "Reed", "Embouchure", "Fipple", "Cup"]
+                                                selected_item: 0
+                                            }
+
+                                            mp_length_label := Label{
+                                                width: Fill
+                                                height: 18
+                                                text: "Length (mm)"
+                                                draw_text +: {color: #xa0a0a0}
+                                            }
+
+                                            mp_length_slider := Slider{
+                                                width: Fill
+                                                height: 40
+                                                min: 10.0
+                                                max: 200.0
+                                                step: 5.0
+                                                default: 0.0
+                                            }
+
+                                            mp_length_value := Label{
+                                                width: Fill
+                                                height: 18
+                                                text: "Length: 0 mm"
+                                                draw_text +: {color: #xdfe7ee}
+                                            }
+
+                                            mp_diameter_label := Label{
+                                                width: Fill
+                                                height: 18
+                                                text: "Diameter (mm)"
+                                                draw_text +: {color: #xa0a0a0}
+                                            }
+
+                                            mp_diameter_slider := Slider{
+                                                width: Fill
+                                                height: 40
+                                                min: 10.0
+                                                max: 100.0
+                                                step: 5.0
+                                                default: 0.0
+                                            }
+
+                                            mp_diameter_value := Label{
+                                                width: Fill
+                                                height: 18
+                                                text: "Diameter: 0 mm"
+                                                draw_text +: {color: #xdfe7ee}
+                                            }
+                                        }
+
+                                        holes_section := View{
+                                            width: Fill
+                                            height: Fit
+                                            flow: Down
+                                            spacing: 4
+                                            padding: 4
+                                            draw_bg +: {color: #x2d2d2d}
+                                            new_batch: true
+
+                                            holes_title := Label{
+                                                width: Fill
+                                                height: 18
+                                                text: "Finger Holes"
+                                                draw_text +: {color: #xdfe7ee}
+                                            }
+
+                                            holes_toggle := Button{
+                                                width: Fill
+                                                height: 24
+                                                text: if self.enable_holes { "Disable Holes" } else { "Enable Holes" }
+                                            }
+
+                                            holes_count_label := Label{
+                                                width: Fill
+                                                height: 18
+                                                text: "Hole count: 0"
+                                                draw_text +: {color: #xdfe7ee}
+                                            }
+
+                                            holes_count_slider := Slider{
+                                                width: Fill
+                                                height: 40
+                                                min: 0.0
+                                                max: 12.0
+                                                step: 1.0
+                                                default: 0.0
+                                            }
+
+                                            holes_list := Label{
+                                                width: Fill
+                                                height: Fit
+                                                text: "Holes: none"
+                                                draw_text +: {color: #xb0b0b0, font_size: 11}
+                                            }
+                                        }
+
                                         run_button := Button{
                                            width: Fill
                                            height: 36
@@ -581,8 +703,16 @@ impl DrawPhysMesh {
     fn apply_uniforms(&mut self, cx: &mut CxDraw) {
         let light_dir = self.light_dir.normalize();
         let fill_dir = self.fill_dir.normalize();
-        self.draw_vars.set_uniform(cx.cx, live_id!(u_light_dir), &[light_dir.x, light_dir.y, light_dir.z]);
-        self.draw_vars.set_uniform(cx.cx, live_id!(u_fill_dir), &[fill_dir.x, fill_dir.y, fill_dir.z]);
+        self.draw_vars.set_uniform(
+            cx.cx,
+            live_id!(u_light_dir),
+            &[light_dir.x, light_dir.y, light_dir.z],
+        );
+        self.draw_vars.set_uniform(
+            cx.cx,
+            live_id!(u_fill_dir),
+            &[fill_dir.x, fill_dir.y, fill_dir.z],
+        );
     }
 
     fn draw(&mut self, cx: &mut CxDraw, geometry_id: GeometryId) {
@@ -622,21 +752,35 @@ fn build_bore_geometry(segments: &[(f32, f32)]) -> (Vec<u32>, Vec<f32>) {
     (indices, vertices)
 }
 
-fn make_segments(length: f32, top: f32, bell: f32, style: u32, bore_curve: f32, n: usize) -> Vec<(f32, f32)> {
+fn make_segments(
+    length: f32,
+    top: f32,
+    bell: f32,
+    style: u32,
+    bore_curve: f32,
+    n: usize,
+) -> Vec<(f32, f32)> {
     let geo = match style {
         0 => Geo::make_cone(length as f64, top as f64, bell as f64, n),
         1 => Geo::make_kigali(length as f64, top as f64, bell as f64, bore_curve as f64, n),
         2 => Geo::make_mbeya(length as f64, top as f64, bell as f64, bore_curve as f64, n),
         _ => Geo::make_cone(length as f64, top as f64, bell as f64, n),
     };
-    geo.geo.iter().map(|pt| (pt[0] as f32, pt[1] as f32)).collect()
+    geo.geo
+        .iter()
+        .map(|pt| (pt[0] as f32, pt[1] as f32))
+        .collect()
 }
 
 fn geo_hash(geo: &Geo) -> u64 {
     let mut h: u64 = 0;
     for pt in &geo.geo {
-        h = h.wrapping_mul(0x517cc1b727265a95).wrapping_add(pt[0].to_bits());
-        h = h.wrapping_mul(0x517cc1b727265a95).wrapping_add(pt[1].to_bits());
+        h = h
+            .wrapping_mul(0x517cc1b727265a95)
+            .wrapping_add(pt[0].to_bits());
+        h = h
+            .wrapping_mul(0x517cc1b727265a95)
+            .wrapping_add(pt[1].to_bits());
     }
     h
 }
@@ -688,12 +832,31 @@ pub struct BoreViewport {
 
 impl BoreViewport {
     fn ensure_initialized(&mut self, cx: &mut Cx) {
-        if self.initialized { return; }
+        if self.initialized {
+            return;
+        }
         self.initialized = true;
-        self.color_texture = Texture::new_with_format(cx, TextureFormat::RenderBGRAu8 { size: TextureSize::Auto, initial: true });
-        self.depth_texture = Texture::new_with_format(cx, TextureFormat::DepthD32 { size: TextureSize::Auto, initial: true });
-        self.pass.set_color_texture(cx, &self.color_texture, DrawPassClearColor::ClearWith(self.clear_color));
-        self.pass.set_depth_texture(cx, &self.depth_texture, DrawPassClearDepth::ClearWith(1.0));
+        self.color_texture = Texture::new_with_format(
+            cx,
+            TextureFormat::RenderBGRAu8 {
+                size: TextureSize::Auto,
+                initial: true,
+            },
+        );
+        self.depth_texture = Texture::new_with_format(
+            cx,
+            TextureFormat::DepthD32 {
+                size: TextureSize::Auto,
+                initial: true,
+            },
+        );
+        self.pass.set_color_texture(
+            cx,
+            &self.color_texture,
+            DrawPassClearColor::ClearWith(self.clear_color),
+        );
+        self.pass
+            .set_depth_texture(cx, &self.depth_texture, DrawPassClearDepth::ClearWith(1.0));
         cx.passes[self.pass.draw_pass_id()].keep_camera_matrix = true;
 
         self.camera.orbit_yaw = 0.72;
@@ -707,17 +870,32 @@ impl BoreViewport {
         self.last_hash = 0;
     }
 
-    pub fn update_bore(&mut self, cx: &mut Cx, length: f32, top: f32, bell: f32, style: u32, bore_curve: f32, n: usize) {
+    pub fn update_bore(
+        &mut self,
+        cx: &mut Cx,
+        length: f32,
+        top: f32,
+        bell: f32,
+        style: u32,
+        bore_curve: f32,
+        n: usize,
+    ) {
         let geo = create_base_geo(length, top, bell, style, bore_curve, n);
         self.update_bore_geo(cx, &geo);
     }
 
     pub fn update_bore_geo(&mut self, cx: &mut Cx, geo: &Geo) {
         let hash = geo_hash(geo);
-        if hash == self.last_hash { return; }
+        if hash == self.last_hash {
+            return;
+        }
         self.last_hash = hash;
 
-        let segs: Vec<(f32, f32)> = geo.geo.iter().map(|pt| (pt[0] as f32, pt[1] as f32)).collect();
+        let segs: Vec<(f32, f32)> = geo
+            .geo
+            .iter()
+            .map(|pt| (pt[0] as f32, pt[1] as f32))
+            .collect();
         let (indices, vertices) = build_bore_geometry(&segs);
         if let Some(ref mut geom) = self.geometry {
             geom.update(cx, indices, vertices);
@@ -746,10 +924,18 @@ impl BoreViewport {
 }
 
 impl WidgetNode for BoreViewport {
-    fn widget_uid(&self) -> WidgetUid { self.uid }
-    fn walk(&mut self, _cx: &mut Cx) -> Walk { self.walk }
-    fn area(&self) -> Area { self.area }
-    fn redraw(&mut self, cx: &mut Cx) { self.area.redraw(cx); }
+    fn widget_uid(&self) -> WidgetUid {
+        self.uid
+    }
+    fn walk(&mut self, _cx: &mut Cx) -> Walk {
+        self.walk
+    }
+    fn area(&self) -> Area {
+        self.area
+    }
+    fn redraw(&mut self, cx: &mut Cx) {
+        self.area.redraw(cx);
+    }
 }
 
 impl Widget for BoreViewport {
@@ -759,13 +945,20 @@ impl Widget for BoreViewport {
 
     fn draw_walk(&mut self, cx: &mut Cx2d, _scope: &mut Scope, walk: Walk) -> DrawStep {
         let rect = cx.walk_turtle_with_area(&mut self.area, walk);
-        if rect.size.x <= 1.0 || rect.size.y <= 1.0 { return DrawStep::done(); }
+        if rect.size.x <= 1.0 || rect.size.y <= 1.0 {
+            return DrawStep::done();
+        }
 
         self.ensure_initialized(cx.cx);
         self.camera.set_desktop_viewport_rect(rect);
         self.pass.set_size(cx, rect.size);
-        self.pass.set_color_texture(cx, &self.color_texture, DrawPassClearColor::ClearWith(self.clear_color));
-        self.pass.set_depth_texture(cx, &self.depth_texture, DrawPassClearDepth::ClearWith(1.0));
+        self.pass.set_color_texture(
+            cx,
+            &self.color_texture,
+            DrawPassClearColor::ClearWith(self.clear_color),
+        );
+        self.pass
+            .set_depth_texture(cx, &self.depth_texture, DrawPassClearDepth::ClearWith(1.0));
 
         cx.make_child_pass(&self.pass);
         cx.begin_pass(&self.pass, None);
@@ -818,6 +1011,22 @@ pub struct App {
     bubbles: Vec<(f32, f32, f32)>,
     #[rust]
     bubble_count: usize,
+    #[rust]
+    enable_mouthpiece: bool,
+    #[rust]
+    mouthpiece_type: String,
+    #[rust]
+    mouthpiece_length: f32,
+    #[rust]
+    mouthpiece_diameter: f32,
+    #[rust]
+    enable_holes: bool,
+    #[rust]
+    hole_count: usize,
+    #[rust]
+    hole_positions: Vec<f32>,
+    #[rust]
+    hole_diameters: Vec<f32>,
 }
 
 struct SimResult {
@@ -840,30 +1049,44 @@ impl MatchEvent for App {
 
         if let Some(v) = self.ui.slider(cx, ids!(length_slider)).slided(actions) {
             length = v;
-            self.ui.label(cx, ids!(length_value)).set_text(cx, &format!("{:.0}", v));
+            self.ui
+                .label(cx, ids!(length_value))
+                .set_text(cx, &format!("{:.0}", v));
             needs_viewport_update = true;
         }
         if let Some(v) = self.ui.slider(cx, ids!(top_slider)).slided(actions) {
             top = v;
-            self.ui.label(cx, ids!(top_value)).set_text(cx, &format!("{:.1}", v));
+            self.ui
+                .label(cx, ids!(top_value))
+                .set_text(cx, &format!("{:.1}", v));
             needs_viewport_update = true;
         }
         if let Some(v) = self.ui.slider(cx, ids!(bell_slider)).slided(actions) {
             bell = v;
-            self.ui.label(cx, ids!(bell_value)).set_text(cx, &format!("{:.1}", v));
+            self.ui
+                .label(cx, ids!(bell_value))
+                .set_text(cx, &format!("{:.1}", v));
             needs_viewport_update = true;
         }
         if let Some(v) = self.ui.slider(cx, ids!(segments_slider)).slided(actions) {
             segments = v as usize;
-            self.ui.label(cx, ids!(segments_value)).set_text(cx, &format!("{}", segments));
+            self.ui
+                .label(cx, ids!(segments_value))
+                .set_text(cx, &format!("{}", segments));
             needs_viewport_update = true;
         }
         if let Some(v) = self.ui.slider(cx, ids!(bore_curve_slider)).slided(actions) {
             bore_curve = v as f32;
-            self.ui.label(cx, ids!(bore_curve_value)).set_text(cx, &format!("{:.1}", v));
+            self.ui
+                .label(cx, ids!(bore_curve_value))
+                .set_text(cx, &format!("{:.1}", v));
             needs_viewport_update = true;
         }
-        if let Some(v) = self.ui.drop_down(cx, ids!(bore_style_dropdown)).selected(actions) {
+        if let Some(v) = self
+            .ui
+            .drop_down(cx, ids!(bore_style_dropdown))
+            .selected(actions)
+        {
             style = v as u32;
             needs_viewport_update = true;
         }
@@ -875,21 +1098,29 @@ impl MatchEvent for App {
             4 => "Mbeya",
             _ => "Cone",
         };
-        self.ui.label(cx, ids!(geo_profile)).set_text(cx, &format!("Profile: {}", profile_name));
+        self.ui
+            .label(cx, ids!(geo_profile))
+            .set_text(cx, &format!("Profile: {}", profile_name));
 
         if self.ui.button(cx, ids!(bubble_add_button)).clicked(actions) {
             let pos_str = self.ui.text_input(cx, ids!(bubble_pos_input)).text();
             let width_str = self.ui.text_input(cx, ids!(bubble_width_input)).text();
             let height_str = self.ui.text_input(cx, ids!(bubble_height_input)).text();
-            if let (Ok(pos), Ok(width), Ok(height)) =
-                (pos_str.parse::<f32>(), width_str.parse::<f32>(), height_str.parse::<f32>())
-            {
+            if let (Ok(pos), Ok(width), Ok(height)) = (
+                pos_str.parse::<f32>(),
+                width_str.parse::<f32>(),
+                height_str.parse::<f32>(),
+            ) {
                 self.bubbles.push((pos, width, height));
                 self.bubble_count = self.bubbles.len();
                 needs_viewport_update = true;
             }
         }
-        if self.ui.button(cx, ids!(bubble_remove_button)).clicked(actions) {
+        if self
+            .ui
+            .button(cx, ids!(bubble_remove_button))
+            .clicked(actions)
+        {
             self.bubbles.pop();
             self.bubble_count = self.bubbles.len();
             needs_viewport_update = true;
@@ -899,9 +1130,11 @@ impl MatchEvent for App {
                 let start_str = self.ui.text_input(cx, ids!(seg_start_input)).text();
                 let end_str = self.ui.text_input(cx, ids!(seg_end_input)).text();
                 let offset_str = self.ui.text_input(cx, ids!(seg_offset_input)).text();
-                if let (Ok(start), Ok(end), Ok(offset)) =
-                    (start_str.parse::<usize>(), end_str.parse::<usize>(), offset_str.parse::<f64>())
-                {
+                if let (Ok(start), Ok(end), Ok(offset)) = (
+                    start_str.parse::<usize>(),
+                    end_str.parse::<usize>(),
+                    offset_str.parse::<f64>(),
+                ) {
                     geo.move_segments_x(start, end, offset);
                     needs_viewport_update = true;
                 }
@@ -913,31 +1146,126 @@ impl MatchEvent for App {
                 needs_viewport_update = true;
             }
         }
-        if self.ui.button(cx, ids!(segment_editor_toggle)).clicked(actions) {
+        if self
+            .ui
+            .button(cx, ids!(segment_editor_toggle))
+            .clicked(actions)
+        {
             self.show_segment_editor = !self.show_segment_editor;
             let btn = self.ui.button(cx, ids!(segment_editor_toggle));
-            btn.set_text(cx, if self.show_segment_editor { "Hide Segment Editor" } else { "Show Segment Editor" });
+            btn.set_text(
+                cx,
+                if self.show_segment_editor {
+                    "Hide Segment Editor"
+                } else {
+                    "Show Segment Editor"
+                },
+            );
+        }
+
+        // Handle mouthpiece controls
+        if let Some(v) = self.ui.button(cx, ids!(mp_toggle)).clicked(actions) {
+            self.enable_mouthpiece = !self.enable_mouthpiece;
+            btn = self.ui.button(cx, ids!(mp_toggle));
+            btn.set_text(cx, if self.enable_mouthpiece { "Disable Mouthpiece" } else { "Enable Mouthpiece" });
+            needs_viewport_update = true;
+        }
+        if self.enable_mouthpiece {
+            if let Some(v) = self.ui.drop_down(cx, ids!(mp_type_dropdown)).selected(actions) {
+                let types = ["None", "Reed", "Embouchure", "Fipple", "Cup"];
+                self.mouthpiece_type = types[v].to_string();
+                needs_viewport_update = true;
+            }
+            if let Some(v) = self.ui.slider(cx, ids!(mp_length_slider)).slided(actions) {
+                self.mouthpiece_length = v;
+                self.ui
+                    .label(cx, ids!(mp_length_value))
+                    .set_text(cx, &format!("Length: {:.0} mm", v));
+                needs_viewport_update = true;
+            }
+            if let Some(v) = self.ui.slider(cx, ids!(mp_diameter_slider)).slided(actions) {
+                self.mouthpiece_diameter = v;
+                self.ui
+                    .label(cx, ids!(mp_diameter_value))
+                    .set_text(cx, &format!("Diameter: {:.0} mm", v));
+                needs_viewport_update = true;
+            }
+        }
+
+        // Handle hole controls
+        if let Some(v) = self.ui.button(cx, ids!(holes_toggle)).clicked(actions) {
+            self.enable_holes = !self.enable_holes;
+            btn = self.ui.button(cx, ids!(holes_toggle));
+            btn.set_text(cx, if self.enable_holes { "Disable Holes" } else { "Enable Holes" });
+            needs_viewport_update = true;
+        }
+        if self.enable_holes {
+            if let Some(v) = self.ui.slider(cx, ids!(holes_count_slider)).slided(actions) {
+                self.hole_count = v as usize;
+                self.ui
+                    .label(cx, ids!(holes_count_label))
+                    .set_text(cx, &format!("Hole count: {}", v));
+                needs_viewport_update = true;
+            }
+        }
+        // Update holes list display
+        if self.hole_count > 0 && self.hole_positions.len() < self.hole_count {
+            while self.hole_positions.len() < self.hole_count {
+                self.hole_positions.push(0.0);
+                self.hole_diameters.push(5.0);
+            }
+        } else if self.hole_count == 0 {
+            self.hole_positions = vec![];
+            self.hole_diameters = vec![];
+        }
+        let hole_text: String = if self.hole_count > 0 {
+            format!("Holes: {} active", self.hole_count)
+        } else {
+            "Holes: none".to_string()
+        };
+        self.ui
+            .label(cx, ids!(holes_list))
+            .set_text(cx, &hole_text);
         }
 
         // Update segments list and label from current_geo
         if let Some(ref geo) = self.current_geo {
-            let segs: Vec<[f32; 2]> = geo.geo.iter()
+            let segs: Vec<[f32; 2]> = geo
+                .geo
+                .iter()
                 .map(|pt| [pt[0] as f32, pt[1] as f32])
                 .collect();
             self.segments_list = segs;
         }
-        let seg_text: String = self.segments_list.iter()
+        let seg_text: String = self
+            .segments_list
+            .iter()
             .enumerate()
             .map(|(_i, s)| format!("[{:.0}, {:.0}]", s[0], s[1]))
             .collect::<Vec<_>>()
             .join("  ");
-        self.ui.label(cx, ids!(segment_editor_list)).set_text(cx, &format!("{}: {}", self.segments_list.len(), seg_text));
+        self.ui
+            .label(cx, ids!(segment_editor_list))
+            .set_text(cx, &format!("{}: {}", self.segments_list.len(), seg_text));
 
-        self.ui.label(cx, ids!(bubble_count)).set_text(cx, &format!("Bubbles: {}", self.bubble_count));
+        self.ui
+            .label(cx, ids!(bubble_count))
+            .set_text(cx, &format!("Bubbles: {}", self.bubble_count));
 
         if needs_viewport_update {
-            if let Some(mut vp) = self.ui.widget(cx, ids!(viewport)).borrow_mut::<BoreViewport>() {
-                let mut geo = create_base_geo(length as f32, top as f32, bell as f32, style, bore_curve, segments);
+            if let Some(mut vp) = self
+                .ui
+                .widget(cx, ids!(viewport))
+                .borrow_mut::<BoreViewport>()
+            {
+                let mut geo = create_base_geo(
+                    length as f32,
+                    top as f32,
+                    bell as f32,
+                    style,
+                    bore_curve,
+                    segments,
+                );
                 for &(pos, width, height) in &self.bubbles {
                     geo.make_bubble(pos as f64, width as f64, height as f64);
                 }
@@ -954,7 +1282,8 @@ impl MatchEvent for App {
             let r1 = (top / 2.0) as f64;
             let r2 = (bell / 2.0) as f64;
             let h = length as f64;
-            self.geo_volume = (std::f64::consts::PI * (r1 * r1 + r1 * r2 + r2 * r2) * h / 3.0) as f32;
+            self.geo_volume =
+                (std::f64::consts::PI * (r1 * r1 + r1 * r2 + r2 * r2) * h / 3.0) as f32;
         }
 
         if let Some(rx) = self.sim_rx.take() {
@@ -963,31 +1292,61 @@ impl MatchEvent for App {
                     self.impedance_data = result.data;
                     self.fundamental_freq = result.fundamental as f32;
                     self.peaks = result.peaks;
-                    if let Some(mut chart) = self.ui.widget(cx, ids!(impedance_chart)).borrow_mut::<LineChart>() {
+                    if let Some(mut chart) = self
+                        .ui
+                        .widget(cx, ids!(impedance_chart))
+                        .borrow_mut::<LineChart>()
+                    {
                         chart.set_data(self.impedance_data.clone());
                     }
-                    self.ui.label(cx, ids!(fundamental_label)).set_text(cx, &format!("Fundamental: {:.1} Hz ({})", result.fundamental, result.note));
-                    self.ui.label(cx, ids!(resonances_label)).set_text(cx, &format!("Resonances: {}", result.resonance_count));
+                    self.ui.label(cx, ids!(fundamental_label)).set_text(
+                        cx,
+                        &format!(
+                            "Fundamental: {:.1} Hz ({})",
+                            result.fundamental, result.note
+                        ),
+                    );
+                    self.ui
+                        .label(cx, ids!(resonances_label))
+                        .set_text(cx, &format!("Resonances: {}", result.resonance_count));
                     self.ui.label(cx, ids!(running_label)).set_text(cx, "Ready");
 
-                    self.ui.label(cx, ids!(geo_length)).set_text(cx, &format!("Length: {:.0} mm", length));
-                    self.ui.label(cx, ids!(geo_bell)).set_text(cx, &format!("Bell: {:.1} mm", bell));
-                    self.ui.label(cx, ids!(geo_volume)).set_text(cx, &format!("Volume: {:.0} mm³", self.geo_volume));
-                    self.ui.label(cx, ids!(geo_taper)).set_text(cx, &format!("Taper ratio: {:.2}", self.geo_taper));
-                    self.ui.label(cx, ids!(geo_segments)).set_text(cx, &format!("Segments: {:.0}", self.geo_segments));
-                    self.ui.label(cx, ids!(geo_max_d)).set_text(cx, &format!("Max diameter: {:.1} mm", self.geo_max_d));
+                    self.ui
+                        .label(cx, ids!(geo_length))
+                        .set_text(cx, &format!("Length: {:.0} mm", length));
+                    self.ui
+                        .label(cx, ids!(geo_bell))
+                        .set_text(cx, &format!("Bell: {:.1} mm", bell));
+                    self.ui
+                        .label(cx, ids!(geo_volume))
+                        .set_text(cx, &format!("Volume: {:.0} mm³", self.geo_volume));
+                    self.ui
+                        .label(cx, ids!(geo_taper))
+                        .set_text(cx, &format!("Taper ratio: {:.2}", self.geo_taper));
+                    self.ui
+                        .label(cx, ids!(geo_segments))
+                        .set_text(cx, &format!("Segments: {:.0}", self.geo_segments));
+                    self.ui
+                        .label(cx, ids!(geo_max_d))
+                        .set_text(cx, &format!("Max diameter: {:.1} mm", self.geo_max_d));
 
-                    let resonance_text: String = self.peaks.iter()
+                    let resonance_text: String = self
+                        .peaks
+                        .iter()
                         .take(10)
                         .map(|(f, z)| format!("{:.1} Hz ({:.0} Pa)\n", f, z))
                         .collect();
-                    self.ui.label(cx, ids!(resonance_list)).set_text(cx, &resonance_text);
+                    self.ui
+                        .label(cx, ids!(resonance_list))
+                        .set_text(cx, &resonance_text);
                 }
                 Err(mpsc::TryRecvError::Empty) => {
                     self.sim_rx = Some(rx);
                 }
                 Err(mpsc::TryRecvError::Disconnected) => {
-                    self.ui.label(cx, ids!(running_label)).set_text(cx, "Simulation failed");
+                    self.ui
+                        .label(cx, ids!(running_label))
+                        .set_text(cx, "Simulation failed");
                 }
             }
         }
@@ -996,7 +1355,9 @@ impl MatchEvent for App {
             if self.sim_rx.is_some() {
                 return;
             }
-            self.ui.label(cx, ids!(running_label)).set_text(cx, "Simulating...");
+            self.ui
+                .label(cx, ids!(running_label))
+                .set_text(cx, "Simulating...");
             let (tx, rx) = mpsc::channel();
             self.sim_rx = Some(rx);
 
@@ -1008,7 +1369,7 @@ impl MatchEvent for App {
             };
 
             std::thread::spawn(move || {
-                let geo = sim_geo;  // Use the pre-computed geometry with bubbles
+                let geo = sim_geo; // Use the pre-computed geometry with bubbles
                 let freqs = get_log_simulation_frequencies();
                 let impedances = match acoustical_simulation(&geo, &freqs, "tlm_python") {
                     Ok(impedances) => impedances,
@@ -1024,9 +1385,16 @@ impl MatchEvent for App {
                     }
                 };
 
-                let peaks: Vec<(f64, f64)> = freqs.iter().zip(impedances.iter()).enumerate()
+                let peaks: Vec<(f64, f64)> = freqs
+                    .iter()
+                    .zip(impedances.iter())
+                    .enumerate()
                     .filter_map(|(i, (f, z))| {
-                        if i > 0 && i + 1 < impedances.len() && *z > impedances[i - 1] && *z > impedances[i + 1] {
+                        if i > 0
+                            && i + 1 < impedances.len()
+                            && *z > impedances[i - 1]
+                            && *z > impedances[i + 1]
+                        {
                             Some((*f, *z))
                         } else {
                             None
@@ -1034,10 +1402,22 @@ impl MatchEvent for App {
                     })
                     .collect();
 
-                let fundamental = peaks.iter().find(|(f, _)| *f > 20.0).map(|(f, _)| *f).unwrap_or(0.0);
-                let note = if fundamental > 0.0 { note_name(freq_to_note(fundamental)) } else { "—".to_string() };
+                let fundamental = peaks
+                    .iter()
+                    .find(|(f, _)| *f > 20.0)
+                    .map(|(f, _)| *f)
+                    .unwrap_or(0.0);
+                let note = if fundamental > 0.0 {
+                    note_name(freq_to_note(fundamental))
+                } else {
+                    "—".to_string()
+                };
 
-                let data: Vec<DataPoint> = freqs.iter().zip(impedances.iter()).map(|(f, z)| DataPoint { x: *f, y: *z }).collect();
+                let data: Vec<DataPoint> = freqs
+                    .iter()
+                    .zip(impedances.iter())
+                    .map(|(f, z)| DataPoint { x: *f, y: *z })
+                    .collect();
 
                 let _ = tx.send(SimResult {
                     data,

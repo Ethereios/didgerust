@@ -1,4 +1,9 @@
-use crate::{Geo, sim::DidgeridooSimulator, evo::{EvolutionaryOptimizer, EvolutionParameters, MutationStrategy, CrossoverStrategy}, loss::{CompositeTairuaLoss, FrequencyTuningLoss}};
+use crate::{
+    evo::{CrossoverStrategy, EvolutionParameters, EvolutionaryOptimizer, MutationStrategy},
+    loss::{CompositeTairuaLoss, FrequencyTuningLoss},
+    sim::DidgeridooSimulator,
+    Geo,
+};
 
 #[derive(Debug)]
 pub struct DefaultSimulator;
@@ -21,9 +26,24 @@ impl DefaultSimulator {
 pub struct DefaultOptimizer;
 
 impl DefaultOptimizer {
-    pub fn optimize(&self, target_frequency: f64, population_size: usize, generations: usize) -> Geo {
+    pub fn optimize(
+        &self,
+        target_frequency: f64,
+        population_size: usize,
+        generations: usize,
+    ) -> Geo {
         let genome = crate::evo::KigaliGenome::new(
-            20, 32.0, 50.0, 80.0, 1800.0, 1500.0, 0, 0.3, 0.2, target_frequency, 0
+            20,
+            32.0,
+            50.0,
+            80.0,
+            1800.0,
+            1500.0,
+            0,
+            0.3,
+            0.2,
+            target_frequency,
+            0,
         );
         let mut loss = CompositeTairuaLoss::new(5.0);
         loss.add_component(
@@ -34,7 +54,7 @@ impl DefaultOptimizer {
                 vec![10.0],
             )),
         );
-        
+
         let params = EvolutionParameters {
             population_size: population_size.min(20),
             generation_size: 10,
@@ -47,16 +67,19 @@ impl DefaultOptimizer {
             convergence_patience: 5,
             convergence_threshold: 0.01,
         };
-        
+
         let mut optimizer = EvolutionaryOptimizer::with_random_population(
-            Box::new(loss), &genome, population_size.min(20), params
+            Box::new(loss),
+            &genome,
+            population_size.min(20),
+            params,
         );
-        
+
         if let Ok(best) = optimizer.evolve() {
             let (geo, _) = best.geo_and_toneholes();
             return geo;
         }
-        
+
         Geo::make_cone(1500.0, 32.0, 65.0, 30)
     }
 }

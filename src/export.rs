@@ -5,24 +5,25 @@ pub struct GeometryExporter;
 impl GeometryExporter {
     pub fn export_obj(geometry: &Geo) -> String {
         let mut obj = String::from("# Wavefront OBJ\n# CADSD Geometry Export\n");
-        
+
         for pt in &geometry.geo {
             obj.push_str(&format!("v {:.6} 0.0 {:.6}\n", pt[0], pt[1]));
         }
-        
+
         for i in 0..geometry.geo.len().saturating_sub(1) {
             obj.push_str(&format!("l {} {}\n", i + 1, i + 2));
         }
-        
+
         obj
     }
 
     pub fn export_gltf(geometry: &Geo) -> Vec<u8> {
-        let positions: Vec<f32> = geometry.geo
+        let positions: Vec<f32> = geometry
+            .geo
             .iter()
             .flat_map(|pt| vec![pt[0] as f32, 0.0, pt[1] as f32])
             .collect();
-        
+
         let indices: Vec<u32> = (0..geometry.geo.len().saturating_sub(1) as u32)
             .flat_map(|i| vec![i, i + 1])
             .collect();
@@ -57,10 +58,28 @@ impl GeometryExporter {
   "buffers": [{{ "byteLength": {} }}]
 }}"#,
             positions.len() / 3,
-            positions.iter().step_by(3).cloned().fold(f32::NEG_INFINITY, f32::max),
-            positions.iter().step_by(3).skip(2).cloned().fold(f32::NEG_INFINITY, f32::max),
-            positions.iter().step_by(3).cloned().fold(f32::INFINITY, f32::min),
-            positions.iter().step_by(3).skip(2).cloned().fold(f32::INFINITY, f32::min),
+            positions
+                .iter()
+                .step_by(3)
+                .cloned()
+                .fold(f32::NEG_INFINITY, f32::max),
+            positions
+                .iter()
+                .step_by(3)
+                .skip(2)
+                .cloned()
+                .fold(f32::NEG_INFINITY, f32::max),
+            positions
+                .iter()
+                .step_by(3)
+                .cloned()
+                .fold(f32::INFINITY, f32::min),
+            positions
+                .iter()
+                .step_by(3)
+                .skip(2)
+                .cloned()
+                .fold(f32::INFINITY, f32::min),
             indices.len(),
             positions.len() * 4,
             positions.len() * 4,
@@ -70,8 +89,18 @@ impl GeometryExporter {
 
         let mut output = Vec::new();
         output.extend_from_slice(json.as_bytes());
-        output.extend_from_slice(&positions.iter().flat_map(|&f| f.to_le_bytes()).collect::<Vec<u8>>());
-        output.extend_from_slice(&indices.iter().flat_map(|&i| i.to_le_bytes()).collect::<Vec<u8>>());
+        output.extend_from_slice(
+            &positions
+                .iter()
+                .flat_map(|&f| f.to_le_bytes())
+                .collect::<Vec<u8>>(),
+        );
+        output.extend_from_slice(
+            &indices
+                .iter()
+                .flat_map(|&i| i.to_le_bytes())
+                .collect::<Vec<u8>>(),
+        );
         output
     }
 }

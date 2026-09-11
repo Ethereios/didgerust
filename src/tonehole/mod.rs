@@ -4,7 +4,7 @@
 //! Toneholes are modeled as side branches in the transmission line with
 //! viscothermal losses and radiation impedance.
 
-use crate::sim::{Segment, za, viscothermal_loss_params, AcousticConstants};
+use crate::sim::{viscothermal_loss_params, za, AcousticConstants, Segment};
 use nalgebra::Matrix2;
 use num_complex::Complex;
 use serde::{Deserialize, Serialize};
@@ -28,12 +28,24 @@ pub struct Tonehole {
 impl Tonehole {
     /// Create a new tonehole
     pub fn new(x: f64, diameter: f64, depth: f64, is_open: bool) -> Self {
-        Self { x, diameter, depth, is_open, coverage: 0.0 }
+        Self {
+            x,
+            diameter,
+            depth,
+            is_open,
+            coverage: 0.0,
+        }
     }
 
     /// Create a tonehole with partial key coverage
     pub fn with_coverage(x: f64, diameter: f64, depth: f64, coverage: f64) -> Self {
-        Self { x, diameter, depth, is_open: coverage < 0.5, coverage: coverage.clamp(0.0, 1.0) }
+        Self {
+            x,
+            diameter,
+            depth,
+            is_open: coverage < 0.5,
+            coverage: coverage.clamp(0.0, 1.0),
+        }
     }
 
     /// Effective open area fraction (0.0 = fully closed, 1.0 = fully open)
@@ -68,7 +80,9 @@ impl Tonehole {
 
         // Jet frequency from Strouhal number
         let f_jet = strouhal * constants.c / (2.0 * PI * r);
-        let resonance_factor = ((freq_hz / f_jet.max(1e-6)).powi(2) / (1.0 + (freq_hz / f_jet.max(1e-6)).powi(2))).min(1.0);
+        let resonance_factor = ((freq_hz / f_jet.max(1e-6)).powi(2)
+            / (1.0 + (freq_hz / f_jet.max(1e-6)).powi(2)))
+        .min(1.0);
 
         // Edge tone resistance (Pa·s/m³)
         k_edge * constants.rho * constants.c / area * resonance_factor
@@ -102,7 +116,13 @@ impl Tonehole {
             return Complex::new(1e15, 0.0);
         }
 
-        let z_rad = za(freq_hz, r.max(1e-6), constants.rho, constants.c, constants.nu);
+        let z_rad = za(
+            freq_hz,
+            r.max(1e-6),
+            constants.rho,
+            constants.c,
+            constants.nu,
+        );
         let omega = 2.0 * PI * freq_hz;
         let k = omega / constants.c;
         let zc = constants.rho * constants.c / (PI * r * r);
@@ -119,7 +139,11 @@ impl Tonehole {
         let sin_kl = (k_complex * l).sin();
 
         let a = cos_kl;
-        let zc_safe = if zc_lossy.norm() < 1e-15 { Complex::new(1e-15, 0.0) } else { zc_lossy };
+        let zc_safe = if zc_lossy.norm() < 1e-15 {
+            Complex::new(1e-15, 0.0)
+        } else {
+            zc_lossy
+        };
         let b = Complex::new(0.0, 1.0) * zc_safe * sin_kl;
         let c = Complex::new(0.0, 1.0) * sin_kl / zc_safe;
         let d = cos_kl;
@@ -153,7 +177,10 @@ impl Tonehole {
             let seg = self.to_segment(constants);
             let (_, zcw) = viscothermal_loss_params(&seg, freq_hz, constants);
             let zc = Complex::new(zcw.re, zcw.im);
-            let k_complex = Complex::new(omega / constants.c, zcw.im / (2.0 * constants.rho * constants.c));
+            let k_complex = Complex::new(
+                omega / constants.c,
+                zcw.im / (2.0 * constants.rho * constants.c),
+            );
             let l = self.depth / 1000.0;
             let cos_kl = (k_complex * l).cos();
             let sin_kl = (k_complex * l).sin();
@@ -164,7 +191,11 @@ impl Tonehole {
                 cos_kl,
             ) * z_compliance;
             let result = shunt[(0, 0)] - shunt[(0, 1)] * shunt[(1, 0)] / shunt[(1, 1)];
-            if result.norm() > 1e-15 { result } else { z_compliance }
+            if result.norm() > 1e-15 {
+                result
+            } else {
+                z_compliance
+            }
         } else {
             z_compliance
         }
@@ -216,12 +247,7 @@ impl ToneholePreset {
                 let mut holes = Vec::new();
                 let positions = [0.15, 0.30, 0.45, 0.60, 0.75, 0.90];
                 for &p in &positions {
-                    holes.push(Tonehole::new(
-                        length_mm * p,
-                        14.0,
-                        6.0,
-                        true,
-                    ));
+                    holes.push(Tonehole::new(length_mm * p, 14.0, 6.0, true));
                 }
                 holes
             }
@@ -245,12 +271,7 @@ impl ToneholePreset {
                 let mut holes = Vec::new();
                 let positions = [0.15, 0.28, 0.41, 0.54, 0.67, 0.80];
                 for &p in &positions {
-                    holes.push(Tonehole::new(
-                        length_mm * p,
-                        12.0,
-                        5.0,
-                        true,
-                    ));
+                    holes.push(Tonehole::new(length_mm * p, 12.0, 5.0, true));
                 }
                 holes
             }
@@ -330,7 +351,11 @@ mod tests {
         let hole = Tonehole::new(500.0, 12.0, 5.0, true);
         let constants = AcousticConstants::for_temperature(20.0);
         let z = hole.open_impedance(440.0, &constants);
-        assert!(z.norm() > 0.0, "Open tonehole impedance should be positive, got {:?}", z);
+        assert!(
+            z.norm() > 0.0,
+            "Open tonehole impedance should be positive, got {:?}",
+            z
+        );
     }
 
     #[test]
@@ -338,7 +363,11 @@ mod tests {
         let hole = Tonehole::new(500.0, 12.0, 5.0, false);
         let constants = AcousticConstants::for_temperature(20.0);
         let z = hole.closed_impedance(440.0, &constants);
-        assert!(z.im < 0.0, "Closed tonehole impedance should be capacitive, got {:?}", z);
+        assert!(
+            z.im < 0.0,
+            "Closed tonehole impedance should be capacitive, got {:?}",
+            z
+        );
     }
 
     #[test]

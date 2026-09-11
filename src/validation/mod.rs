@@ -3,7 +3,7 @@
 //! Provides analytical reference solutions and alternative numerical methods
 //! to cross-check TLM impedance calculations.
 
-use crate::sim::{AcousticConstants, za};
+use crate::sim::{za, AcousticConstants};
 use crate::Geo;
 use num_complex::Complex;
 use std::f64::consts::PI;
@@ -47,18 +47,17 @@ pub fn analytical_spectrum_cylinder(
     freqs: &[f64],
     constants: &AcousticConstants,
 ) -> Vec<Complex<f64>> {
-    freqs.iter().map(|&f| analytical_impedance_cylinder(length_m, radius_m, f, constants)).collect()
+    freqs
+        .iter()
+        .map(|&f| analytical_impedance_cylinder(length_m, radius_m, f, constants))
+        .collect()
 }
 
 /// Validate TLM impedance against analytical solution for a simple cylinder.
 ///
 /// Returns the maximum relative error across the frequency range.
 /// A well-behaved TLM implementation should have error < 5% for most frequencies.
-pub fn validate_tlm_vs_analytical(
-    geo: &Geo,
-    freqs: &[f64],
-    constants: &AcousticConstants,
-) -> f64 {
+pub fn validate_tlm_vs_analytical(geo: &Geo, freqs: &[f64], constants: &AcousticConstants) -> f64 {
     let segments = crate::sim::create_segments_from_geo(&geo.geo);
     let tlm_spec = crate::sim::compute_impedance_spectrum(&segments, freqs);
 
@@ -88,11 +87,7 @@ pub fn validate_tlm_vs_analytical(
 /// Validate TLM impedance against waveguide method for a given geometry.
 ///
 /// Returns the maximum relative error between TLM and waveguide methods.
-pub fn validate_tlm_vs_waveguide(
-    geo: &Geo,
-    freqs: &[f64],
-    _constants: &AcousticConstants,
-) -> f64 {
+pub fn validate_tlm_vs_waveguide(geo: &Geo, freqs: &[f64], _constants: &AcousticConstants) -> f64 {
     let segments = crate::sim::create_segments_from_geo(&geo.geo);
     let tlm_spec = crate::sim::compute_impedance_spectrum(&segments, freqs);
 
@@ -191,7 +186,11 @@ mod tests {
         let constants = AcousticConstants::for_temperature(20.0);
         let freqs: Vec<f64> = (50..=500).step_by(50).map(|x| x as f64).collect();
         let error = validate_tlm_vs_analytical(&geo, &freqs, &constants);
-        assert!(error < 0.5, "TLM should match analytical within 50% for cylinder, got {}", error);
+        assert!(
+            error < 0.5,
+            "TLM should match analytical within 50% for cylinder, got {}",
+            error
+        );
     }
 
     #[test]

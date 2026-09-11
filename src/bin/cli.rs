@@ -13,12 +13,13 @@
 //!   cargo run --bin cli -- bent cone --length 1500 --top 32 --bottom 65 --curvature 0.01
 
 use cadsd::{
-    Geo, sim::{DidgeridooSimulator, SimulationStrategy, AcousticConstants, bent_effective_length},
-    evo::{EvolutionaryOptimizer, EvolutionParameters, MutationStrategy, CrossoverStrategy},
+    evo::{CrossoverStrategy, EvolutionParameters, EvolutionaryOptimizer, MutationStrategy},
     loss::CompositeTairuaLoss,
-    prime_conv::{PrimeGenerator, PrimeConvBlock},
-    waveguide::{WaveguideSimulator},
+    prime_conv::{PrimeConvBlock, PrimeGenerator},
+    sim::{bent_effective_length, AcousticConstants, DidgeridooSimulator, SimulationStrategy},
     tonehole::Tonehole,
+    waveguide::WaveguideSimulator,
+    Geo,
 };
 use num_complex::Complex64;
 use std::time::Instant;
@@ -89,34 +90,62 @@ fn parse_sim_config(args: &[String]) -> SimConfig {
                 i += 2;
             }
             "--length" => {
-                config.length = args.get(i + 1).unwrap_or(&"1500".to_string()).parse().unwrap_or(1500.0);
+                config.length = args
+                    .get(i + 1)
+                    .unwrap_or(&"1500".to_string())
+                    .parse()
+                    .unwrap_or(1500.0);
                 i += 2;
             }
             "--top" => {
-                config.top_diameter = args.get(i + 1).unwrap_or(&"32".to_string()).parse().unwrap_or(32.0);
+                config.top_diameter = args
+                    .get(i + 1)
+                    .unwrap_or(&"32".to_string())
+                    .parse()
+                    .unwrap_or(32.0);
                 i += 2;
             }
             "--bottom" => {
-                config.bottom_diameter = args.get(i + 1).unwrap_or(&"65".to_string()).parse().unwrap_or(65.0);
+                config.bottom_diameter = args
+                    .get(i + 1)
+                    .unwrap_or(&"65".to_string())
+                    .parse()
+                    .unwrap_or(65.0);
                 i += 2;
             }
             "--segments" => {
-                config.segments = args.get(i + 1).unwrap_or(&"30".to_string()).parse().unwrap_or(30);
+                config.segments = args
+                    .get(i + 1)
+                    .unwrap_or(&"30".to_string())
+                    .parse()
+                    .unwrap_or(30);
                 i += 2;
             }
             "--temp" => {
-                config.temperature = args.get(i + 1).unwrap_or(&"20".to_string()).parse().unwrap_or(20.0);
+                config.temperature = args
+                    .get(i + 1)
+                    .unwrap_or(&"20".to_string())
+                    .parse()
+                    .unwrap_or(20.0);
                 i += 2;
             }
             "--pressure" => {
-                config.pressure = args.get(i + 1).unwrap_or(&"101325".to_string()).parse().unwrap_or(101325.0);
+                config.pressure = args
+                    .get(i + 1)
+                    .unwrap_or(&"101325".to_string())
+                    .parse()
+                    .unwrap_or(101325.0);
                 i += 2;
             }
             "--humidity" => {
-                config.humidity = args.get(i + 1).unwrap_or(&"0".to_string()).parse().unwrap_or(0.0);
+                config.humidity = args
+                    .get(i + 1)
+                    .unwrap_or(&"0".to_string())
+                    .parse()
+                    .unwrap_or(0.0);
                 i += 2;
             }
-                "--strategy" => {
+            "--strategy" => {
                 config.strategy = match args.get(i + 1).unwrap_or(&String::from("tlm")).as_str() {
                     "tlm" => SimulationStrategy::Tlm,
                     "waveguide" => SimulationStrategy::Waveguide,
@@ -127,13 +156,25 @@ fn parse_sim_config(args: &[String]) -> SimConfig {
             }
             "--freq-start" => {
                 if let Ok(v) = args.get(i + 1).unwrap_or(&"20".to_string()).parse::<f64>() {
-                    config.freqs = config.freqs.iter().map(|&f| if f < v { v } else { f }).collect();
+                    config.freqs = config
+                        .freqs
+                        .iter()
+                        .map(|&f| if f < v { v } else { f })
+                        .collect();
                 }
                 i += 2;
             }
             "--freq-end" => {
-                if let Ok(v) = args.get(i + 1).unwrap_or(&"2000".to_string()).parse::<f64>() {
-                    config.freqs = config.freqs.iter().map(|&f| if f > v { v } else { f }).collect();
+                if let Ok(v) = args
+                    .get(i + 1)
+                    .unwrap_or(&"2000".to_string())
+                    .parse::<f64>()
+                {
+                    config.freqs = config
+                        .freqs
+                        .iter()
+                        .map(|&f| if f > v { v } else { f })
+                        .collect();
                 }
                 i += 2;
             }
@@ -173,39 +214,75 @@ fn parse_optimize_config(args: &[String]) -> OptimizeConfig {
                 i += 2;
             }
             "--length" => {
-                config.length = args.get(i + 1).unwrap_or(&"1500".to_string()).parse().unwrap_or(1500.0);
+                config.length = args
+                    .get(i + 1)
+                    .unwrap_or(&"1500".to_string())
+                    .parse()
+                    .unwrap_or(1500.0);
                 i += 2;
             }
             "--top" => {
-                config.top_diameter = args.get(i + 1).unwrap_or(&"32".to_string()).parse().unwrap_or(32.0);
+                config.top_diameter = args
+                    .get(i + 1)
+                    .unwrap_or(&"32".to_string())
+                    .parse()
+                    .unwrap_or(32.0);
                 i += 2;
             }
             "--bottom" => {
-                config.bottom_diameter = args.get(i + 1).unwrap_or(&"65".to_string()).parse().unwrap_or(65.0);
+                config.bottom_diameter = args
+                    .get(i + 1)
+                    .unwrap_or(&"65".to_string())
+                    .parse()
+                    .unwrap_or(65.0);
                 i += 2;
             }
             "--segments" => {
-                config.segments = args.get(i + 1).unwrap_or(&"30".to_string()).parse().unwrap_or(30);
+                config.segments = args
+                    .get(i + 1)
+                    .unwrap_or(&"30".to_string())
+                    .parse()
+                    .unwrap_or(30);
                 i += 2;
             }
             "--generations" => {
-                config.generations = args.get(i + 1).unwrap_or(&"20".to_string()).parse().unwrap_or(20);
+                config.generations = args
+                    .get(i + 1)
+                    .unwrap_or(&"20".to_string())
+                    .parse()
+                    .unwrap_or(20);
                 i += 2;
             }
             "--population" => {
-                config.population = args.get(i + 1).unwrap_or(&"50".to_string()).parse().unwrap_or(50);
+                config.population = args
+                    .get(i + 1)
+                    .unwrap_or(&"50".to_string())
+                    .parse()
+                    .unwrap_or(50);
                 i += 2;
             }
             "--temp" => {
-                config.temperature = args.get(i + 1).unwrap_or(&"20".to_string()).parse().unwrap_or(20.0);
+                config.temperature = args
+                    .get(i + 1)
+                    .unwrap_or(&"20".to_string())
+                    .parse()
+                    .unwrap_or(20.0);
                 i += 2;
             }
             "--pressure" => {
-                config.pressure = args.get(i + 1).unwrap_or(&"101325".to_string()).parse().unwrap_or(101325.0);
+                config.pressure = args
+                    .get(i + 1)
+                    .unwrap_or(&"101325".to_string())
+                    .parse()
+                    .unwrap_or(101325.0);
                 i += 2;
             }
             "--humidity" => {
-                config.humidity = args.get(i + 1).unwrap_or(&"0".to_string()).parse().unwrap_or(0.0);
+                config.humidity = args
+                    .get(i + 1)
+                    .unwrap_or(&"0".to_string())
+                    .parse()
+                    .unwrap_or(0.0);
                 i += 2;
             }
             "--json" => {
@@ -240,19 +317,35 @@ fn parse_validate_config(args: &[String]) -> ValidateConfig {
                 i += 2;
             }
             "--length" => {
-                config.length = args.get(i + 1).unwrap_or(&"1500".to_string()).parse().unwrap_or(1500.0);
+                config.length = args
+                    .get(i + 1)
+                    .unwrap_or(&"1500".to_string())
+                    .parse()
+                    .unwrap_or(1500.0);
                 i += 2;
             }
             "--top" => {
-                config.top_diameter = args.get(i + 1).unwrap_or(&"32".to_string()).parse().unwrap_or(32.0);
+                config.top_diameter = args
+                    .get(i + 1)
+                    .unwrap_or(&"32".to_string())
+                    .parse()
+                    .unwrap_or(32.0);
                 i += 2;
             }
             "--bottom" => {
-                config.bottom_diameter = args.get(i + 1).unwrap_or(&"65".to_string()).parse().unwrap_or(65.0);
+                config.bottom_diameter = args
+                    .get(i + 1)
+                    .unwrap_or(&"65".to_string())
+                    .parse()
+                    .unwrap_or(65.0);
                 i += 2;
             }
             "--segments" => {
-                config.segments = args.get(i + 1).unwrap_or(&"30".to_string()).parse().unwrap_or(30);
+                config.segments = args
+                    .get(i + 1)
+                    .unwrap_or(&"30".to_string())
+                    .parse()
+                    .unwrap_or(30);
                 i += 2;
             }
             "--json" => {
@@ -273,10 +366,32 @@ fn parse_validate_config(args: &[String]) -> ValidateConfig {
 
 fn make_geo(config: &SimConfig) -> Geo {
     match config.geo_type.as_str() {
-        "cone" => Geo::make_cone(config.length, config.top_diameter, config.bottom_diameter, config.segments),
-        "kigali" => Geo::make_kigali(config.length, config.top_diameter, config.bottom_diameter, 0.3, config.segments),
-        "mbeya" => Geo::make_mbeya(config.length, config.top_diameter, config.bottom_diameter, 0.3, config.segments),
-        _ => Geo::make_cone(config.length, config.top_diameter, config.bottom_diameter, config.segments),
+        "cone" => Geo::make_cone(
+            config.length,
+            config.top_diameter,
+            config.bottom_diameter,
+            config.segments,
+        ),
+        "kigali" => Geo::make_kigali(
+            config.length,
+            config.top_diameter,
+            config.bottom_diameter,
+            0.3,
+            config.segments,
+        ),
+        "mbeya" => Geo::make_mbeya(
+            config.length,
+            config.top_diameter,
+            config.bottom_diameter,
+            0.3,
+            config.segments,
+        ),
+        _ => Geo::make_cone(
+            config.length,
+            config.top_diameter,
+            config.bottom_diameter,
+            config.segments,
+        ),
     }
 }
 
@@ -284,7 +399,8 @@ fn run_simulate(config: SimConfig) {
     let geo = make_geo(&config);
     let mut sim = DidgeridooSimulator::from_geo(&geo.geo);
     sim.strategy = config.strategy;
-    sim.acoustic_constants = AcousticConstants::for_conditions(config.temperature, config.pressure, config.humidity);
+    sim.acoustic_constants =
+        AcousticConstants::for_conditions(config.temperature, config.pressure, config.humidity);
 
     println!("Running {:?} simulation...", config.strategy);
     let start = Instant::now();
@@ -306,13 +422,22 @@ fn run_simulate(config: SimConfig) {
             "elapsed_ms": elapsed.as_secs_f64() * 1000.0,
             "results": results,
         });
-        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output).unwrap_or_default()
+        );
     } else {
         println!("Simulation completed in {:.2?}", elapsed);
         println!("Frequency (Hz) | Impedance (Pa·s/m³) | Real | Imag");
         println!("--------------|----------------------|------|------");
         for (f, z) in config.freqs.iter().zip(spectrum.iter()) {
-            println!("{:>13.2} | {:>20.6} | {:>5.3} | {:>5.3}", f, z.norm(), z.re, z.im);
+            println!(
+                "{:>13.2} | {:>20.6} | {:>5.3} | {:>5.3}",
+                f,
+                z.norm(),
+                z.re,
+                z.im
+            );
         }
     }
 }
@@ -332,10 +457,14 @@ fn run_optimize(config: OptimizeConfig) {
         json: config.json,
     });
 
-    println!("Running evolutionary optimization for {} generations...", config.generations);
+    println!(
+        "Running evolutionary optimization for {} generations...",
+        config.generations
+    );
     let start = Instant::now();
 
-    let _constants = AcousticConstants::for_conditions(config.temperature, config.pressure, config.humidity);
+    let _constants =
+        AcousticConstants::for_conditions(config.temperature, config.pressure, config.humidity);
     let loss_fn = CompositeTairuaLoss::with_default_components(50.0);
     let genome_template = cadsd::evo::KigaliGenome::new(
         config.segments,
@@ -386,7 +515,10 @@ fn run_optimize(config: OptimizeConfig) {
             "best_loss": best_loss,
             "status": result.is_ok(),
         });
-        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output).unwrap_or_default()
+        );
     } else {
         println!("Optimization completed in {:.2?}", elapsed);
         println!("Best loss: {:.6}", best_loss);
@@ -416,24 +548,41 @@ fn run_validate(config: ValidateConfig) {
     let start = Instant::now();
 
     let constants = AcousticConstants::default();
-    let tlm_results: Vec<(f64, num_complex::Complex<f64>)> = config.freqs.iter()
+    let tlm_results: Vec<(f64, num_complex::Complex<f64>)> = config
+        .freqs
+        .iter()
         .map(|&f| {
-            let z = cadsd::sim::cadsd_ze_with_losses(&cadsd::sim::create_segments_from_geo(&geo.geo), f, &constants, true, &[]);
+            let z = cadsd::sim::cadsd_ze_with_losses(
+                &cadsd::sim::create_segments_from_geo(&geo.geo),
+                f,
+                &constants,
+                true,
+                &[],
+            );
             (f, z)
         })
         .collect();
 
     let comparison_results: Vec<(f64, num_complex::Complex<f64>, f64)> = if config.fdtd {
-        config.freqs.iter()
+        config
+            .freqs
+            .iter()
             .map(|&f| {
                 let (fdtd_z, _tlm_z, err) = cadsd::fdtd::validate_fdtd_vs_tlm(&geo, f, &constants);
                 (f, fdtd_z, err)
             })
             .collect()
     } else {
-        config.freqs.iter()
+        config
+            .freqs
+            .iter()
             .map(|&f| {
-                let z = cadsd::validation::analytical_impedance_cylinder(config.length / 1000.0, config.top_diameter / 2000.0, f, &constants);
+                let z = cadsd::validation::analytical_impedance_cylinder(
+                    config.length / 1000.0,
+                    config.top_diameter / 2000.0,
+                    f,
+                    &constants,
+                );
                 (f, z, 0.0)
             })
             .collect()
@@ -442,9 +591,15 @@ fn run_validate(config: ValidateConfig) {
     let elapsed = start.elapsed();
 
     if config.json {
-        let comparisons: Vec<serde_json::Value> = tlm_results.iter().zip(comparison_results.iter())
+        let comparisons: Vec<serde_json::Value> = tlm_results
+            .iter()
+            .zip(comparison_results.iter())
             .map(|((f_tlm, z_tlm), (_f_cmp, z_cmp, rel_err))| {
-                let magnitude = if config.fdtd { "fdtd_magnitude" } else { "analytical_magnitude" };
+                let magnitude = if config.fdtd {
+                    "fdtd_magnitude"
+                } else {
+                    "analytical_magnitude"
+                };
                 serde_json::json!({
                     "frequency_hz": f_tlm,
                     "tlm_magnitude": z_tlm.norm(),
@@ -458,7 +613,10 @@ fn run_validate(config: ValidateConfig) {
             "elapsed_ms": elapsed.as_secs_f64() * 1000.0,
             "comparisons": comparisons,
         });
-        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output).unwrap_or_default()
+        );
     } else {
         println!("Validation completed in {:.2?}", elapsed);
         if config.fdtd {
@@ -468,11 +626,25 @@ fn run_validate(config: ValidateConfig) {
             println!("Frequency (Hz) | TLM | Analytical | Rel Error");
             println!("--------------|-----|------------|----------");
         }
-        for ((f_tlm, z_tlm), (_f_cmp, z_cmp, rel_err)) in tlm_results.iter().zip(comparison_results.iter()) {
+        for ((f_tlm, z_tlm), (_f_cmp, z_cmp, rel_err)) in
+            tlm_results.iter().zip(comparison_results.iter())
+        {
             if config.fdtd {
-                println!("{:>13.2} | {:>5.3} | {:>6.3} | {:>8.4}", f_tlm, z_tlm.norm(), z_cmp.norm(), rel_err);
+                println!(
+                    "{:>13.2} | {:>5.3} | {:>6.3} | {:>8.4}",
+                    f_tlm,
+                    z_tlm.norm(),
+                    z_cmp.norm(),
+                    rel_err
+                );
             } else {
-                println!("{:>13.2} | {:>5.3} | {:>10.3} | {:>8.4}", f_tlm, z_tlm.norm(), z_cmp.norm(), rel_err);
+                println!(
+                    "{:>13.2} | {:>5.3} | {:>10.3} | {:>8.4}",
+                    f_tlm,
+                    z_tlm.norm(),
+                    z_cmp.norm(),
+                    rel_err
+                );
             }
         }
     }
@@ -494,19 +666,35 @@ fn run_compare(args: &[String]) {
                 i += 2;
             }
             "--length" => {
-                length = args.get(i + 1).unwrap_or(&"1500".to_string()).parse().unwrap_or(1500.0);
+                length = args
+                    .get(i + 1)
+                    .unwrap_or(&"1500".to_string())
+                    .parse()
+                    .unwrap_or(1500.0);
                 i += 2;
             }
             "--top" => {
-                top_diameter = args.get(i + 1).unwrap_or(&"32".to_string()).parse().unwrap_or(32.0);
+                top_diameter = args
+                    .get(i + 1)
+                    .unwrap_or(&"32".to_string())
+                    .parse()
+                    .unwrap_or(32.0);
                 i += 2;
             }
             "--bottom" => {
-                bottom_diameter = args.get(i + 1).unwrap_or(&"65".to_string()).parse().unwrap_or(65.0);
+                bottom_diameter = args
+                    .get(i + 1)
+                    .unwrap_or(&"65".to_string())
+                    .parse()
+                    .unwrap_or(65.0);
                 i += 2;
             }
             "--segments" => {
-                segments = args.get(i + 1).unwrap_or(&"30".to_string()).parse().unwrap_or(30);
+                segments = args
+                    .get(i + 1)
+                    .unwrap_or(&"30".to_string())
+                    .parse()
+                    .unwrap_or(30);
                 i += 2;
             }
             "--json" => {
@@ -527,7 +715,8 @@ fn run_compare(args: &[String]) {
     println!("Running strategy comparison (TLM vs Waveguide vs FDTD)...");
     let start = Instant::now();
 
-    let tlm_results: Vec<num_complex::Complex<f64>> = freqs.iter()
+    let tlm_results: Vec<num_complex::Complex<f64>> = freqs
+        .iter()
         .map(|&f| {
             let segments = cadsd::sim::create_segments_from_geo(&geo.geo);
             let constants = AcousticConstants::default();
@@ -541,7 +730,8 @@ fn run_compare(args: &[String]) {
         sim.compute_impedance(&freqs)
     };
 
-    let fdtd_results: Vec<(f64, num_complex::Complex<f64>, f64)> = freqs.iter()
+    let fdtd_results: Vec<(f64, num_complex::Complex<f64>, f64)> = freqs
+        .iter()
         .map(|&f| {
             let constants = AcousticConstants::default();
             let (fdtd_z, _tlm_z, err) = cadsd::fdtd::validate_fdtd_vs_tlm(&geo, f, &constants);
@@ -552,7 +742,10 @@ fn run_compare(args: &[String]) {
     let elapsed = start.elapsed();
 
     if json {
-        let comparisons: Vec<serde_json::Value> = freqs.iter().zip(tlm_results.iter().zip(wg_results.iter())).enumerate()
+        let comparisons: Vec<serde_json::Value> = freqs
+            .iter()
+            .zip(tlm_results.iter().zip(wg_results.iter()))
+            .enumerate()
             .map(|(i, (f, (z_tlm, z_wg)))| {
                 let (_f_fdtd, z_fdtd, rel_err) = fdtd_results[i];
                 serde_json::json!({
@@ -571,7 +764,10 @@ fn run_compare(args: &[String]) {
             "elapsed_ms": elapsed.as_secs_f64() * 1000.0,
             "comparisons": comparisons,
         });
-        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output).unwrap_or_default()
+        );
     } else {
         println!("Strategy comparison completed in {:.2?}", elapsed);
         println!("Frequency (Hz) | TLM | Waveguide | FDTD | FDTD/TLM Error");
@@ -580,7 +776,14 @@ fn run_compare(args: &[String]) {
             let z_tlm = tlm_results[i];
             let z_wg = wg_results[i];
             let (_f_fdtd, z_fdtd, rel_err) = fdtd_results[i];
-            println!("{:>13.2} | {:>5.3} | {:>9.3} | {:>5.3} | {:>8.4}", f, z_tlm.norm(), z_wg.norm(), z_fdtd.norm(), rel_err);
+            println!(
+                "{:>13.2} | {:>5.3} | {:>9.3} | {:>5.3} | {:>8.4}",
+                f,
+                z_tlm.norm(),
+                z_wg.norm(),
+                z_fdtd.norm(),
+                rel_err
+            );
         }
     }
 }
@@ -595,11 +798,19 @@ fn run_ml_primes(args: &[String]) {
     while i < args.len() {
         match args[i].as_str() {
             "--max-prime" => {
-                max_prime = args.get(i + 1).unwrap_or(&"17".to_string()).parse().unwrap_or(17);
+                max_prime = args
+                    .get(i + 1)
+                    .unwrap_or(&"17".to_string())
+                    .parse()
+                    .unwrap_or(17);
                 i += 2;
             }
             "--input" => {
-                input_len = args.get(i + 1).unwrap_or(&"10".to_string()).parse().unwrap_or(10);
+                input_len = args
+                    .get(i + 1)
+                    .unwrap_or(&"10".to_string())
+                    .parse()
+                    .unwrap_or(10);
                 i += 2;
             }
             "--json" => {
@@ -610,7 +821,10 @@ fn run_ml_primes(args: &[String]) {
         }
     }
 
-    println!("Running ComplexPrimeMLP demo with prime kernels up to {}", max_prime);
+    println!(
+        "Running ComplexPrimeMLP demo with prime kernels up to {}",
+        max_prime
+    );
     let start = Instant::now();
 
     let model = PrimeConvBlock::new(max_prime, 1, 2);
@@ -623,12 +837,15 @@ fn run_ml_primes(args: &[String]) {
     let prime_gen = PrimeGenerator::new(max_prime);
 
     if json {
-        let output_json: Vec<serde_json::Value> = output.iter()
-            .map(|c| serde_json::json!({
-                "real": c.re,
-                "imag": c.im,
-                "norm": c.norm(),
-            }))
+        let output_json: Vec<serde_json::Value> = output
+            .iter()
+            .map(|c| {
+                serde_json::json!({
+                    "real": c.re,
+                    "imag": c.im,
+                    "norm": c.norm(),
+                })
+            })
             .collect();
         let result = serde_json::json!({
             "max_prime": max_prime,
@@ -638,7 +855,10 @@ fn run_ml_primes(args: &[String]) {
             "elapsed_ms": elapsed.as_secs_f64() * 1000.0,
             "output": output_json,
         });
-        println!("{}", serde_json::to_string_pretty(&result).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&result).unwrap_or_default()
+        );
     } else {
         println!("PrimeConvBlock forward pass completed in {:.2?}", elapsed);
         println!("Input length: {}", input.len());
@@ -646,7 +866,13 @@ fn run_ml_primes(args: &[String]) {
         println!("Primes used: {:?}", prime_gen.prime_list());
         println!("\nFirst 10 output values:");
         for (i, val) in output.iter().take(10).enumerate() {
-            println!("  [{}] real={:8.4} imag={:8.4} norm={:8.4}", i, val.re, val.im, val.norm());
+            println!(
+                "  [{}] real={:8.4} imag={:8.4} norm={:8.4}",
+                i,
+                val.re,
+                val.im,
+                val.norm()
+            );
         }
     }
 }
@@ -658,7 +884,11 @@ fn run_primes_list(args: &[String]) {
     while i < args.len() {
         match args[i].as_str() {
             "--max" => {
-                max_prime = args.get(i + 1).unwrap_or(&"100".to_string()).parse().unwrap_or(100);
+                max_prime = args
+                    .get(i + 1)
+                    .unwrap_or(&"100".to_string())
+                    .parse()
+                    .unwrap_or(100);
                 i += 2;
             }
             "--json" => {
@@ -673,13 +903,17 @@ fn run_primes_list(args: &[String]) {
     let primes = generator.prime_list();
 
     if json {
-        let primes_json: Vec<serde_json::Value> = primes.iter().map(|&p| serde_json::json!(p)).collect();
+        let primes_json: Vec<serde_json::Value> =
+            primes.iter().map(|&p| serde_json::json!(p)).collect();
         let result = serde_json::json!({
             "max_prime": max_prime,
             "count": primes.len(),
             "primes": primes_json,
         });
-        println!("{}", serde_json::to_string_pretty(&result).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&result).unwrap_or_default()
+        );
     } else {
         println!("Primes up to {}:", max_prime);
         println!("Count: {}", primes.len());
@@ -703,19 +937,35 @@ fn run_waveguide(args: &[String]) {
                 i += 2;
             }
             "--length" => {
-                length = args.get(i + 1).unwrap_or(&"1500".to_string()).parse().unwrap_or(1500.0);
+                length = args
+                    .get(i + 1)
+                    .unwrap_or(&"1500".to_string())
+                    .parse()
+                    .unwrap_or(1500.0);
                 i += 2;
             }
             "--top" => {
-                top_diameter = args.get(i + 1).unwrap_or(&"32".to_string()).parse().unwrap_or(32.0);
+                top_diameter = args
+                    .get(i + 1)
+                    .unwrap_or(&"32".to_string())
+                    .parse()
+                    .unwrap_or(32.0);
                 i += 2;
             }
             "--bottom" => {
-                bottom_diameter = args.get(i + 1).unwrap_or(&"65".to_string()).parse().unwrap_or(65.0);
+                bottom_diameter = args
+                    .get(i + 1)
+                    .unwrap_or(&"65".to_string())
+                    .parse()
+                    .unwrap_or(65.0);
                 i += 2;
             }
             "--segments" => {
-                segments = args.get(i + 1).unwrap_or(&"30".to_string()).parse().unwrap_or(30);
+                segments = args
+                    .get(i + 1)
+                    .unwrap_or(&"30".to_string())
+                    .parse()
+                    .unwrap_or(30);
                 i += 2;
             }
             "--json" => {
@@ -741,7 +991,9 @@ fn run_waveguide(args: &[String]) {
     let elapsed = start.elapsed();
 
     if json {
-        let results: Vec<serde_json::Value> = freqs.iter().zip(spectrum.iter())
+        let results: Vec<serde_json::Value> = freqs
+            .iter()
+            .zip(spectrum.iter())
             .map(|(&f, z)| {
                 serde_json::json!({
                     "frequency_hz": f,
@@ -758,14 +1010,28 @@ fn run_waveguide(args: &[String]) {
             "elapsed_ms": elapsed.as_secs_f64() * 1000.0,
             "results": results,
         });
-        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output).unwrap_or_default()
+        );
     } else {
         println!("Waveguide simulation completed in {:.2?}", elapsed);
-        println!("Geometry: {} ({} segments, {:.1} mm)", geo_type, sim.n_segments(), sim.total_length() * 1000.0);
+        println!(
+            "Geometry: {} ({} segments, {:.1} mm)",
+            geo_type,
+            sim.n_segments(),
+            sim.total_length() * 1000.0
+        );
         println!("Frequency (Hz) | Impedance | Real | Imag");
         println!("--------------|-----------|------|------");
         for (f, z) in freqs.iter().zip(spectrum.iter()) {
-            println!("{:>13.2} | {:>9.4} | {:>5.3} | {:>5.3}", f, z.norm(), z.re, z.im);
+            println!(
+                "{:>13.2} | {:>9.4} | {:>5.3} | {:>5.3}",
+                f,
+                z.norm(),
+                z.re,
+                z.im
+            );
         }
     }
 }
@@ -780,11 +1046,19 @@ fn run_tonehole(args: &[String]) {
     while i < args.len() {
         match args[i].as_str() {
             "--diameter" => {
-                diameter = args.get(i + 1).unwrap_or(&"10".to_string()).parse().unwrap_or(10.0);
+                diameter = args
+                    .get(i + 1)
+                    .unwrap_or(&"10".to_string())
+                    .parse()
+                    .unwrap_or(10.0);
                 i += 2;
             }
             "--depth" => {
-                depth = args.get(i + 1).unwrap_or(&"5".to_string()).parse().unwrap_or(5.0);
+                depth = args
+                    .get(i + 1)
+                    .unwrap_or(&"5".to_string())
+                    .parse()
+                    .unwrap_or(5.0);
                 i += 2;
             }
             "--closed" => {
@@ -803,20 +1077,33 @@ fn run_tonehole(args: &[String]) {
         }
     }
 
-    println!("Computing tonehole impedance spectrum (d={}mm, depth={}mm, {})...", 
-        diameter, depth, if is_open { "open" } else { "closed" });
+    println!(
+        "Computing tonehole impedance spectrum (d={}mm, depth={}mm, {})...",
+        diameter,
+        depth,
+        if is_open { "open" } else { "closed" }
+    );
     let start = Instant::now();
 
     let th = Tonehole::new(500.0, diameter, depth, is_open);
     let constants = AcousticConstants::default();
-    let spectrum: Vec<Complex64> = freqs.iter()
-        .map(|&f| if is_open { th.open_impedance(f, &constants) } else { th.closed_impedance(f, &constants) })
+    let spectrum: Vec<Complex64> = freqs
+        .iter()
+        .map(|&f| {
+            if is_open {
+                th.open_impedance(f, &constants)
+            } else {
+                th.closed_impedance(f, &constants)
+            }
+        })
         .collect();
 
     let elapsed = start.elapsed();
 
     if json {
-        let results: Vec<serde_json::Value> = freqs.iter().zip(spectrum.iter())
+        let results: Vec<serde_json::Value> = freqs
+            .iter()
+            .zip(spectrum.iter())
             .map(|(&f, z)| {
                 serde_json::json!({
                     "frequency_hz": f,
@@ -833,14 +1120,28 @@ fn run_tonehole(args: &[String]) {
             "elapsed_ms": elapsed.as_secs_f64() * 1000.0,
             "results": results,
         });
-        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output).unwrap_or_default()
+        );
     } else {
         println!("Tonehole impedance computed in {:.2?}", elapsed);
-        println!("Diameter: {}mm, Depth: {}mm, Type: {}", diameter, depth, if is_open { "open" } else { "closed" });
+        println!(
+            "Diameter: {}mm, Depth: {}mm, Type: {}",
+            diameter,
+            depth,
+            if is_open { "open" } else { "closed" }
+        );
         println!("Frequency (Hz) | Impedance | Real | Imag");
         println!("--------------|-----------|------|------");
         for (f, z) in freqs.iter().zip(spectrum.iter()) {
-            println!("{:>13.2} | {:>9.4} | {:>5.3} | {:>5.3}", f, z.norm(), z.re, z.im);
+            println!(
+                "{:>13.2} | {:>9.4} | {:>5.3} | {:>5.3}",
+                f,
+                z.norm(),
+                z.re,
+                z.im
+            );
         }
     }
 }
@@ -863,31 +1164,59 @@ fn run_bent(args: &[String]) {
                 i += 2;
             }
             "--length" => {
-                length = args.get(i + 1).unwrap_or(&"1500".to_string()).parse().unwrap_or(1500.0);
+                length = args
+                    .get(i + 1)
+                    .unwrap_or(&"1500".to_string())
+                    .parse()
+                    .unwrap_or(1500.0);
                 i += 2;
             }
             "--top" => {
-                top_diameter = args.get(i + 1).unwrap_or(&"32".to_string()).parse().unwrap_or(32.0);
+                top_diameter = args
+                    .get(i + 1)
+                    .unwrap_or(&"32".to_string())
+                    .parse()
+                    .unwrap_or(32.0);
                 i += 2;
             }
             "--bottom" => {
-                bottom_diameter = args.get(i + 1).unwrap_or(&"65".to_string()).parse().unwrap_or(65.0);
+                bottom_diameter = args
+                    .get(i + 1)
+                    .unwrap_or(&"65".to_string())
+                    .parse()
+                    .unwrap_or(65.0);
                 i += 2;
             }
             "--segments" => {
-                segments = args.get(i + 1).unwrap_or(&"30".to_string()).parse().unwrap_or(30);
+                segments = args
+                    .get(i + 1)
+                    .unwrap_or(&"30".to_string())
+                    .parse()
+                    .unwrap_or(30);
                 i += 2;
             }
             "--curvature" => {
-                curvature = args.get(i + 1).unwrap_or(&"0.01".to_string()).parse().unwrap_or(0.01);
+                curvature = args
+                    .get(i + 1)
+                    .unwrap_or(&"0.01".to_string())
+                    .parse()
+                    .unwrap_or(0.01);
                 i += 2;
             }
             "--radius" => {
-                radius = args.get(i + 1).unwrap_or(&"16".to_string()).parse().unwrap_or(16.0);
+                radius = args
+                    .get(i + 1)
+                    .unwrap_or(&"16".to_string())
+                    .parse()
+                    .unwrap_or(16.0);
                 i += 2;
             }
             "--alpha" => {
-                alpha = args.get(i + 1).unwrap_or(&"0.25".to_string()).parse().unwrap_or(0.25);
+                alpha = args
+                    .get(i + 1)
+                    .unwrap_or(&"0.25".to_string())
+                    .parse()
+                    .unwrap_or(0.25);
                 i += 2;
             }
             "--json" => {
@@ -925,11 +1254,20 @@ fn run_bent(args: &[String]) {
             "correction_per_segment_mm": correction,
             "total_correction_mm": total_correction,
         });
-        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output).unwrap_or_default()
+        );
     } else {
         println!("Bent-shape effective length correction:");
-        println!("Geometry: {} ({} segments, {:.1} mm)", geo_type, segments, length);
-        println!("Curvature: {}, Radius: {} mm, Alpha: {}", curvature, radius, alpha);
+        println!(
+            "Geometry: {} ({} segments, {:.1} mm)",
+            geo_type, segments, length
+        );
+        println!(
+            "Curvature: {}, Radius: {} mm, Alpha: {}",
+            curvature, radius, alpha
+        );
         println!("Segment length: {:.4} m", ds);
         println!("Effective length per segment: {:.4} m", d_l);
         println!("Correction per segment: {:.4} mm", correction);
@@ -1001,7 +1339,9 @@ fn print_help() {
     println!("    --temp <C>          Temperature in Celsius (default: 20)");
     println!("    --pressure <PA>     Pressure in Pa (default: 101325)");
     println!("    --humidity <0-1>    Relative humidity (default: 0)");
-    println!("    --strategy <TYPE>   Simulation strategy: tlm, fdtd, waveguide, complex (default: tlm)");
+    println!(
+        "    --strategy <TYPE>   Simulation strategy: tlm, fdtd, waveguide, complex (default: tlm)"
+    );
     println!("    --max-prime <N>     Max prime kernel size for ML demo (default: 17)");
     println!("    --input <N>         Input vector length for ML demo (default: 10)");
     println!("    --diameter <MM>     Tonehole diameter in mm (default: 10)");

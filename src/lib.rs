@@ -10,14 +10,14 @@ pub mod visualization;
 
 // New modules from adfb9d3
 pub mod audio;
-pub mod persistence;
-pub mod integration;
-pub mod export;
-pub mod waveguide;
-pub mod validation;
-pub mod fdtd;
-pub mod prime_conv;
 pub mod dwm;
+pub mod export;
+pub mod fdtd;
+pub mod integration;
+pub mod persistence;
+pub mod prime_conv;
+pub mod validation;
+pub mod waveguide;
 
 // MD LIF module (always available)
 pub mod md_lif;
@@ -36,51 +36,29 @@ pub mod conservation_law;
 
 // Re-export local simulation functions
 pub use crate::sim::{
-    create_segments_from_geo,
-    create_segments_from_geo_with_curvature,
-    find_peaks,
-    find_peaks_with_prominence,
-    find_peaks_phase_based,
-    DidgeridooSimulator,
+    create_segments_from_geo, create_segments_from_geo_with_curvature, find_peaks,
+    find_peaks_phase_based, find_peaks_with_prominence, DidgeridooSimulator, Resonance, Segment,
     SimulationStrategy,
-    Segment,
-    Resonance,
 };
 
 // Re-export conversion utilities from accurate crate
 pub use cadsd_accurate::conv::{
-    note_to_freq,
-    freq_to_note,
-    note_name,
-    freq_to_note_and_cent,
-    freq_to_wavelength,
-    cent_diff,
+    cent_diff, freq_to_note, freq_to_note_and_cent, freq_to_wavelength, note_name, note_to_freq,
 };
 
 // Re-export analysis helpers from accurate crate
-pub use cadsd_accurate::analysis::{
-    get_notes,
-    plot_bore,
-    plot_impedance_spectrum,
-};
+pub use cadsd_accurate::analysis::{get_notes, plot_bore, plot_impedance_spectrum};
 
 // Re-export loss function types from accurate crate
 pub use cadsd_accurate::loss::DidgeLabLoss;
 
 // Re-export inverse design from accurate crate
-pub use cadsd_accurate::inverse_design::{
-    InverseDesigner,
-    DesignResult,
-};
+pub use cadsd_accurate::inverse_design::{DesignResult, InverseDesigner};
 
 // Re-export simulation and optimization integration types from accurate crate
 pub use cadsd_accurate::integration::{
-    AcousticSimulator,
-    EvolutionaryOptimizer,
-    AudioSynthesizer,
+    AcousticSimulator, AudioSynthesizer, DefaultOptimizer, DefaultSimulator, EvolutionaryOptimizer,
     GeometryExporter,
-    DefaultSimulator,
-    DefaultOptimizer,
 };
 
 // Re-export audio synthesis from accurate crate
@@ -90,10 +68,7 @@ pub use cadsd_accurate::audio::DefaultSynthesizer;
 pub use cadsd_accurate::export::DefaultExporter;
 
 // Re-export persistence types from accurate crate
-pub use cadsd_accurate::persistence::{
-    AppSettings,
-    ProjectState,
-};
+pub use cadsd_accurate::persistence::{AppSettings, ProjectState};
 
 // Error type
 #[derive(thiserror::Error, Debug)]

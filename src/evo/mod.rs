@@ -3,16 +3,19 @@
 //! This module implements genetic algorithms for optimizing didgeridoo geometries
 //! to achieve target acoustic properties using the CADSD framework.
 
-use crate::Geo;
 use crate::tonehole::Tonehole;
+use crate::Geo;
+use rand::rngs::StdRng;
+use rand::SeedableRng;
+use rand_distr::Distribution;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, atomic::{AtomicBool, Ordering as SyncOrdering}};
 use std::f64::consts::PI;
-use rand::SeedableRng;
-use rand::rngs::StdRng;
-use rand_distr::Distribution;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{
+    atomic::{AtomicBool, Ordering as SyncOrdering},
+    Arc,
+};
 
 /// Crossover strategy for evolutionary optimization
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -42,40 +45,40 @@ pub enum MutationStrategy {
 pub trait Genome: Send + Sync {
     /// Get the genome vector (genes in [0,1] range)
     fn genome(&self) -> &[f64];
-    
+
     /// Set the genome vector
     fn set_genome(&mut self, genome: Vec<f64>);
-    
+
     /// Get mutable reference to genome
     fn genome_mut(&mut self) -> &mut [f64];
-    
+
     /// Create a random genome of specified size
     fn random(n_genes: usize) -> Self
     where
         Self: Sized;
-    
+
     /// Clone the genome with a new ID (invalidates cached loss)
     fn clone_with_new_id(&self) -> Box<dyn Genome>;
-    
+
     /// Clone the genome preserving its loss (for elite selection)
     fn clone_with_loss(&self) -> Box<dyn Genome>;
-    
+
     /// Convert genome to geometry
     fn genome2geo(&self) -> Geo;
-    
+
     /// Convert genome to geometry and toneholes.
     /// Default implementation returns geometry with no toneholes.
     fn geo_and_toneholes(&self) -> (Geo, Vec<Tonehole>) {
         (self.genome2geo(), Vec::new())
     }
-    
+
     /// Get unique identifier
     fn id(&self) -> u64;
-    
+
     /// Get/set loss value
     fn loss(&self) -> Option<f64>;
     fn set_loss(&mut self, loss: Option<f64>);
-    
+
     /// Get representation for logging
     fn representation(&self) -> serde_json::Value;
 }
@@ -109,7 +112,10 @@ impl PrimeGenerator {
             }
         }
 
-        let primes: Vec<_> = sieve.into_iter().enumerate().filter(|(_, is_prime)| *is_prime)
+        let primes: Vec<_> = sieve
+            .into_iter()
+            .enumerate()
+            .filter(|(_, is_prime)| *is_prime)
             .map(|(p, _)| p as u32)
             .collect();
 
@@ -150,29 +156,29 @@ impl Genome for BaseGenome {
     fn genome(&self) -> &[f64] {
         &self.genome
     }
-    
+
     fn set_genome(&mut self, genome: Vec<f64>) {
         self.genome = genome;
         self.loss = None;
     }
-    
+
     fn genome_mut(&mut self) -> &mut [f64] {
         &mut self.genome
     }
-    
+
     fn random(n_genes: usize) -> Self {
         let mut genome = vec![0.0; n_genes];
         for gene in &mut genome {
             *gene = rand::random::<f64>();
         }
-        
+
         Self {
             genome,
             id: Self::generate_id(),
             loss: None,
         }
     }
-    
+
     fn clone_with_new_id(&self) -> Box<dyn Genome> {
         Box::new(Self {
             genome: self.genome.clone(),
@@ -180,7 +186,7 @@ impl Genome for BaseGenome {
             loss: None,
         })
     }
-    
+
     fn clone_with_loss(&self) -> Box<dyn Genome> {
         Box::new(Self {
             genome: self.genome.clone(),
@@ -188,24 +194,24 @@ impl Genome for BaseGenome {
             loss: self.loss,
         })
     }
-    
+
     fn genome2geo(&self) -> Geo {
         // Default implementation - should be overridden by specific genome types
         Geo::make_cone(1500.0, 32.0, 60.0, 20)
     }
-    
+
     fn id(&self) -> u64 {
         self.id
     }
-    
+
     fn loss(&self) -> Option<f64> {
         self.loss
     }
-    
+
     fn set_loss(&mut self, loss: Option<f64>) {
         self.loss = loss;
     }
-    
+
     fn representation(&self) -> serde_json::Value {
         serde_json::json!({
             "id": self.id,
@@ -220,15 +226,15 @@ impl Genome for BaseGenome {
 pub struct KigaliGenome {
     base: BaseGenome,
     n_segments: usize,
-    d0: f64,           // mouth diameter (mm)
-    d_bell_min: f64,   // minimum bell diameter (mm)
-    d_bell_max: f64,   // maximum bell diameter (mm)
-    max_length: f64,   // maximum length (mm)
-    min_length: f64,   // minimum length (mm)
+    d0: f64,            // mouth diameter (mm)
+    d_bell_min: f64,    // minimum bell diameter (mm)
+    d_bell_max: f64,    // maximum bell diameter (mm)
+    max_length: f64,    // maximum length (mm)
+    min_length: f64,    // minimum length (mm)
     n_bubbles: usize,   // number of bubbles
-    smoothness: f64,   // smoothness parameter
-    bell_accent: f64,  // bell accent factor
-    bell_start: f64,   // bell start position (mm)
+    smoothness: f64,    // smoothness parameter
+    bell_accent: f64,   // bell accent factor
+    bell_start: f64,    // bell start position (mm)
     n_toneholes: usize, // number of toneholes
 }
 
@@ -248,7 +254,7 @@ impl KigaliGenome {
         n_toneholes: usize,
     ) -> Self {
         let n_genes = 3 + 2 * (n_segments - 1) + n_bubbles * 3 + n_toneholes * 4;
-        
+
         Self {
             base: BaseGenome::random(n_genes),
             n_segments,
@@ -264,22 +270,32 @@ impl KigaliGenome {
             n_toneholes,
         }
     }
-    
+
     /// Decode genome parameters
     #[allow(clippy::type_complexity)]
-    fn decode_parameters(&self) -> (f64, f64, f64, Vec<f64>, Vec<f64>, Vec<(f64, f64, f64)>, Vec<Tonehole>) {
+    fn decode_parameters(
+        &self,
+    ) -> (
+        f64,
+        f64,
+        f64,
+        Vec<f64>,
+        Vec<f64>,
+        Vec<(f64, f64, f64)>,
+        Vec<Tonehole>,
+    ) {
         let genome = self.base.genome();
-        
+
         // Length and bell size
         let length = genome[0] * (self.max_length - self.min_length) + self.min_length;
         let bell_size = genome[1] * (self.d_bell_max - self.d_bell_min) + self.d_bell_min;
         let power = genome[2] * 4.0;
-        
+
         // Bubbles
         let mut bubbles = Vec::new();
         let bubble_width = 300.0;
         let bubble_height = 40.0;
-        
+
         for i in 0..self.n_bubbles {
             let idx = 3 + i * 3;
             if idx + 2 < genome.len() {
@@ -289,12 +305,12 @@ impl KigaliGenome {
                 bubbles.push((pos, width, height));
             }
         }
-        
+
         // Segment offsets
         let geo_offset = 3 + self.n_bubbles * 3;
         let mut x_genome = Vec::new();
         let mut y_genome = Vec::new();
-        
+
         let mut i = geo_offset;
         while i + 1 < genome.len() {
             // Stop if we've reached the tonehole section
@@ -305,7 +321,7 @@ impl KigaliGenome {
             y_genome.push(genome[i + 1]);
             i += 2;
         }
-        
+
         // Toneholes
         let th_offset = geo_offset + 2 * (self.n_segments - 1);
         let mut toneholes = Vec::new();
@@ -314,26 +330,28 @@ impl KigaliGenome {
             if idx + 3 < genome.len() {
                 let x = genome[idx] * length;
                 let diameter = 2.0 + genome[idx + 1] * 28.0; // 2-30 mm
-                let depth = 1.0 + genome[idx + 2] * 19.0;     // 1-20 mm
-                let coverage = genome[idx + 3];                // 0.0-1.0
+                let depth = 1.0 + genome[idx + 2] * 19.0; // 1-20 mm
+                let coverage = genome[idx + 3]; // 0.0-1.0
                 toneholes.push(Tonehole::with_coverage(x, diameter, depth, coverage));
             }
         }
-        
-        (length, bell_size, power, x_genome, y_genome, bubbles, toneholes)
+
+        (
+            length, bell_size, power, x_genome, y_genome, bubbles, toneholes,
+        )
     }
-    
+
     /// Apply bell accent to geometry
     fn apply_bell_accent(&self, x: &mut [f64], y: &mut [f64], length: f64, bell_size: f64) {
         if self.bell_accent <= 0.0 {
             return;
         }
-        
+
         let bell_start_pos = length - self.bell_start;
         if bell_start_pos < 1.0 {
             return;
         }
-        
+
         // Simple bell accent implementation
         for i in 0..x.len() {
             if x[i] > bell_start_pos {
@@ -342,25 +360,28 @@ impl KigaliGenome {
             }
         }
     }
-    
+
     /// Add bubble to geometry
     fn make_bubble(x: &mut Vec<f64>, y: &mut Vec<f64>, pos: f64, width: f64, height: f64) {
         let bubble_start = pos - width / 2.0;
         let bubble_end = pos + width / 2.0;
-        
+
         // Find indices for insertion
-        let start_idx = x.iter().position(|&xi| xi >= bubble_start).unwrap_or(x.len());
+        let start_idx = x
+            .iter()
+            .position(|&xi| xi >= bubble_start)
+            .unwrap_or(x.len());
         let end_idx = x.iter().position(|&xi| xi >= bubble_end).unwrap_or(x.len());
-        
+
         // Create bubble points
         let n_bubble_points = 10;
         let mut bubble_x = Vec::new();
         let mut bubble_y = Vec::new();
-        
+
         for i in 0..n_bubble_points {
             let t = i as f64 / (n_bubble_points - 1) as f64;
             let bubble_pos = bubble_start + t * width;
-            
+
             // Interpolate original diameter
             let original_diameter = if !x.is_empty() {
                 let geo = Geo::new(x.iter().zip(y.iter()).map(|(&xi, &yi)| [xi, yi]).collect());
@@ -368,13 +389,13 @@ impl KigaliGenome {
             } else {
                 32.0
             };
-            
+
             // Add sinusoidal bulge
             let bulge = height * (PI * t).sin();
             bubble_x.push(bubble_pos);
             bubble_y.push(original_diameter + bulge);
         }
-        
+
         // Insert bubble points
         x.splice(start_idx..end_idx, bubble_x);
         y.splice(start_idx..end_idx, bubble_y);
@@ -385,15 +406,15 @@ impl Genome for KigaliGenome {
     fn genome(&self) -> &[f64] {
         self.base.genome()
     }
-    
+
     fn set_genome(&mut self, genome: Vec<f64>) {
         self.base.set_genome(genome);
     }
-    
+
     fn genome_mut(&mut self) -> &mut [f64] {
         self.base.genome_mut()
     }
-    
+
     fn random(n_genes: usize) -> Self {
         Self {
             base: BaseGenome::random(n_genes),
@@ -410,7 +431,7 @@ impl Genome for KigaliGenome {
             n_toneholes: 0,
         }
     }
-    
+
     fn clone_with_new_id(&self) -> Box<dyn Genome> {
         Box::new(Self {
             base: BaseGenome {
@@ -421,7 +442,7 @@ impl Genome for KigaliGenome {
             ..*self
         })
     }
-    
+
     fn clone_with_loss(&self) -> Box<dyn Genome> {
         Box::new(Self {
             base: BaseGenome {
@@ -432,22 +453,22 @@ impl Genome for KigaliGenome {
             ..*self
         })
     }
-    
+
     fn genome2geo(&self) -> Geo {
         let (length, bell_size, power, x_genome, y_genome, bubbles, _) = self.decode_parameters();
-        
+
         // Generate base geometry (power-law taper)
         let mut x: Vec<f64> = (0..=self.n_segments)
             .map(|i| length * i as f64 / self.n_segments as f64)
             .collect();
-        
+
         let mut y: Vec<f64> = (0..=self.n_segments)
             .map(|i| {
                 let t = i as f64 / self.n_segments as f64;
                 t.powf(power) * (bell_size - self.d0) + self.d0
             })
             .collect();
-        
+
         // Apply genome jitter/offsets
         let shift_x = length / self.n_segments as f64;
         for (i, &offset) in x_genome.iter().enumerate() {
@@ -455,76 +476,77 @@ impl Genome for KigaliGenome {
                 x[i] += (offset - 0.5) * shift_x;
             }
         }
-        
+
         let shift_y = (1.0 - self.smoothness) * bell_size;
         for (i, &offset) in y_genome.iter().enumerate() {
             if i < y.len() && i > 0 && i < y.len() - 1 {
                 y[i] += 0.3 * (offset - 0.5) * shift_y;
             }
         }
-        
+
         // Apply bell accent
         self.apply_bell_accent(&mut x, &mut y, length, bell_size);
-        
+
         // Add bubbles
         for (pos, width, height) in bubbles {
             Self::make_bubble(&mut x, &mut y, pos, width, height);
         }
-        
+
         let points: Vec<[f64; 2]> = x.iter().zip(y.iter()).map(|(&xi, &yi)| [xi, yi]).collect();
         Geo::new(points)
     }
-    
+
     fn geo_and_toneholes(&self) -> (Geo, Vec<Tonehole>) {
-        let (length, bell_size, power, x_genome, y_genome, bubbles, toneholes) = self.decode_parameters();
-        
+        let (length, bell_size, power, x_genome, y_genome, bubbles, toneholes) =
+            self.decode_parameters();
+
         let mut x: Vec<f64> = (0..=self.n_segments)
             .map(|i| length * i as f64 / self.n_segments as f64)
             .collect();
-        
+
         let mut y: Vec<f64> = (0..=self.n_segments)
             .map(|i| {
                 let t = i as f64 / self.n_segments as f64;
                 t.powf(power) * (bell_size - self.d0) + self.d0
             })
             .collect();
-        
+
         let shift_x = length / self.n_segments as f64;
         for (i, &offset) in x_genome.iter().enumerate() {
             if i < x.len() && i > 0 && i < x.len() - 1 {
                 x[i] += (offset - 0.5) * shift_x;
             }
         }
-        
+
         let shift_y = (1.0 - self.smoothness) * bell_size;
         for (i, &offset) in y_genome.iter().enumerate() {
             if i < y.len() && i > 0 && i < y.len() - 1 {
                 y[i] += 0.3 * (offset - 0.5) * shift_y;
             }
         }
-        
+
         self.apply_bell_accent(&mut x, &mut y, length, bell_size);
-        
+
         for (pos, width, height) in bubbles {
             Self::make_bubble(&mut x, &mut y, pos, width, height);
         }
-        
+
         let points: Vec<[f64; 2]> = x.iter().zip(y.iter()).map(|(&xi, &yi)| [xi, yi]).collect();
         (Geo::new(points), toneholes)
     }
-    
+
     fn id(&self) -> u64 {
         self.base.id()
     }
-    
+
     fn loss(&self) -> Option<f64> {
         self.base.loss()
     }
-    
+
     fn set_loss(&mut self, loss: Option<f64>) {
         self.base.set_loss(loss);
     }
-    
+
     fn representation(&self) -> serde_json::Value {
         serde_json::json!({
             "id": self.id(),
@@ -606,12 +628,12 @@ impl EvolutionaryOptimizer {
             pause_flag: None,
         }
     }
-    
+
     /// Set a shared pause flag for the evolution loop
     pub fn set_pause_flag(&mut self, flag: Arc<AtomicBool>) {
         self.pause_flag = Some(flag);
     }
-    
+
     /// Create optimizer with random initial population
     pub fn with_random_population<G: Genome + 'static>(
         loss_function: Box<dyn LossFunction>,
@@ -622,10 +644,10 @@ impl EvolutionaryOptimizer {
         let population: Vec<Box<dyn Genome>> = (0..population_size)
             .map(|_| genome_template.clone_with_new_id())
             .collect();
-        
+
         Self::new(loss_function, population, parameters)
     }
-    
+
     /// Create optimizer with prime-indexed quasi-random initial population.
     ///
     /// Uses prime numbers as seeds for deterministic RNGs, providing better
@@ -649,26 +671,29 @@ impl EvolutionaryOptimizer {
                 genome
             })
             .collect();
-        
+
         Self::new(loss_function, population, parameters)
     }
-    
+
     /// Evolve the population for specified number of generations
     pub fn evolve(&mut self) -> Result<Box<dyn Genome>, Box<dyn std::error::Error>> {
         self.evolve_with_progress(|_, _| {})
     }
-    
+
     /// Evolve with progress callback (generation, best_loss)
-    pub fn evolve_with_progress<F>(&mut self, mut progress_cb: F) -> Result<Box<dyn Genome>, Box<dyn std::error::Error>>
+    pub fn evolve_with_progress<F>(
+        &mut self,
+        mut progress_cb: F,
+    ) -> Result<Box<dyn Genome>, Box<dyn std::error::Error>>
     where
         F: FnMut(usize, f64),
     {
         // Evaluate initial population
         self.evaluate_population()?;
-        
+
         let mut best_loss_so_far = f64::INFINITY;
         let mut generations_without_improvement = 0;
-        
+
         // Evolution loop
         for generation in 0..self.parameters.num_generations {
             // Check for pause request and spin-wait until resumed
@@ -677,79 +702,96 @@ impl EvolutionaryOptimizer {
                     std::thread::yield_now();
                 }
             }
-            
-            log::info!("Generation {}/{}", generation + 1, self.parameters.num_generations);
-            
+
+            log::info!(
+                "Generation {}/{}",
+                generation + 1,
+                self.parameters.num_generations
+            );
+
             // Create offspring
             let mut offspring = self.create_offspring()?;
-            
+
             // Evaluate offspring
             Self::evaluate_genomes(&*self.loss_function, &mut offspring)?;
-            
+
             // Select new population
             self.select_population(offspring)?;
-            
+
             // Report progress
             if let Some(best) = self.get_best_individual() {
                 let best_loss = best.loss().unwrap_or(f64::INFINITY);
                 progress_cb(generation, best_loss);
-                
+
                 if best_loss < best_loss_so_far - self.parameters.convergence_threshold {
                     best_loss_so_far = best_loss;
                     generations_without_improvement = 0;
                 } else {
                     generations_without_improvement += 1;
                 }
-                
+
                 if generations_without_improvement >= self.parameters.convergence_patience {
-                    log::info!("Converged after {} generations (no improvement for {} generations)", generation + 1, generations_without_improvement);
+                    log::info!(
+                        "Converged after {} generations (no improvement for {} generations)",
+                        generation + 1,
+                        generations_without_improvement
+                    );
                     break;
                 }
             }
         }
-        
+
         // Return best individual
         self.get_best_individual()
             .ok_or_else(|| "No individuals found".into())
     }
-    
+
     /// Evaluate population fitness
     fn evaluate_population(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         Self::evaluate_genomes(&*self.loss_function, &mut self.population)?;
         Ok(())
     }
-    
+
     /// Evaluate genomes in parallel, skipping those with cached loss.
-    fn evaluate_genomes(loss_function: &dyn LossFunction, genomes: &mut [Box<dyn Genome>]) -> Result<(), Box<dyn std::error::Error>> {
+    fn evaluate_genomes(
+        loss_function: &dyn LossFunction,
+        genomes: &mut [Box<dyn Genome>],
+    ) -> Result<(), Box<dyn std::error::Error>> {
         genomes.par_iter_mut().for_each(|genome| {
             if genome.loss().is_none() {
                 let loss = loss_function.calculate(genome.as_ref());
                 genome.set_loss(Some(loss));
             }
         });
-        
+
         Ok(())
     }
-    
+
     /// Create offspring through mutation and crossover
     #[allow(clippy::borrowed_box)]
     fn create_offspring(&self) -> Result<Vec<Box<dyn Genome>>, Box<dyn std::error::Error>> {
         let mut offspring = Vec::new();
-        
+
         // Add elite individuals
-        let mut sorted_population: Vec<Box<dyn Genome>> = self.population.iter()
+        let mut sorted_population: Vec<Box<dyn Genome>> = self
+            .population
+            .iter()
             .map(|g| g.clone_with_new_id())
             .collect();
         sorted_population.sort_by(|a: &Box<dyn Genome>, b: &Box<dyn Genome>| {
-            a.loss().unwrap_or(f64::INFINITY)
+            a.loss()
+                .unwrap_or(f64::INFINITY)
                 .partial_cmp(&b.loss().unwrap_or(f64::INFINITY))
                 .unwrap()
         });
-        
-        for individual in sorted_population.iter().take(self.parameters.elite_size.min(sorted_population.len())) {
+
+        for individual in sorted_population
+            .iter()
+            .take(self.parameters.elite_size.min(sorted_population.len()))
+        {
             offspring.push(individual.clone_with_loss());
         }
-        
+
         // Create remaining offspring
         while offspring.len() < self.parameters.generation_size {
             if rand::random::<f64>() < self.parameters.crossover_rate {
@@ -765,33 +807,39 @@ impl EvolutionaryOptimizer {
                 offspring.push(mutant);
             }
         }
-        
+
         Ok(offspring)
     }
-    
+
     /// Tournament selection
     fn tournament_selection(&self) -> Result<Box<dyn Genome>, Box<dyn std::error::Error>> {
         let tournament_size = 3;
         let mut best: Option<Box<dyn Genome>> = None;
-        
+
         for _ in 0..tournament_size {
             let idx = rand::random::<usize>() % self.population.len();
             let candidate = &self.population[idx];
-            
+
             if let Some(current_best) = &best {
-                if candidate.loss().unwrap_or(f64::INFINITY) < current_best.loss().unwrap_or(f64::INFINITY) {
+                if candidate.loss().unwrap_or(f64::INFINITY)
+                    < current_best.loss().unwrap_or(f64::INFINITY)
+                {
                     best = Some(candidate.clone_with_new_id());
                 }
             } else {
                 best = Some(candidate.clone_with_new_id());
             }
         }
-        
+
         best.ok_or_else(|| "Tournament selection failed".into())
     }
-    
+
     /// Crossover operation supporting multiple strategies.
-    fn crossover(&self, parent1: &dyn Genome, parent2: &dyn Genome) -> Result<Box<dyn Genome>, Box<dyn std::error::Error>> {
+    fn crossover(
+        &self,
+        parent1: &dyn Genome,
+        parent2: &dyn Genome,
+    ) -> Result<Box<dyn Genome>, Box<dyn std::error::Error>> {
         let genome1 = parent1.genome();
         let genome2 = parent2.genome();
 
@@ -821,7 +869,8 @@ impl EvolutionaryOptimizer {
             CrossoverStrategy::PartSwap => {
                 child_genome = genome1.to_vec();
                 let start = rand::random::<usize>() % genome1.len();
-                let end = (start + rand::random::<usize>() % (genome1.len() - start)).min(genome1.len());
+                let end =
+                    (start + rand::random::<usize>() % (genome1.len() - start)).min(genome1.len());
                 for i in start..end {
                     child_genome[i] = genome2[i].clamp(0.0, 1.0);
                 }
@@ -829,7 +878,8 @@ impl EvolutionaryOptimizer {
             CrossoverStrategy::PartAverage => {
                 child_genome = genome1.to_vec();
                 let start = rand::random::<usize>() % genome1.len();
-                let end = (start + rand::random::<usize>() % (genome1.len() - start)).min(genome1.len());
+                let end =
+                    (start + rand::random::<usize>() % (genome1.len() - start)).min(genome1.len());
                 for i in start..end {
                     child_genome[i] = ((genome1[i] + genome2[i]) / 2.0).clamp(0.0, 1.0);
                 }
@@ -882,32 +932,43 @@ impl EvolutionaryOptimizer {
 
         Ok(mutated)
     }
-    
+
     /// Select new population from combined parent and offspring
     #[allow(clippy::borrowed_box)]
-    fn select_population(&mut self, offspring: Vec<Box<dyn Genome>>) -> Result<(), Box<dyn std::error::Error>> {
-        let mut combined: Vec<Box<dyn Genome>> = self.population.iter()
+    fn select_population(
+        &mut self,
+        offspring: Vec<Box<dyn Genome>>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut combined: Vec<Box<dyn Genome>> = self
+            .population
+            .iter()
             .map(|g| g.clone_with_new_id())
             .collect();
         combined.extend(offspring);
-        
+
         // Sort by fitness
         combined.sort_by(|a: &Box<dyn Genome>, b: &Box<dyn Genome>| {
-            a.loss().unwrap_or(f64::INFINITY)
+            a.loss()
+                .unwrap_or(f64::INFINITY)
                 .partial_cmp(&b.loss().unwrap_or(f64::INFINITY))
                 .unwrap()
         });
-        
+
         // Keep best individuals
-        self.population = combined.into_iter().take(self.parameters.population_size).collect();
+        self.population = combined
+            .into_iter()
+            .take(self.parameters.population_size)
+            .collect();
         Ok(())
     }
-    
+
     /// Get best individual from current population
     fn get_best_individual(&self) -> Option<Box<dyn Genome>> {
-        self.population.iter()
+        self.population
+            .iter()
             .min_by(|a, b| {
-                a.loss().unwrap_or(f64::INFINITY)
+                a.loss()
+                    .unwrap_or(f64::INFINITY)
                     .partial_cmp(&b.loss().unwrap_or(f64::INFINITY))
                     .unwrap()
             })
@@ -919,14 +980,14 @@ impl EvolutionaryOptimizer {
 mod tests {
     use super::*;
     use crate::loss::TestLossFunction;
-    
+
     #[test]
     fn test_base_genome() {
         let genome = BaseGenome::random(10);
         assert_eq!(genome.genome().len(), 10);
         assert!(genome.id() > 0);
     }
-    
+
     #[test]
     fn test_kigali_genome_creation() {
         let genome = KigaliGenome::new(
@@ -942,18 +1003,19 @@ mod tests {
             300.0,  // bell_start
             0,      // n_toneholes
         );
-        
+
         let geo = genome.genome2geo();
         assert!(!geo.geo.is_empty());
         assert!(geo.length() >= 1500.0);
         assert!(geo.length() <= 1900.0);
     }
-    
+
     #[test]
     fn test_evolution_optimizer() {
         let loss_function = Box::new(TestLossFunction::new());
-        let genome_template = KigaliGenome::new(10, 32.0, 50.0, 80.0, 1800.0, 1500.0, 0, 0.3, 0.0, 300.0, 0);
-        
+        let genome_template =
+            KigaliGenome::new(10, 32.0, 50.0, 80.0, 1800.0, 1500.0, 0, 0.3, 0.0, 300.0, 0);
+
         let mut optimizer = EvolutionaryOptimizer::with_random_population(
             loss_function,
             &genome_template,
@@ -971,7 +1033,7 @@ mod tests {
                 convergence_threshold: 1e-6,
             },
         );
-        
+
         // This is a basic test - in practice, you'd want to test with actual loss functions
         let result = optimizer.evolve();
         assert!(result.is_ok());
@@ -980,8 +1042,9 @@ mod tests {
     #[test]
     fn test_prime_population_initialization() {
         let loss_function = Box::new(TestLossFunction::new());
-        let genome_template = KigaliGenome::new(10, 32.0, 50.0, 80.0, 1800.0, 1500.0, 0, 0.3, 0.0, 300.0, 0);
-        
+        let genome_template =
+            KigaliGenome::new(10, 32.0, 50.0, 80.0, 1800.0, 1500.0, 0, 0.3, 0.0, 300.0, 0);
+
         let optimizer = EvolutionaryOptimizer::with_prime_population(
             loss_function,
             &genome_template,
@@ -999,21 +1062,23 @@ mod tests {
                 convergence_threshold: 1e-6,
             },
         );
-        
+
         assert_eq!(optimizer.population.len(), 10);
         // Verify all genomes have valid values
         for genome in &optimizer.population {
             for &gene in genome.genome() {
-                assert!(gene >= 0.0 && gene <= 1.0, "Gene value {} out of range", gene);
+                assert!(
+                    gene >= 0.0 && gene <= 1.0,
+                    "Gene value {} out of range",
+                    gene
+                );
             }
         }
     }
 
     #[test]
     fn test_kigali_genome_with_toneholes() {
-        let genome = KigaliGenome::new(
-            10, 32.0, 50.0, 80.0, 1800.0, 1500.0, 0, 0.3, 0.0, 300.0, 2,
-        );
+        let genome = KigaliGenome::new(10, 32.0, 50.0, 80.0, 1800.0, 1500.0, 0, 0.3, 0.0, 300.0, 2);
         let (geo, toneholes) = genome.geo_and_toneholes();
         assert_eq!(toneholes.len(), 2);
         for th in &toneholes {
@@ -1043,7 +1108,11 @@ mod tests {
 
         let mutant = optimizer.mutate(&genome).unwrap();
         let mutated = mutant.genome();
-        let diff_count = original.iter().zip(mutated.iter()).filter(|(a, b)| (**a - **b).abs() > 1e-12).count();
+        let diff_count = original
+            .iter()
+            .zip(mutated.iter())
+            .filter(|(a, b)| (**a - **b).abs() > 1e-12)
+            .count();
         assert_eq!(diff_count, 1);
     }
 

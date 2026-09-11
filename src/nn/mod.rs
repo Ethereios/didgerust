@@ -22,7 +22,11 @@ pub mod complex_activations {
     }
 
     pub fn relu(z: Complex<f64>) -> Complex<f64> {
-        if z.re > 0.0 { z } else { Complex::new(0.0, 0.0) }
+        if z.re > 0.0 {
+            z
+        } else {
+            Complex::new(0.0, 0.0)
+        }
     }
 
     pub fn tanh(z: Complex<f64>) -> Complex<f64> {
@@ -31,9 +35,9 @@ pub mod complex_activations {
 }
 
 pub mod differentiable {
-    use std::f64::consts::PI;
+    use crate::sim::{AcousticConstants, Segment};
     use num_complex::Complex;
-    use crate::sim::{Segment, AcousticConstants};
+    use std::f64::consts::PI;
 
     #[derive(Debug, Clone)]
     pub struct DiffParam {
@@ -88,19 +92,24 @@ pub mod differentiable {
             }
         }
 
-        pub fn forward(&mut self, z_in: Complex<f64>, freq_hz: f64, losses: &AcousticConstants) -> Complex<f64> {
+        pub fn forward(
+            &mut self,
+            z_in: Complex<f64>,
+            freq_hz: f64,
+            losses: &AcousticConstants,
+        ) -> Complex<f64> {
             let k = 2.0 * PI * freq_hz / losses.c;
             let zc = (losses.rho * losses.c) / (PI * (self.d1.value.max(1e-6)));
-            
+
             let cos_kl = (k * self.length.value).cos();
             let sin_kl = (k * self.length.value).sin();
             let j = Complex::new(0.0_f64, 1.0);
-            
+
             let a = cos_kl;
             let b = zc * j * sin_kl;
             let c = j * sin_kl / zc;
             let d = cos_kl;
-            
+
             self.z = (a * z_in + b) / (c * z_in + d);
             self.z
         }
@@ -110,7 +119,7 @@ pub mod differentiable {
             self.grad_cache.0 = Some(grad_val * self.length.gradient.unwrap_or(0.0));
             self.grad_cache.1 = Some(grad_val * self.d0.gradient.unwrap_or(0.0));
             self.grad_cache.2 = Some(grad_val * self.d1.gradient.unwrap_or(0.0));
-            
+
             if let Some(g) = self.grad_cache.0 {
                 if let Some(ref mut p) = self.length.gradient {
                     *p += g;
@@ -144,7 +153,7 @@ pub mod differentiable {
                 .iter()
                 .map(|s| DiffSegment::from_segment(s, 1.0))
                 .collect();
-            
+
             Self {
                 segments,
                 freq_hz,
@@ -153,10 +162,12 @@ pub mod differentiable {
         }
 
         pub fn forward(&mut self) -> Complex<f64> {
-            let r_last = self.segments.last()
+            let r_last = self
+                .segments
+                .last()
                 .map(|s| s.d1.value.sqrt())
                 .unwrap_or(0.01);
-            
+
             let z_open = self.radiation_impedance(r_last);
             let mut z = z_open;
 
@@ -174,24 +185,32 @@ pub mod differentiable {
         }
 
         fn radiation_impedance(&self, r: f64) -> Complex<f64> {
-            let s = (PI * self.constants.nu * self.freq_hz / (2.0 * r * r * self.constants.c)).sqrt();
+            let s =
+                (PI * self.constants.nu * self.freq_hz / (2.0 * r * r * self.constants.c)).sqrt();
             Complex::new(
                 self.constants.rho * self.constants.c / (PI * r * r) * (1.0 - 0.366 * s),
                 self.constants.rho * self.constants.c / (PI * r * r) * (0.613 * s),
             )
         }
 
-        pub fn compute_gradients(&mut self, _target_freq: f64, target_imp: Complex<f64>) -> Vec<f64> {
+        pub fn compute_gradients(
+            &mut self,
+            _target_freq: f64,
+            target_imp: Complex<f64>,
+        ) -> Vec<f64> {
             let z_out = self.forward();
             let loss_grad = (z_out - target_imp) * 2.0;
             self.backward(loss_grad);
-            
-            self.segments.iter()
-                .flat_map(|seg| vec![
-                    seg.length.gradient.unwrap_or(0.0),
-                    seg.d0.gradient.unwrap_or(0.0),
-                    seg.d1.gradient.unwrap_or(0.0),
-                ])
+
+            self.segments
+                .iter()
+                .flat_map(|seg| {
+                    vec![
+                        seg.length.gradient.unwrap_or(0.0),
+                        seg.d0.gradient.unwrap_or(0.0),
+                        seg.d1.gradient.unwrap_or(0.0),
+                    ]
+                })
                 .collect()
         }
     }
@@ -216,7 +235,11 @@ pub struct NeuralFitnessPredictor {
 
 impl NeuralFitnessPredictor {
     pub fn new(input_dim: usize, hidden_dim: usize, output_dim: usize) -> Self {
-        Self { input_dim, hidden_dim, output_dim }
+        Self {
+            input_dim,
+            hidden_dim,
+            output_dim,
+        }
     }
 
     pub fn predict(&self, input: &[f64]) -> Vec<f64> {

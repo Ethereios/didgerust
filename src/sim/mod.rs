@@ -1,7 +1,7 @@
 //! Simulation module for CADSD – transmission line model, impedance calculation, and utilities.
 
-use crate::Geo;
 use crate::tonehole::Tonehole;
+use crate::Geo;
 use nalgebra::Matrix2;
 use num_complex::Complex;
 use serde::{Deserialize, Serialize};
@@ -70,7 +70,14 @@ impl AcousticConstants {
         // Kinematic viscosity of air (m²/s) – Sutherland's formula, humidity has minor effect
         let nu = 1.716e-5 * (t_kelvin / 273.15).powf(1.5) * (273.15 + 110.4) / (t_kelvin + 110.4);
 
-        Self { rho, c, nu, temperature_c: temp_c, pressure_pa: p, relative_humidity: rh }
+        Self {
+            rho,
+            c,
+            nu,
+            temperature_c: temp_c,
+            pressure_pa: p,
+            relative_humidity: rh,
+        }
     }
 
     /// Backward-compatible constructor: temperature only, dry air at 1 atm.
@@ -144,18 +151,26 @@ impl Segment {
         let a0 = PI * d0 * d0 / 4.0;
         let a1 = PI * d1 * d1 / 4.0;
         let a01 = PI * ((d0 + d1) / 2.0).powi(2) / 4.0;
-        let phi = if d0 != d1 {
-            (d1 - d0) / l
-        } else {
-            0.0
-        };
+        let phi = if d0 != d1 { (d1 - d0) / l } else { 0.0 };
         let r0 = RHO * C / a0;
 
         // Apply bent-shape effective-length correction
         let radius = (d0 + d1) / 4.0; // Average radius
         let effective_length = bent_effective_length(l, curvature, radius, taper_coeff);
 
-        Self { l, d0, d1, a0, a01, a1, phi, x0, x1, r0, effective_length }
+        Self {
+            l,
+            d0,
+            d1,
+            a0,
+            a01,
+            a1,
+            phi,
+            x0,
+            x1,
+            r0,
+            effective_length,
+        }
     }
 }
 
@@ -241,7 +256,14 @@ pub fn create_segments_from_geo_with_curvature(
         let x1 = x1_mm / 1000.0;
         let d0 = d0_mm / 1000.0;
         let d1 = d1_mm / 1000.0;
-        segs.push(Segment::new_with_curvature(x0, x1, d0, d1, curvature, taper_coeff));
+        segs.push(Segment::new_with_curvature(
+            x0,
+            x1,
+            d0,
+            d1,
+            curvature,
+            taper_coeff,
+        ));
     }
     segs
 }
@@ -259,10 +281,10 @@ pub fn za(freq_hz: f64, r: f64, rho: f64, c: f64, nu: f64) -> Complex<f64> {
     // Levine A, Schwinger K (1960) Acoustical radiation impedance for unflanged pipes
     // Eq 4: Z = (rho*c/(pi*r^2)) * (1 - 0.324*s + j*0.638*s)/(1 - 0.182*s)
     // where s = sqrt(pi*nu*freq_hz/(2*r^2*c))
-    
+
     let s = (PI * nu * freq_hz / (2.0 * r * r * c)).sqrt();
-    let numerator = Complex::new(1.0 - 0.324*s, 0.638*s);
-    let denominator = Complex::new(1.0, -0.182*s);
+    let numerator = Complex::new(1.0 - 0.324 * s, 0.638 * s);
+    let denominator = Complex::new(1.0, -0.182 * s);
     (rho * c / (PI * r * r)) * (numerator / denominator)
 }
 
@@ -292,22 +314,22 @@ pub fn viscothermal_loss_params(
     let kw = omega / constants.c;
     let r0 = seg.r0;
     let a01 = seg.a01;
-    
+
     // Viscous boundary layer thickness (DidgeLab: vw = sqrt(p*omega*a01/(nu*PI)))
     let vw = (constants.rho * omega * a01 / (constants.nu * PI)).sqrt();
-    
+
     // Correction factors
     let gamma_w = 1.0 + 1.045 / vw;
     let gamma_c = 1.0 + 0.369 / vw;
-    
+
     // Complex wavenumber Tw: purely real spatial component + imaginary from losses
     // Tw = kw * gamma_w (real) + j * kw * gamma_w (imaginary for damping)
     let tw = Complex::new(kw * gamma_w, -kw * gamma_w);
-    
+
     // Complex characteristic impedance Zcw: resistance (real) + reactance (imaginary)
     // Zcw = r0 * gamma_c - j * r0 * 0.369 / vw
     let zcw = Complex::new(r0 * gamma_c, -r0 * 0.369 / vw);
-    
+
     (tw, zcw)
 }
 
@@ -322,11 +344,11 @@ pub fn viscothermal_k_complex(
 ) -> Complex<f64> {
     let omega = 2.0 * PI * freq_hz;
     let k = omega / constants.c;
-    
+
     let eta = 1.81e-5;
     let delta = (2.0 * eta / (constants.rho * omega)).sqrt();
     let alpha = delta * (seg.d0 + seg.d1) / (2.0 * seg.d0 * seg.d1);
-    
+
     Complex::new(k, alpha)
 }
 
@@ -353,11 +375,18 @@ pub fn cadsd_ze_with_losses(
                     let (tw, zcw) = viscothermal_loss_params(seg, freq_hz, constants);
                     (tw, Complex::new(zcw.re, zcw.im))
                 } else {
-                    (Complex::new(omega / constants.c, 0.0), Complex::new(seg.r0, 0.0))
+                    (
+                        Complex::new(omega / constants.c, 0.0),
+                        Complex::new(seg.r0, 0.0),
+                    )
                 };
                 let cos_kl = (k_complex * seg.effective_length).cos();
                 let sin_kl = (k_complex * seg.effective_length).sin();
-                let zc_safe = if zc.norm() < 1e-15 { Complex::new(1e-15, 0.0) } else { zc };
+                let zc_safe = if zc.norm() < 1e-15 {
+                    Complex::new(1e-15, 0.0)
+                } else {
+                    zc
+                };
                 let t = Matrix2::new(
                     cos_kl,
                     Complex::new(0.0, 1.0) * zc_safe * sin_kl,
@@ -555,31 +584,43 @@ pub struct DidgeridooSimulator {
 impl DidgeridooSimulator {
     pub fn from_geo(geo: &[[f64; 2]]) -> Self {
         let segments = create_segments_from_geo(geo);
-        Self { 
-            segments, 
+        Self {
+            segments,
             strategy: SimulationStrategy::Tlm,
             acoustic_constants: AcousticConstants::default(),
             toneholes: Vec::new(),
         }
     }
-    
+
     pub fn with_strategy(geo: &[[f64; 2]], strategy: SimulationStrategy) -> Self {
         let segments = create_segments_from_geo(geo);
-        Self { segments, strategy, acoustic_constants: AcousticConstants::default(), toneholes: Vec::new() }
+        Self {
+            segments,
+            strategy,
+            acoustic_constants: AcousticConstants::default(),
+            toneholes: Vec::new(),
+        }
     }
 
     pub fn impedance(&self, freqs: &[f64]) -> Vec<Complex<f64>> {
         match self.strategy {
-            SimulationStrategy::Tlm => {
-                freqs.iter()
-                    .map(|&f| cadsd_ze_with_losses(&self.segments, f, &self.acoustic_constants, true, &self.toneholes))
-                    .collect()
-            }
+            SimulationStrategy::Tlm => freqs
+                .iter()
+                .map(|&f| {
+                    cadsd_ze_with_losses(
+                        &self.segments,
+                        f,
+                        &self.acoustic_constants,
+                        true,
+                        &self.toneholes,
+                    )
+                })
+                .collect(),
             SimulationStrategy::Waveguide => self.waveguide_impedance(freqs),
             SimulationStrategy::ComplexImpedance => self.complex_impedance(freqs),
         }
     }
-    
+
     pub fn peaks(&self, freqs: &[f64]) -> Vec<(usize, f64, f64)> {
         let spectrum = self.impedance(freqs);
         find_peaks(freqs, &spectrum)
@@ -610,18 +651,25 @@ impl DidgeridooSimulator {
         let peak_tuples = self.peaks(&freqs);
         peak_tuples
             .into_iter()
-            .map(|(_idx, freq, imp)| Resonance { frequency: freq, impedance: imp })
+            .map(|(_idx, freq, imp)| Resonance {
+                frequency: freq,
+                impedance: imp,
+            })
             .collect()
     }
-    
+
     fn waveguide_impedance(&self, freqs: &[f64]) -> Vec<Complex<f64>> {
-        let geo_points: Vec<[f64; 2]> = self.segments.iter().scan(0.0, |x_acc, seg| {
-            let x_mm = *x_acc * 1000.0;
-            let d0_mm = seg.d0 * 1000.0;
-            *x_acc += seg.l;
-            Some([x_mm, d0_mm])
-        }).collect();
-        
+        let geo_points: Vec<[f64; 2]> = self
+            .segments
+            .iter()
+            .scan(0.0, |x_acc, seg| {
+                let x_mm = *x_acc * 1000.0;
+                let d0_mm = seg.d0 * 1000.0;
+                *x_acc += seg.l;
+                Some([x_mm, d0_mm])
+            })
+            .collect();
+
         let geo = crate::Geo::new(geo_points);
         let engine = crate::waveguide::WaveguideEngine::from_geo_with_toneholes(
             &geo,
@@ -630,66 +678,73 @@ impl DidgeridooSimulator {
         );
         engine.impedance_spectrum(freqs)
     }
-    
+
     fn complex_impedance(&self, freqs: &[f64]) -> Vec<Complex<f64>> {
         use std::f64::consts::PI;
-        
+
         let elements = insert_toneholes(&self.segments, &self.toneholes);
-        
-        freqs.iter().map(|&freq| {
-            let omega = 2.0 * PI * freq;
-            let constants = &self.acoustic_constants;
-            let _k = omega / constants.c;
-            let mut m_total = Matrix2::identity();
-            
-            for elem in &elements {
-                match elem {
-                    TlmElement::Segment(seg) => {
-                        let (tw, zcw) = viscothermal_loss_params(seg, freq, constants);
-                        let k_complex = tw;
-                        let zc = Complex::new(zcw.re, zcw.im);
-                        let cos_kl = (k_complex * seg.effective_length).cos();
-                        let sin_kl = (k_complex * seg.effective_length).sin();
-                        let zc_safe = if zc.norm() < 1e-15 { Complex::new(1e-15, 0.0) } else { zc };
-                        let t = Matrix2::new(
-                            cos_kl,
-                            Complex::new(0.0, 1.0) * zc_safe * sin_kl,
-                            Complex::new(0.0, 1.0) * sin_kl / zc_safe,
-                            cos_kl,
-                        );
-                        m_total = ap(&m_total, &t);
-                    }
-                    TlmElement::Tonehole(th) => {
-                        let z_th = if th.is_open {
-                            th.open_impedance(freq, constants)
-                        } else {
-                            th.closed_impedance(freq, constants)
-                        };
-                        let y_th = if z_th.norm() > 1e-15 {
-                            Complex::new(1.0, 0.0) / z_th
-                        } else {
-                            Complex::new(1e15, 0.0)
-                        };
-                        let shunt = Matrix2::new(
-                            Complex::new(1.0, 0.0),
-                            Complex::new(0.0, 0.0),
-                            y_th,
-                            Complex::new(1.0, 0.0),
-                        );
-                        m_total = ap(&m_total, &shunt);
+
+        freqs
+            .iter()
+            .map(|&freq| {
+                let omega = 2.0 * PI * freq;
+                let constants = &self.acoustic_constants;
+                let _k = omega / constants.c;
+                let mut m_total = Matrix2::identity();
+
+                for elem in &elements {
+                    match elem {
+                        TlmElement::Segment(seg) => {
+                            let (tw, zcw) = viscothermal_loss_params(seg, freq, constants);
+                            let k_complex = tw;
+                            let zc = Complex::new(zcw.re, zcw.im);
+                            let cos_kl = (k_complex * seg.effective_length).cos();
+                            let sin_kl = (k_complex * seg.effective_length).sin();
+                            let zc_safe = if zc.norm() < 1e-15 {
+                                Complex::new(1e-15, 0.0)
+                            } else {
+                                zc
+                            };
+                            let t = Matrix2::new(
+                                cos_kl,
+                                Complex::new(0.0, 1.0) * zc_safe * sin_kl,
+                                Complex::new(0.0, 1.0) * sin_kl / zc_safe,
+                                cos_kl,
+                            );
+                            m_total = ap(&m_total, &t);
+                        }
+                        TlmElement::Tonehole(th) => {
+                            let z_th = if th.is_open {
+                                th.open_impedance(freq, constants)
+                            } else {
+                                th.closed_impedance(freq, constants)
+                            };
+                            let y_th = if z_th.norm() > 1e-15 {
+                                Complex::new(1.0, 0.0) / z_th
+                            } else {
+                                Complex::new(1e15, 0.0)
+                            };
+                            let shunt = Matrix2::new(
+                                Complex::new(1.0, 0.0),
+                                Complex::new(0.0, 0.0),
+                                y_th,
+                                Complex::new(1.0, 0.0),
+                            );
+                            m_total = ap(&m_total, &shunt);
+                        }
                     }
                 }
-            }
-            
-            let last = self.segments.last().expect("at least one segment");
-            let r_last = (last.d1 / 2.0).max(1e-6);
-            let z_open = za(freq, r_last, constants.rho, constants.c, constants.nu);
-            let a = m_total[(0, 0)];
-            let b = m_total[(0, 1)];
-            let c = m_total[(1, 0)];
-            let d = m_total[(1, 1)];
-            (a * z_open + b) / (c * z_open + d)
-        }).collect()
+
+                let last = self.segments.last().expect("at least one segment");
+                let r_last = (last.d1 / 2.0).max(1e-6);
+                let z_open = za(freq, r_last, constants.rho, constants.c, constants.nu);
+                let a = m_total[(0, 0)];
+                let b = m_total[(0, 1)];
+                let c = m_total[(1, 0)];
+                let d = m_total[(1, 1)];
+                (a * z_open + b) / (c * z_open + d)
+            })
+            .collect()
     }
 }
 
@@ -767,7 +822,10 @@ mod tests {
         let segments = create_segments_from_geo(&geo.geo);
         let toneholes = vec![Tonehole::new(750.0, 10.0, 5.0, true)];
         let elements = insert_toneholes(&segments, &toneholes);
-        let tonehole_count = elements.iter().filter(|e| matches!(e, TlmElement::Tonehole(_))).count();
+        let tonehole_count = elements
+            .iter()
+            .filter(|e| matches!(e, TlmElement::Tonehole(_)))
+            .count();
         assert_eq!(tonehole_count, 1);
         assert!(elements.len() >= segments.len());
     }
@@ -809,7 +867,7 @@ mod tests {
         assert!(constants.rho > 0.0);
         assert!(constants.c > 0.0);
         assert!(constants.nu > 0.0);
-        
+
         let constants = AcousticConstants::for_conditions(50.0, 101325.0, 0.0);
         assert!(constants.rho > 0.0);
         assert!(constants.c > 0.0);
@@ -842,8 +900,10 @@ mod tests {
         // Use a smaller bore to avoid numerical overflow in matrix multiplication
         let geo = Geo::make_cone(500.0, 25.0, 30.0, 10);
         let segments = create_segments_from_geo(&geo.geo);
-        let z_lossy = cadsd_ze_with_losses(&segments, 440.0, &AcousticConstants::default(), true, &[]);
-        let z_clean = cadsd_ze_with_losses(&segments, 440.0, &AcousticConstants::default(), false, &[]);
+        let z_lossy =
+            cadsd_ze_with_losses(&segments, 440.0, &AcousticConstants::default(), true, &[]);
+        let z_clean =
+            cadsd_ze_with_losses(&segments, 440.0, &AcousticConstants::default(), false, &[]);
         assert!(z_lossy.re > 0.0);
         assert!(z_clean.re > 0.0);
     }
@@ -875,35 +935,47 @@ mod tests {
         let rho = 1.225f64;
         let c = 343.0f64;
         let nu = 1.5e-5f64;
-        
+
         // Test at a few frequencies and radii
         let test_cases = [
-            (100.0f64, 0.01f64),   // 100 Hz, 1cm radius
-            (440.0f64, 0.015f64),  // 440 Hz, 1.5cm radius  
-            (1000.0f64, 0.02f64),  // 1000 Hz, 2cm radius
+            (100.0f64, 0.01f64),  // 100 Hz, 1cm radius
+            (440.0f64, 0.015f64), // 440 Hz, 1.5cm radius
+            (1000.0f64, 0.02f64), // 1000 Hz, 2cm radius
         ];
-        
+
         for &(freq_hz, radius) in &test_cases {
             let z = za(freq_hz, radius, rho, c, nu);
-            
+
             // Radiation impedance should have positive real part (resistive)
-            assert!(z.re > 0.0, 
-                "Radiation impedance real part should be positive at {} Hz, radius {} m: {}", 
-                freq_hz, radius, z);
-                
+            assert!(
+                z.re > 0.0,
+                "Radiation impedance real part should be positive at {} Hz, radius {} m: {}",
+                freq_hz,
+                radius,
+                z
+            );
+
             // For an unflanged pipe, the imaginary part should be positive (mass-like)
-            assert!(z.im > 0.0, 
-                "Radiation impedance imaginary part should be positive at {} Hz, radius {} m: {}", 
-                freq_hz, radius, z);
-                
+            assert!(
+                z.im > 0.0,
+                "Radiation impedance imaginary part should be positive at {} Hz, radius {} m: {}",
+                freq_hz,
+                radius,
+                z
+            );
+
             // Basic sanity check: magnitude should be reasonable
             let magnitude = z.norm();
             // Radiation impedance for a small pipe at low frequencies is very large
             // (rho*c/(pi*r^2) ~ 1.225*343/(pi*0.01^2) ~ 1.34e6 Pa·s/m³)
             // Allow up to 1e7 to be safe
-            assert!(magnitude > 0.0 && magnitude < 1e7, 
-                "Radiation impedance magnitude seems unreasonable at {} Hz, radius {} m: {}", 
-                freq_hz, radius, magnitude);
+            assert!(
+                magnitude > 0.0 && magnitude < 1e7,
+                "Radiation impedance magnitude seems unreasonable at {} Hz, radius {} m: {}",
+                freq_hz,
+                radius,
+                magnitude
+            );
         }
     }
 
@@ -914,10 +986,10 @@ mod tests {
         let c = 343.0f64;
         let nu = 1.5e-5f64;
         let radius = 0.015f64; // 1.5cm radius
-        
+
         let z_low = za(100.0, radius, rho, c, nu);
         let z_high = za(400.0, radius, rho, c, nu); // 4x frequency
-        
+
         // At low frequencies, |Z| ∝ ω^2 ∝ f^2, so 4x frequency should give ~16x magnitude
         let ratio = z_high.norm() / z_low.norm();
         // Allow some deviation due to the complex nature of the impedance
@@ -938,7 +1010,8 @@ mod tests {
         let constants = AcousticConstants::default();
         let freqs = grid::log_grid(20.0, 2000.0, 50.0);
 
-        let spectrum: Vec<Complex<f64>> = freqs.iter()
+        let spectrum: Vec<Complex<f64>> = freqs
+            .iter()
             .map(|&f| cadsd_ze_with_losses(&segments, f, &constants, true, &[]))
             .collect();
 

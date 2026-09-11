@@ -1,0 +1,2 @@
+[I] D:\didgeridoo\makepad\platform\src\web_socket.rs:280:13 - studio websocket disabled: empty studio_http
+[makepad-remote] listening on 127.0.0.1:65397 pid=10412 app=cadsd-gui.exe grabs=C:\Users\ETHERE~1\AppData\Local\Temp\makepad-remote\cadsd-gui.exe-10412

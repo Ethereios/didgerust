@@ -7,8 +7,8 @@
 
 use std::f64::consts::PI;
 use std::io::Write;
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 use crate::waveguide::WaveguideEngine;
 
@@ -106,7 +106,7 @@ impl AudioProcessor {
     /// Create a new audio processor with specified geometry
     pub fn new(geo: &crate::Geo, config: AudioConfig) -> Result<Self, String> {
         let engine = WaveguideEngine::from_geo(geo);
-        
+
         Ok(Self {
             engine: Arc::new(Mutex::new(engine)),
             amplitude: Arc::new(Mutex::new(AmplitudeParams::default())),
@@ -167,75 +167,84 @@ impl AudioProcessor {
     pub fn start(&self) -> Result<(), String> {
         let running = Arc::clone(&self.running);
         running.store(true, Ordering::Relaxed);
-        
+
         #[cfg(feature = "cpal-integration")]
         {
             use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
             let host = cpal::default_host();
-            let device = host.default_output_device()
+            let device = host
+                .default_output_device()
                 .ok_or_else(|| "No output device found".to_string())?;
-            
-            let config = device.default_output_config()
+
+            let config = device
+                .default_output_config()
                 .map_err(|e| format!("Output config error: {}", e))?;
-            
+
             let sample_rate = config.sample_rate() as u64;
             let channels = config.channels() as usize;
-            
+
             let engine = Arc::clone(&self.engine);
             let amplitude = Arc::clone(&self.amplitude);
             let running_flag = Arc::clone(&self.running);
             let freq = Arc::new(self.last_frequency.clone());
-            
+
             let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
-            
-            let stream = device.build_output_stream(
-                config.into(),
-                move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                    if !running_flag.load(Ordering::Relaxed) {
-                        for sample in data.iter_mut() {
-                            *sample = 0.0;
+
+            let stream = device
+                .build_output_stream(
+                    config.into(),
+                    move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                        if !running_flag.load(Ordering::Relaxed) {
+                            for sample in data.iter_mut() {
+                                *sample = 0.0;
+                            }
+                            return;
                         }
-                        return;
-                    }
-                    
-                    // Lock resources once for the frame
-                    let mut phase: f32 = 0.0;
-                    let dt: f32 = (1.0 / sample_rate as f64) as f32;
-                    
-                    {
-                        let engine_guard = engine.lock().unwrap();
-                        let amp_guard = amplitude.lock().unwrap();
-                        
-                        let v_freq: f32 = (2.0 * PI * amp_guard.vibrato_freq) as f32;
-                        let v_phase_inc: f32 = v_freq * dt;
-                        let target_freq = freq.load(Ordering::Relaxed);
-                        let gain = amp_guard.gain;
-                        let vibrato_depth = amp_guard.vibrato_depth;
-                        
-                        for sample in data.iter_mut() {
-                            phase += v_phase_inc;
-                            let vibrato: f32 = phase.sin() * vibrato_depth as f32;
-                            let eff_freq = target_freq * (1.0 + vibrato as f64);
-                            
-                            let z = engine_guard.transfer_function(eff_freq);
-                            let val = z.re * gain;
-                            *sample = val.clamp(-1.0, 1.0) as f32;
+
+                        // Lock resources once for the frame
+                        let mut phase: f32 = 0.0;
+                        let dt: f32 = (1.0 / sample_rate as f64) as f32;
+
+                        {
+                            let engine_guard = engine.lock().unwrap();
+                            let amp_guard = amplitude.lock().unwrap();
+
+                            let v_freq: f32 = (2.0 * PI * amp_guard.vibrato_freq) as f32;
+                            let v_phase_inc: f32 = v_freq * dt;
+                            let target_freq = freq.load(Ordering::Relaxed);
+                            let gain = amp_guard.gain;
+                            let vibrato_depth = amp_guard.vibrato_depth;
+
+                            for sample in data.iter_mut() {
+                                phase += v_phase_inc;
+                                let vibrato: f32 = phase.sin() * vibrato_depth as f32;
+                                let eff_freq = target_freq * (1.0 + vibrato as f64);
+
+                                let z = engine_guard.transfer_function(eff_freq);
+                                let val = z.re * gain;
+                                *sample = val.clamp(-1.0, 1.0) as f32;
+                            }
                         }
-                    }
-                },
-                err_fn,
-                None,
-            ).map_err(|e| format!("Stream build error: {}", e))?;
-            
-            stream.play().map_err(|e| format!("Stream play error: {}", e))?;
-            println!("Audio processor started with cpal at {}Hz, {} channels", sample_rate, channels);
+                    },
+                    err_fn,
+                    None,
+                )
+                .map_err(|e| format!("Stream build error: {}", e))?;
+
+            stream
+                .play()
+                .map_err(|e| format!("Stream play error: {}", e))?;
+            println!(
+                "Audio processor started with cpal at {}Hz, {} channels",
+                sample_rate, channels
+            );
         }
-        
+
         #[cfg(not(feature = "cpal-integration"))]
         {
             println!("Audio processor started (cpal integration disabled)");
         }
-        
+
         Ok(())
     }
 
@@ -252,39 +261,49 @@ impl AudioProcessor {
     /// Export generated audio to a WAV file
     pub fn export_wav(&self, samples: &[f32], path: &str) -> Result<(), String> {
         let mut file = std::fs::File::create(path).map_err(|e| e.to_string())?;
-        
+
         let sample_rate = self.sample_rate;
         let num_channels = 1u16;
         let bits_per_sample = 16u16;
         let byte_rate = sample_rate * num_channels as u32 * bits_per_sample as u32 / 8;
         let block_align = num_channels * bits_per_sample / 8;
         let data_size = (samples.len() * block_align as usize) as u32;
-        
+
         // RIFF header
         file.write_all(b"RIFF").map_err(|e| e.to_string())?;
-        file.write_all(&(36 + data_size).to_le_bytes()).map_err(|e| e.to_string())?;
+        file.write_all(&(36 + data_size).to_le_bytes())
+            .map_err(|e| e.to_string())?;
         file.write_all(b"WAVE").map_err(|e| e.to_string())?;
-        
+
         // fmt chunk
         file.write_all(b"fmt ").map_err(|e| e.to_string())?;
-        file.write_all(&16u32.to_le_bytes()).map_err(|e| e.to_string())?;
-        file.write_all(&1u16.to_le_bytes()).map_err(|e| e.to_string())?; // PCM format
-        file.write_all(&num_channels.to_le_bytes()).map_err(|e| e.to_string())?;
-        file.write_all(&sample_rate.to_le_bytes()).map_err(|e| e.to_string())?;
-        file.write_all(&byte_rate.to_le_bytes()).map_err(|e| e.to_string())?;
-        file.write_all(&block_align.to_le_bytes()).map_err(|e| e.to_string())?;
-        file.write_all(&bits_per_sample.to_le_bytes()).map_err(|e| e.to_string())?;
-        
+        file.write_all(&16u32.to_le_bytes())
+            .map_err(|e| e.to_string())?;
+        file.write_all(&1u16.to_le_bytes())
+            .map_err(|e| e.to_string())?; // PCM format
+        file.write_all(&num_channels.to_le_bytes())
+            .map_err(|e| e.to_string())?;
+        file.write_all(&sample_rate.to_le_bytes())
+            .map_err(|e| e.to_string())?;
+        file.write_all(&byte_rate.to_le_bytes())
+            .map_err(|e| e.to_string())?;
+        file.write_all(&block_align.to_le_bytes())
+            .map_err(|e| e.to_string())?;
+        file.write_all(&bits_per_sample.to_le_bytes())
+            .map_err(|e| e.to_string())?;
+
         // data chunk
         file.write_all(b"data").map_err(|e| e.to_string())?;
-        file.write_all(&data_size.to_le_bytes()).map_err(|e| e.to_string())?;
-        
+        file.write_all(&data_size.to_le_bytes())
+            .map_err(|e| e.to_string())?;
+
         for &sample in samples {
             let clamped = sample.clamp(-1.0, 1.0);
             let int_sample = (clamped * i16::MAX as f32) as i16;
-            file.write_all(&int_sample.to_le_bytes()).map_err(|e| e.to_string())?;
+            file.write_all(&int_sample.to_le_bytes())
+                .map_err(|e| e.to_string())?;
         }
-        
+
         Ok(())
     }
 }
@@ -313,7 +332,7 @@ mod tests {
         let config = AudioConfig::default();
         let processor = AudioProcessor::new(&geo, config);
         match processor {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(e) => panic!("Failed to create audio processor: {}", e),
         }
     }
@@ -334,7 +353,11 @@ mod tests {
         let samples = processor.generate_samples(100);
         assert_eq!(samples.len(), 100);
         for &sample in &samples {
-            assert!(sample >= -1.0 && sample <= 1.0, "Sample out of range: {}", sample);
+            assert!(
+                sample >= -1.0 && sample <= 1.0,
+                "Sample out of range: {}",
+                sample
+            );
         }
     }
 
@@ -383,7 +406,10 @@ mod tests {
         assert!(result.is_ok(), "WAV export should succeed");
         let data = std::fs::read(&tmp_path).unwrap();
         assert!(data.starts_with(b"RIFF"), "Should have RIFF header");
-        assert!(data.windows(4).any(|w| w == b"WAVE"), "Should have WAVE format");
+        assert!(
+            data.windows(4).any(|w| w == b"WAVE"),
+            "Should have WAVE format"
+        );
         let _ = std::fs::remove_file(tmp_path);
     }
 }

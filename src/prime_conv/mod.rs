@@ -23,11 +23,16 @@ pub struct PrimeGenerator {
 impl PrimeGenerator {
     pub fn new(max_prime: usize) -> Self {
         let primes = Self::sieve(max_prime);
-        Self { primes, current_index: 0 }
+        Self {
+            primes,
+            current_index: 0,
+        }
     }
 
     fn sieve(max: usize) -> Vec<usize> {
-        if max < 2 { return vec![]; }
+        if max < 2 {
+            return vec![];
+        }
         let mut is_prime = vec![true; max + 1];
         is_prime[0] = false;
         is_prime[1] = false;
@@ -38,7 +43,12 @@ impl PrimeGenerator {
                 }
             }
         }
-        is_prime.iter().enumerate().filter(|(_, &p)| p).map(|(i, _)| i).collect()
+        is_prime
+            .iter()
+            .enumerate()
+            .filter(|(_, &p)| p)
+            .map(|(i, _)| i)
+            .collect()
     }
 
     pub fn next_prime(&mut self) -> usize {
@@ -79,21 +89,24 @@ impl ComplexConv1D {
         let fan_in = kernel_size * in_channels;
         let limit = (6.0 / (fan_in + out_channels) as f64).sqrt();
         let mut rng = rand::thread_rng();
-        
+
         let weights = (0..out_channels * kernel_size * in_channels)
-            .map(|_| num_complex::Complex64::new(
-                (rng.gen::<f64>() - 0.5) * limit,
-                (rng.gen::<f64>() - 0.5) * limit,
-            ))
+            .map(|_| {
+                num_complex::Complex64::new(
+                    (rng.gen::<f64>() - 0.5) * limit,
+                    (rng.gen::<f64>() - 0.5) * limit,
+                )
+            })
             .collect();
-            
+
         let bias = (0..out_channels)
             .map(|_| num_complex::Complex64::new(0.0, 0.0))
             .collect();
-            
-        let grad_weights = vec![num_complex::Complex64::new(0.0, 0.0); out_channels * kernel_size * in_channels];
+
+        let grad_weights =
+            vec![num_complex::Complex64::new(0.0, 0.0); out_channels * kernel_size * in_channels];
         let grad_bias = vec![num_complex::Complex64::new(0.0, 0.0); out_channels];
-            
+
         Self {
             kernel_size,
             in_channels,
@@ -109,13 +122,14 @@ impl ComplexConv1D {
         if input.len() < self.kernel_size {
             return vec![num_complex::Complex64::new(0.0, 0.0); self.out_channels];
         }
-        
+
         let mut output = Vec::with_capacity(self.out_channels);
         for oc in 0..self.out_channels {
             let mut sum = self.bias[oc];
             for ic in 0..self.in_channels {
                 for k in 0..self.kernel_size {
-                    let w_idx = oc * self.kernel_size * self.in_channels + ic * self.kernel_size + k;
+                    let w_idx =
+                        oc * self.kernel_size * self.in_channels + ic * self.kernel_size + k;
                     let i_idx = ic * input.len() / self.in_channels + k;
                     sum += self.weights[w_idx] * input[i_idx];
                 }
@@ -131,22 +145,23 @@ impl ComplexConv1D {
         input: &[num_complex::Complex64],
     ) -> Vec<num_complex::Complex64> {
         let mut grad_input = vec![num_complex::Complex64::new(0.0, 0.0); input.len()];
-        
+
         for (oc, go) in grad_output.iter().enumerate().take(self.out_channels) {
             for ic in 0..self.in_channels {
                 for k in 0..self.kernel_size {
-                    let w_idx = oc * self.kernel_size * self.in_channels + ic * self.kernel_size + k;
+                    let w_idx =
+                        oc * self.kernel_size * self.in_channels + ic * self.kernel_size + k;
                     let i_idx = ic * input.len() / self.in_channels + k;
-                    
+
                     self.grad_weights[w_idx] += go.conj() * input[i_idx];
                     self.grad_bias[oc] += go.conj();
-                    
+
                     let w_conj = self.weights[w_idx].conj();
                     grad_input[i_idx] += *go * w_conj;
                 }
             }
         }
-        
+
         grad_input
     }
 
@@ -157,7 +172,8 @@ impl ComplexConv1D {
         for (b, g) in self.bias.iter_mut().zip(self.grad_bias.iter()) {
             *b -= num_complex::Complex64::new(lr, 0.0) * *g;
         }
-        self.grad_weights.fill(num_complex::Complex64::new(0.0, 0.0));
+        self.grad_weights
+            .fill(num_complex::Complex64::new(0.0, 0.0));
         self.grad_bias.fill(num_complex::Complex64::new(0.0, 0.0));
     }
 }
@@ -173,11 +189,12 @@ impl PrimeConvBlock {
     pub fn new(max_prime: usize, in_channels: usize, out_channels: usize) -> Self {
         let prime_gen = PrimeGenerator::new(max_prime);
         let primes = prime_gen.primes_up_to(max_prime);
-        
-        let prime_kernels = primes.iter()
+
+        let prime_kernels = primes
+            .iter()
             .map(|&p| ComplexConv1D::new(p, in_channels, out_channels))
             .collect();
-            
+
         Self {
             prime_kernels,
             activation: complex_activations::crelu,
@@ -203,7 +220,7 @@ impl PrimeConvBlock {
     ) -> Vec<num_complex::Complex64> {
         let mut total_grad_input = vec![num_complex::Complex64::new(0.0, 0.0); input.len()];
         let mut offset = 0;
-        
+
         for conv in &mut self.prime_kernels {
             let out_channels = conv.out_channels;
             let chunk = &grad_output[offset..offset + out_channels];
@@ -213,7 +230,7 @@ impl PrimeConvBlock {
             }
             offset += out_channels;
         }
-        
+
         total_grad_input
     }
 
@@ -227,20 +244,24 @@ impl PrimeConvBlock {
 /// Complex-valued neural network module (behind nn-integration feature flag)
 pub mod complex_activations {
     use num_complex::Complex64;
-    
+
     pub fn sigmoid(z: Complex64) -> Complex64 {
         let exp_z = z.exp();
         exp_z / (Complex64::new(1.0, 0.0) + exp_z)
     }
-    
+
     pub fn relu(z: Complex64) -> Complex64 {
-        if z.re > 0.0 && z.im > 0.0 { z } else { Complex64::new(0.0, 0.0) }
+        if z.re > 0.0 && z.im > 0.0 {
+            z
+        } else {
+            Complex64::new(0.0, 0.0)
+        }
     }
-    
+
     pub fn crelu(z: Complex64) -> Complex64 {
         Complex64::new(z.re.max(0.0), z.im.max(0.0))
     }
-    
+
     pub fn mod_relu(z: Complex64) -> Complex64 {
         let norm = z.norm();
         if norm > 1e-8 {
@@ -249,11 +270,11 @@ pub mod complex_activations {
             Complex64::new(0.0, 0.0)
         }
     }
-    
+
     pub fn tanh(z: Complex64) -> Complex64 {
         z.tanh()
     }
-    
+
     pub fn zrelu(z: Complex64) -> Complex64 {
         let phase = z.arg();
         if (0.0..std::f64::consts::PI).contains(&phase) {
@@ -279,21 +300,23 @@ impl ComplexLinear {
     pub fn new(in_features: usize, out_features: usize) -> Self {
         let limit = (6.0 / (in_features + out_features) as f64).sqrt();
         let mut rng = rand::thread_rng();
-        
+
         let weights = (0..in_features * out_features)
-            .map(|_| num_complex::Complex64::new(
-                (rng.gen::<f64>() - 0.5) * limit,
-                (rng.gen::<f64>() - 0.5) * limit,
-            ))
+            .map(|_| {
+                num_complex::Complex64::new(
+                    (rng.gen::<f64>() - 0.5) * limit,
+                    (rng.gen::<f64>() - 0.5) * limit,
+                )
+            })
             .collect();
-            
+
         let bias = (0..out_features)
             .map(|_| num_complex::Complex64::new(0.0, 0.0))
             .collect();
-            
+
         let grad_weights = vec![num_complex::Complex64::new(0.0, 0.0); in_features * out_features];
         let grad_bias = vec![num_complex::Complex64::new(0.0, 0.0); out_features];
-            
+
         Self {
             in_features,
             out_features,
@@ -307,7 +330,7 @@ impl ComplexLinear {
     pub fn forward(&self, input: &[num_complex::Complex64]) -> Vec<num_complex::Complex64> {
         assert_eq!(input.len(), self.in_features);
         let mut output = Vec::with_capacity(self.out_features);
-        
+
         for (j, bias) in self.bias.iter().enumerate().take(self.out_features) {
             let mut sum = *bias;
             for (i, &inp) in input.iter().enumerate().take(self.in_features) {
@@ -325,14 +348,14 @@ impl ComplexLinear {
     ) -> Vec<num_complex::Complex64> {
         // grad_input = grad_output @ W^H (Wirtinger derivative)
         let mut grad_input = vec![num_complex::Complex64::new(0.0, 0.0); self.in_features];
-        
+
         for (i, grad_in) in grad_input.iter_mut().enumerate().take(self.in_features) {
             for (j, go) in grad_output.iter().enumerate().take(self.out_features) {
                 let w_conj = self.weights[j * self.in_features + i].conj();
                 *grad_in += go * w_conj;
             }
         }
-        
+
         // grad_weights = grad_output^H @ input (Wirtinger derivative)
         for (j, go) in grad_output.iter().enumerate().take(self.out_features) {
             for (i, &inp) in input.iter().enumerate().take(self.in_features) {
@@ -341,7 +364,7 @@ impl ComplexLinear {
             }
             self.grad_bias[j] += grad_output[j].conj();
         }
-        
+
         grad_input
     }
 
@@ -352,7 +375,8 @@ impl ComplexLinear {
         for (b, g) in self.bias.iter_mut().zip(self.grad_bias.iter()) {
             *b -= num_complex::Complex64::new(lr, 0.0) * *g;
         }
-        self.grad_weights.fill(num_complex::Complex64::new(0.0, 0.0));
+        self.grad_weights
+            .fill(num_complex::Complex64::new(0.0, 0.0));
         self.grad_bias.fill(num_complex::Complex64::new(0.0, 0.0));
     }
 }
@@ -375,16 +399,16 @@ impl ComplexPrimeMLP {
         output_dim: usize,
     ) -> Self {
         let conv_block = PrimeConvBlock::new(max_prime, in_channels, in_channels);
-        
+
         let mut layers = Vec::new();
         let mut prev_dim = in_channels * conv_block.prime_kernels.len();
-        
+
         for &h in hidden_dims {
             layers.push(ComplexLinear::new(prev_dim, h));
             prev_dim = h;
         }
         layers.push(ComplexLinear::new(prev_dim, output_dim));
-        
+
         Self {
             input_len,
             conv_block,
@@ -395,7 +419,7 @@ impl ComplexPrimeMLP {
 
     pub fn forward(&self, input: &[num_complex::Complex64]) -> Vec<num_complex::Complex64> {
         let mut x = self.conv_block.forward(input);
-        
+
         for (i, layer) in self.layers.iter().enumerate() {
             x = layer.forward(&x);
             if i < self.layers.len() - 1 {
@@ -415,7 +439,7 @@ impl ComplexPrimeMLP {
         for _epoch in 0..epochs {
             for (input, target) in inputs.iter().zip(targets.iter()) {
                 let mut x = self.conv_block.forward(input);
-                
+
                 let mut layer_outputs = Vec::new();
                 for (i, layer) in self.layers.iter().enumerate() {
                     layer_outputs.push(x.clone());
@@ -424,13 +448,13 @@ impl ComplexPrimeMLP {
                         x.iter_mut().for_each(|v| *v = (self.activation)(*v));
                     }
                 }
-                
+
                 let mut grad_output = Vec::new();
                 for (pred, tgt) in x.iter().zip(target.iter()) {
                     let diff = *pred - *tgt;
                     grad_output.push(diff.conj());
                 }
-                
+
                 for (layer_idx, layer) in self.layers.iter_mut().enumerate().rev() {
                     let prev_output = &layer_outputs[layer_idx];
                     let grad_input = layer.backward(&grad_output, prev_output);
@@ -438,10 +462,10 @@ impl ComplexPrimeMLP {
                         grad_output = grad_input;
                     }
                 }
-                
+
                 let final_grad = self.conv_block.backward(&grad_output, input);
                 drop(final_grad);
-                
+
                 self.conv_block.step(lr);
                 for layer in &mut self.layers {
                     layer.step(lr);
@@ -472,7 +496,8 @@ impl SurrogateLossFunction {
         hidden_dims: &[usize],
         output_dim: usize,
     ) -> Self {
-        let model = ComplexPrimeMLP::new(input_len, max_prime, in_channels, hidden_dims, output_dim);
+        let model =
+            ComplexPrimeMLP::new(input_len, max_prime, in_channels, hidden_dims, output_dim);
         Self {
             model,
             target_freqs: Vec::new(),
@@ -494,7 +519,8 @@ impl SurrogateLossFunction {
 
     /// Predict impedance spectrum from genome vector using the surrogate model
     pub fn predict_impedance(&self, genome: &[f64]) -> Vec<f64> {
-        let input: Vec<num_complex::Complex64> = genome.iter()
+        let input: Vec<num_complex::Complex64> = genome
+            .iter()
             .map(|&v| num_complex::Complex64::new(v, 0.0))
             .collect();
         let output = self.model.forward(&input);
@@ -512,7 +538,12 @@ impl SurrogateLossFunction {
         epochs: usize,
     ) {
         let input_len = self.model.input_len;
-        let _output_dim = self.model.layers.last().map(|l| l.out_features).unwrap_or(50);
+        let _output_dim = self
+            .model
+            .layers
+            .last()
+            .map(|l| l.out_features)
+            .unwrap_or(50);
 
         let mut inputs = Vec::with_capacity(num_samples);
         let mut targets = Vec::with_capacity(num_samples);
@@ -526,14 +557,23 @@ impl SurrogateLossFunction {
 
         let inputs_complex: Vec<Vec<num_complex::Complex64>> = inputs
             .iter()
-            .map(|g| g.iter().map(|&v| num_complex::Complex64::new(v, 0.0)).collect())
+            .map(|g| {
+                g.iter()
+                    .map(|&v| num_complex::Complex64::new(v, 0.0))
+                    .collect()
+            })
             .collect();
         let targets_complex: Vec<Vec<num_complex::Complex64>> = targets
             .iter()
-            .map(|t| t.iter().map(|&v| num_complex::Complex64::new(v, 0.0)).collect())
+            .map(|t| {
+                t.iter()
+                    .map(|&v| num_complex::Complex64::new(v, 0.0))
+                    .collect()
+            })
             .collect();
 
-        self.model.train(&inputs_complex, &targets_complex, lr, epochs);
+        self.model
+            .train(&inputs_complex, &targets_complex, lr, epochs);
         self.trained = true;
     }
 }
@@ -549,12 +589,13 @@ impl LossFunction for SurrogateLossFunction {
 
         let genome_vec = genome.genome();
         let predicted = self.predict_impedance(genome_vec);
-        
+
         if predicted.is_empty() || self.target_impedance.is_empty() {
             return f64::INFINITY;
         }
 
-        let mse: f64 = predicted.iter()
+        let mse: f64 = predicted
+            .iter()
             .zip(self.target_impedance.iter())
             .map(|(p, t)| (p - t).powi(2))
             .sum();
@@ -565,13 +606,13 @@ impl LossFunction for SurrogateLossFunction {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_prime_generator() {
         let gen = PrimeGenerator::new(100);
         assert_eq!(gen.primes_up_to(10), vec![2, 3, 5, 7]);
     }
-    
+
     #[test]
     fn test_complex_conv1d() {
         let conv = ComplexConv1D::new(3, 1, 4);
@@ -579,7 +620,7 @@ mod tests {
         let out = conv.forward(&input);
         assert_eq!(out.len(), 4);
     }
-    
+
     #[test]
     fn test_prime_conv_block() {
         let block = PrimeConvBlock::new(50, 1, 2);

@@ -50,10 +50,11 @@ impl LifNeuron {
 
     pub fn step(&mut self, input_current: f64, dt: f64, current_time: f64) -> bool {
         let refractory = current_time - self.last_spike_time < self.params.refractory_period;
-        
+
         if !refractory {
             let alpha = dt / self.params.tau_m;
-            self.membrane_potential = self.membrane_potential * (1.0 - alpha) + input_current * alpha;
+            self.membrane_potential =
+                self.membrane_potential * (1.0 - alpha) + input_current * alpha;
         } else {
             self.membrane_potential = self.params.v_reset;
         }

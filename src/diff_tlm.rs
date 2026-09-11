@@ -1,11 +1,11 @@
 //! Differentiable Transmission Line Model with gradient support via complex NN primitives
 //! and Wirtinger calculus for complex-valued backpropagation.
 
-use crate::sim::{Segment, AcousticConstants};
+use crate::sim::{AcousticConstants, Segment};
 use num_complex::Complex;
 use rand::Rng;
-use std::f64::consts::PI;
 use serde::{Deserialize, Serialize};
+use std::f64::consts::PI;
 
 /// 32-bit complex float: f32 real + f32 imaginary
 pub type Cf32 = Complex<f32>;
@@ -28,25 +28,25 @@ impl ComplexDenseLayer {
     pub fn new(in_features: usize, out_features: usize) -> Self {
         let limit = (6.0 / (in_features + out_features) as f64).sqrt();
         let mut rng = rand::thread_rng();
-        
+
         let weight = (0..out_features)
             .map(|_| {
                 (0..in_features)
-                    .map(|_| Cf32::new(
-                        (rng.gen::<f64>() - 0.5) as f32 * limit as f32,
-                        (rng.gen::<f64>() - 0.5) as f32 * limit as f32,
-                    ))
+                    .map(|_| {
+                        Cf32::new(
+                            (rng.gen::<f64>() - 0.5) as f32 * limit as f32,
+                            (rng.gen::<f64>() - 0.5) as f32 * limit as f32,
+                        )
+                    })
                     .collect()
             })
             .collect();
-        
-        let bias = (0..out_features)
-            .map(|_| Cf32::new(0.0, 0.0))
-            .collect();
-        
+
+        let bias = (0..out_features).map(|_| Cf32::new(0.0, 0.0)).collect();
+
         let grad_weight = vec![vec![Cf32::new(0.0, 0.0); in_features]; out_features];
         let grad_bias = vec![Cf32::new(0.0, 0.0); out_features];
-        
+
         Self {
             weight,
             bias,
@@ -71,14 +71,14 @@ impl ComplexDenseLayer {
 
     pub fn backward(&mut self, grad_output: &[Cf32], input: &[Cf32]) -> Vec<Cf32> {
         let mut grad_input = vec![Cf32::new(0.0, 0.0); self.in_features];
-        
+
         for (i, grad_in) in grad_input.iter_mut().enumerate().take(self.in_features) {
             for (j, go) in grad_output.iter().enumerate().take(self.out_features) {
                 let w_conj = self.weight[j][i].conj();
                 *grad_in += *go * w_conj;
             }
         }
-        
+
         for (j, go) in grad_output.iter().enumerate().take(self.out_features) {
             for (i, &inp) in input.iter().enumerate().take(self.in_features) {
                 let go_conj = go.conj();
@@ -86,7 +86,7 @@ impl ComplexDenseLayer {
             }
             self.grad_bias[j] += go.conj();
         }
-        
+
         grad_input
     }
 
@@ -131,7 +131,7 @@ impl<T: Clone + Copy + Default> DenseCLayer<T> {
 /// Complex activation functions
 pub mod activation {
     use super::Cf32;
-    
+
     /// CReLU: ReLU on real and imaginary parts independently
     pub fn crelu(z: Cf32) -> Cf32 {
         let re = z.re.max(0.0);
@@ -143,10 +143,12 @@ pub mod activation {
 /// Complex loss functions
 pub mod loss {
     use super::Cf32;
-    
+
     /// Mean squared error on complex values (|y_pred - y_true|^2)
     pub fn complex_mse_grad(y_pred: &[Cf32], y_true: &[Cf32]) -> Vec<Cf32> {
-        y_pred.iter().zip(y_true.iter())
+        y_pred
+            .iter()
+            .zip(y_true.iter())
             .map(|(p, t)| {
                 let diff = *p - *t;
                 // d/dz* of |diff|^2 = diff
@@ -176,8 +178,8 @@ impl DiffSegment {
     pub fn from_segment(seg: &Segment, frequency_hz: f64, constants: AcousticConstants) -> Self {
         Self {
             length: seg.l,
-            d0: seg.d0 * 1000.0,  // convert to mm
-            d1: seg.d1 * 1000.0,  // convert to mm
+            d0: seg.d0 * 1000.0, // convert to mm
+            d1: seg.d1 * 1000.0, // convert to mm
             frequency_hz,
             constants,
         }
@@ -188,13 +190,13 @@ impl DiffSegment {
     pub fn propagation_constant(&self) -> Cf32 {
         let omega = 2.0 * PI * self.frequency_hz;
         let k_real = omega / self.constants.c;
-        
+
         // Viscothermal attenuation
         let eta = 1.81e-5;
         let delta = (2.0 * eta / (self.constants.rho * omega)).sqrt();
         let radius_mm = (self.d0 + self.d1) / 4.0;
         let alpha = delta * radius_mm / (self.d0 * self.d1 / 2.0).max(1e-6);
-        
+
         Cf32::new(k_real as f32, alpha as f32)
     }
 
@@ -220,18 +222,18 @@ impl DiffTransferMatrix {
         let k_complex = seg.propagation_constant();
         let zc = Cf32::new(seg.characteristic_impedance() as f32, 0.0);
         let len = Cf32::new(seg.length as f32, 0.0);
-        
+
         // k * L
         let k_l = k_complex * len;
-        
+
         let cos_k_l = k_l.cos();
         let sin_k_l = k_l.sin();
-        
+
         let matrix = [
             [cos_k_l, zc * sin_k_l],
             [Cf32::new(0.0, 1.0 / zc.re) * sin_k_l, cos_k_l],
         ];
-        
+
         Self {
             matrix,
             grads: None,
@@ -242,7 +244,7 @@ impl DiffTransferMatrix {
     pub fn multiply(&self, other: &DiffTransferMatrix) -> DiffTransferMatrix {
         let a = &self.matrix;
         let b = &other.matrix;
-        
+
         let matrix = [
             [
                 a[0][0] * b[0][0] + a[0][1] * b[1][0],
@@ -253,7 +255,7 @@ impl DiffTransferMatrix {
                 a[1][0] * b[0][1] + a[1][1] * b[1][1],
             ],
         ];
-        
+
         Self {
             matrix,
             grads: None,
@@ -267,7 +269,7 @@ impl DiffTransferMatrix {
         let b = self.matrix[0][1];
         let c = self.matrix[1][0];
         let d = self.matrix[1][1];
-        
+
         (a * z_rad + b) / (c * z_rad + d)
     }
 }
@@ -297,10 +299,11 @@ pub struct DifferentiableTLM {
 impl DifferentiableTLM {
     /// Create a new differentiable TLM for optimization
     pub fn new(segments: Vec<Segment>, frequency_hz: f64, constants: AcousticConstants) -> Self {
-        let diff_segments: Vec<DiffSegment> = segments.iter()
+        let diff_segments: Vec<DiffSegment> = segments
+            .iter()
             .map(|s| DiffSegment::from_segment(s, frequency_hz, constants))
             .collect();
-        
+
         // Radiation impedance at bell
         let last_seg = segments.last().expect("at least one segment");
         let _r_last = (last_seg.d1 / 2.0).max(1e-6);
@@ -308,7 +311,7 @@ impl DifferentiableTLM {
         let k = omega / constants.c;
         let z_rad = Complex::new(1.0 - 0.366 * k, 0.613 * k);
         let radiation_impedance = Cf32::new(z_rad.re as f32, z_rad.im as f32);
-        
+
         Self {
             segments: diff_segments,
             transfer_matrices: Vec::new(),
@@ -321,18 +324,20 @@ impl DifferentiableTLM {
     /// Forward pass through the cascade
     pub fn forward(&mut self) -> Cf32 {
         // Build transfer matrices
-        self.transfer_matrices = self.segments.iter()
+        self.transfer_matrices = self
+            .segments
+            .iter()
             .map(DiffTransferMatrix::from_segment)
             .collect();
-        
+
         // Cascade multiply
         let mut total = self.transfer_matrices[0].clone();
         for mat in &self.transfer_matrices[1..] {
             total = total.multiply(mat);
         }
-        
+
         self.total_matrix = Some(total.clone());
-        
+
         // Compute input impedance
         total.input_impedance(self.radiation_impedance)
     }
@@ -349,15 +354,15 @@ impl DifferentiableTLM {
         let _base_z = self.forward();
         let _base_loss = _base_z.re * _base_z.re + _base_z.im * _base_z.im;
         let mut gradients = Vec::new();
-        
+
         let epsilon = 1e-6_f32;
         let num_segs = self.segments.len();
-        
+
         for i in 0..num_segs {
             let orig_length = self.segments[i].length;
             let orig_d0 = self.segments[i].d0;
             let orig_d1 = self.segments[i].d1;
-            
+
             self.segments[i].length += epsilon as f64;
             let z_plus = self.forward();
             let loss_plus_len = z_plus.re * z_plus.re + z_plus.im * z_plus.im;
@@ -366,7 +371,7 @@ impl DifferentiableTLM {
             let loss_minus_len = z_minus.re * z_minus.re + z_minus.im * z_minus.im;
             let d_length = ((loss_plus_len - loss_minus_len) / (2.0 * epsilon)) as f64;
             self.segments[i].length = orig_length;
-            
+
             self.segments[i].d0 += epsilon as f64;
             let z_plus = self.forward();
             let loss_plus_d0 = z_plus.re * z_plus.re + z_plus.im * z_plus.im;
@@ -375,7 +380,7 @@ impl DifferentiableTLM {
             let loss_minus_d0 = z_minus.re * z_minus.re + z_minus.im * z_minus.im;
             let d_d0 = ((loss_plus_d0 - loss_minus_d0) / (2.0 * epsilon)) as f64;
             self.segments[i].d0 = orig_d0;
-            
+
             self.segments[i].d1 += epsilon as f64;
             let z_plus = self.forward();
             let loss_plus_d1 = z_plus.re * z_plus.re + z_plus.im * z_plus.im;
@@ -384,12 +389,12 @@ impl DifferentiableTLM {
             let loss_minus_d1 = z_minus.re * z_minus.re + z_minus.im * z_minus.im;
             let d_d1 = ((loss_plus_d1 - loss_minus_d1) / (2.0 * epsilon)) as f64;
             self.segments[i].d1 = orig_d1;
-            
+
             gradients.push((d_length, d_d0, d_d1));
         }
-        
+
         self.forward();
-        
+
         gradients
     }
 
@@ -398,9 +403,9 @@ impl DifferentiableTLM {
         let z_in = self.forward();
         let loss = z_in.re * z_in.re + z_in.im * z_in.im;
         let loss_grad = Cf32::new(loss, 0.0);
-        
+
         let gradients = self.backward(loss_grad);
-        
+
         for (i, (d_len, d_d0, d_d1)) in gradients.into_iter().enumerate() {
             self.segments[i].length -= lr * d_len;
             self.segments[i].d0 -= lr * d_d0;
@@ -410,19 +415,22 @@ impl DifferentiableTLM {
 
     /// Get current geometry as segments
     pub fn get_segments(&self) -> Vec<Segment> {
-        self.segments.iter().map(|s| Segment {
-            l: s.length,
-            d0: s.d0 * 1e-3,
-            d1: s.d1 * 1e-3,
-            a0: PI * (s.d0 * 1e-3 / 2.0).powi(2),
-            a01: PI * ((s.d0 + s.d1) * 0.5e-3 / 2.0).powi(2),
-            a1: PI * (s.d1 * 1e-3 / 2.0).powi(2),
-            phi: (s.d1 - s.d0) / (s.length * 1000.0),
-            x0: 0.0,
-            x1: s.length,
-            r0: s.characteristic_impedance(),
-            effective_length: s.length,
-        }).collect()
+        self.segments
+            .iter()
+            .map(|s| Segment {
+                l: s.length,
+                d0: s.d0 * 1e-3,
+                d1: s.d1 * 1e-3,
+                a0: PI * (s.d0 * 1e-3 / 2.0).powi(2),
+                a01: PI * ((s.d0 + s.d1) * 0.5e-3 / 2.0).powi(2),
+                a1: PI * (s.d1 * 1e-3 / 2.0).powi(2),
+                phi: (s.d1 - s.d0) / (s.length * 1000.0),
+                x0: 0.0,
+                x1: s.length,
+                r0: s.characteristic_impedance(),
+                effective_length: s.length,
+            })
+            .collect()
     }
 }
 
@@ -439,14 +447,14 @@ impl NeuralFitnessPredictor {
     pub fn new(input_dim: usize, hidden_dims: &[usize], output_dim: usize) -> Self {
         let mut layers = Vec::new();
         let mut prev_dim = input_dim;
-        
+
         for &hidden_dim in hidden_dims {
             layers.push(ComplexDenseLayer::new(prev_dim, hidden_dim));
             prev_dim = hidden_dim;
         }
-        
+
         layers.push(ComplexDenseLayer::new(prev_dim, output_dim));
-        
+
         Self {
             layers,
             _input_dim: input_dim,
@@ -456,53 +464,56 @@ impl NeuralFitnessPredictor {
 
     /// Forward pass through the network
     pub fn forward(&self, genome: &[f64]) -> Vec<Cf32> {
-        let mut x: Vec<Cf32> = genome.iter()
-            .map(|&v| Cf32::new(v as f32, 0.0))
-            .collect();
-        
+        let mut x: Vec<Cf32> = genome.iter().map(|&v| Cf32::new(v as f32, 0.0)).collect();
+
         for (i, layer) in self.layers.iter().enumerate() {
             x = layer.forward(&x);
             if i < self.layers.len() - 1 {
-                x = x.into_iter().map(|z| {
-                    let re = z.re.max(0.0);
-                    let im = z.im.max(0.0);
-                    Cf32::new(re, im)
-                }).collect();
+                x = x
+                    .into_iter()
+                    .map(|z| {
+                        let re = z.re.max(0.0);
+                        let im = z.im.max(0.0);
+                        Cf32::new(re, im)
+                    })
+                    .collect();
             }
         }
-        
+
         x
     }
 
     /// Train on a batch of (genome, impedance_spectrum) pairs using full backpropagation.
     pub fn train(&mut self, genomes: &[Vec<f64>], targets: &[Vec<Cf32>], lr: f64) {
         for (genome, target) in genomes.iter().zip(targets.iter()) {
-            let mut x: Vec<Cf32> = genome.iter()
-                .map(|&v| Cf32::new(v as f32, 0.0))
-                .collect();
-            
+            let mut x: Vec<Cf32> = genome.iter().map(|&v| Cf32::new(v as f32, 0.0)).collect();
+
             let mut layer_inputs = Vec::new();
-            
+
             for (i, layer) in self.layers.iter().enumerate() {
                 layer_inputs.push(x.clone());
                 x = layer.forward(&x);
                 if i < self.layers.len() - 1 {
-                    x = x.into_iter().map(|z| {
-                        let re = z.re.max(0.0);
-                        let im = z.im.max(0.0);
-                        Cf32::new(re, im)
-                    }).collect();
+                    x = x
+                        .into_iter()
+                        .map(|z| {
+                            let re = z.re.max(0.0);
+                            let im = z.im.max(0.0);
+                            Cf32::new(re, im)
+                        })
+                        .collect();
                 }
             }
-            
-            let mut grad_output: Vec<Cf32> = x.iter()
+
+            let mut grad_output: Vec<Cf32> = x
+                .iter()
                 .zip(target.iter())
                 .map(|(p, t)| {
                     let diff = *p - *t;
                     diff.conj()
                 })
                 .collect();
-            
+
             for (layer_idx, layer) in self.layers.iter_mut().enumerate().rev() {
                 let prev_output = &layer_inputs[layer_idx];
                 let grad_input = layer.backward(&grad_output, prev_output);
@@ -510,7 +521,7 @@ impl NeuralFitnessPredictor {
                     grad_output = grad_input;
                 }
             }
-            
+
             for layer in &mut self.layers {
                 layer.step(lr as f32);
             }
@@ -520,7 +531,10 @@ impl NeuralFitnessPredictor {
     /// Predict fitness for a genome (lower loss = better)
     pub fn predict_fitness(&self, genome: &[f64]) -> f64 {
         let pred = self.forward(genome);
-        let mag_sq: f64 = pred.iter().map(|z| (z.re * z.re + z.im * z.im) as f64).sum();
+        let mag_sq: f64 = pred
+            .iter()
+            .map(|z| (z.re * z.re + z.im * z.im) as f64)
+            .sum();
         mag_sq
     }
 }
@@ -576,7 +590,8 @@ impl AdamOptimizer {
         }
 
         self.t += 1;
-        let lr_t = self.lr * (1.0 - self.beta2.powi(self.t as i32)).sqrt() / (1.0 - self.beta1.powi(self.t as i32));
+        let lr_t = self.lr * (1.0 - self.beta2.powi(self.t as i32)).sqrt()
+            / (1.0 - self.beta1.powi(self.t as i32));
 
         for i in 0..params.len() {
             let g = grads[i];
@@ -597,15 +612,15 @@ impl AdamOptimizer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Geo;
     use crate::sim::{create_segments_from_geo, AcousticConstants};
+    use crate::Geo;
 
     #[test]
     fn test_diff_segment_from_segment() {
         let geo = Geo::make_cone(1500.0, 30.0, 60.0, 30);
         let segments = create_segments_from_geo(&geo.geo);
         let constants = AcousticConstants::default();
-        
+
         let diff_seg = DiffSegment::from_segment(&segments[0], 500.0, constants);
         assert!(diff_seg.length > 0.0);
         assert!(diff_seg.d0 > 0.0);
@@ -617,10 +632,10 @@ mod tests {
         let geo = Geo::make_cone(1500.0, 30.0, 60.0, 30);
         let segments = create_segments_from_geo(&geo.geo);
         let constants = AcousticConstants::default();
-        
+
         let diff_seg = DiffSegment::from_segment(&segments[0], 500.0, constants);
         let k = diff_seg.propagation_constant();
-        
+
         assert!(k.re > 0.0);
         assert!(k.im >= 0.0); // attenuation is positive
     }
@@ -630,10 +645,10 @@ mod tests {
         let geo = Geo::make_cone(1500.0, 30.0, 60.0, 30);
         let segments = create_segments_from_geo(&geo.geo);
         let constants = AcousticConstants::default();
-        
+
         let diff_seg = DiffSegment::from_segment(&segments[0], 500.0, constants);
         let t = DiffTransferMatrix::from_segment(&diff_seg);
-        
+
         // Check matrix structure
         assert!(t.matrix[0][0].re != 0.0);
     }
@@ -643,10 +658,10 @@ mod tests {
         let geo = Geo::make_cone(1500.0, 30.0, 60.0, 30);
         let segments = create_segments_from_geo(&geo.geo);
         let constants = AcousticConstants::default();
-        
+
         let mut tlm = DifferentiableTLM::new(segments, 500.0, constants);
         let z_in = tlm.forward();
-        
+
         assert!(z_in.re != 0.0 || z_in.im != 0.0);
     }
 
@@ -655,93 +670,112 @@ mod tests {
         // Verify backward() numerical gradients match independent finite differences
         // backward() computes d|Z_in|^2/dp using ε=1e-6 finite differences.
         // This test compares those against an independent numerical gradient of |Z_in|^2.
-        
+
         let length = 1500.0;
         let top_diameter = 32.0;
         let bottom_diameter = 65.0;
         let n_segments = 3;
-        
+
         let geo = Geo::make_cone(length, top_diameter, bottom_diameter, n_segments);
         let segments = crate::sim::create_segments_from_geo(&geo.geo);
         let constants = AcousticConstants::default();
-        
+
         let mut tlm = DifferentiableTLM::new(segments, 500.0, constants);
-        
+
         // Get gradients from backward() (numerical differentiation of |Z|^2)
         let backward_gradients = tlm.backward(Cf32::new(0.0, 0.0));
-        
+
         // Compute independent numerical gradients of |Z|^2 with matching epsilon
         let epsilon = 1e-6_f64;
         let mut numerical_gradients: Vec<(f64, f64, f64)> = Vec::new();
-        
+
         for seg_idx in 0..n_segments {
             let orig_length = tlm.segments[seg_idx].length;
             let orig_d0 = tlm.segments[seg_idx].d0;
             let orig_d1 = tlm.segments[seg_idx].d1;
-            
+
             let loss_fn = |tlm: &mut DifferentiableTLM| -> f64 {
                 let z = tlm.forward();
                 (z.re * z.re + z.im * z.im) as f64
             };
-            
+
             tlm.segments[seg_idx].length = orig_length + epsilon;
             let loss_plus = loss_fn(&mut tlm);
             tlm.segments[seg_idx].length = orig_length - epsilon;
             let loss_minus = loss_fn(&mut tlm);
             tlm.segments[seg_idx].length = orig_length;
             let d_len = (loss_plus - loss_minus) / (2.0 * epsilon);
-            
+
             tlm.segments[seg_idx].d0 = orig_d0 + epsilon;
             let loss_plus = loss_fn(&mut tlm);
             tlm.segments[seg_idx].d0 = orig_d0 - epsilon;
             let loss_minus = loss_fn(&mut tlm);
             tlm.segments[seg_idx].d0 = orig_d0;
             let d_d0 = (loss_plus - loss_minus) / (2.0 * epsilon);
-            
+
             tlm.segments[seg_idx].d1 = orig_d1 + epsilon;
             let loss_plus = loss_fn(&mut tlm);
             tlm.segments[seg_idx].d1 = orig_d1 - epsilon;
             let loss_minus = loss_fn(&mut tlm);
             tlm.segments[seg_idx].d1 = orig_d1;
             let d_d1 = (loss_plus - loss_minus) / (2.0 * epsilon);
-            
+
             numerical_gradients.push((d_len, d_d0, d_d1));
         }
-        
+
         println!("Comparing backward() vs independent numerical gradients:");
         let mut max_rel_err: f64 = 0.0;
-        
-        for (seg_idx, ((bw_len, bw_d0, bw_d1), (num_len, num_d0, num_d1))) in 
-            backward_gradients.iter().zip(&numerical_gradients).enumerate()
+
+        for (seg_idx, ((bw_len, bw_d0, bw_d1), (num_len, num_d0, num_d1))) in backward_gradients
+            .iter()
+            .zip(&numerical_gradients)
+            .enumerate()
         {
-            let rel_err_len = if bw_len.abs() > 1e-10 { (bw_len - num_len).abs() / bw_len.abs() } else { (bw_len - num_len).abs().min(1.0) };
-            let rel_err_d0 = if bw_d0.abs() > 1e-10 { (bw_d0 - num_d0).abs() / bw_d0.abs() } else { (bw_d0 - num_d0).abs().min(1.0) };
-            let rel_err_d1 = if bw_d1.abs() > 1e-10 { (bw_d1 - num_d1).abs() / bw_d1.abs() } else { (bw_d1 - num_d1).abs().min(1.0) };
-            
+            let rel_err_len = if bw_len.abs() > 1e-10 {
+                (bw_len - num_len).abs() / bw_len.abs()
+            } else {
+                (bw_len - num_len).abs().min(1.0)
+            };
+            let rel_err_d0 = if bw_d0.abs() > 1e-10 {
+                (bw_d0 - num_d0).abs() / bw_d0.abs()
+            } else {
+                (bw_d0 - num_d0).abs().min(1.0)
+            };
+            let rel_err_d1 = if bw_d1.abs() > 1e-10 {
+                (bw_d1 - num_d1).abs() / bw_d1.abs()
+            } else {
+                (bw_d1 - num_d1).abs().min(1.0)
+            };
+
             let max_rel = rel_err_len.max(rel_err_d0).max(rel_err_d1);
             max_rel_err = max_rel_err.max(max_rel);
-            
+
             println!("  Segment {}: backward=({:.2e}, {:.2e}, {:.2e}) numerical=({:.2e}, {:.2e}, {:.2e}) err={:.4}",
                      seg_idx, bw_len, bw_d0, bw_d1, num_len, num_d0, num_d1, max_rel);
         }
-        
-        assert!(max_rel_err < 0.01,
-                "Gradient verification FAILED: max relative error {:.4} > tolerance 0.01",
-                max_rel_err);
-        
-        println!("✓ Gradient verification PASSED (max rel error {:.4})", max_rel_err);
+
+        assert!(
+            max_rel_err < 0.01,
+            "Gradient verification FAILED: max relative error {:.4} > tolerance 0.01",
+            max_rel_err
+        );
+
+        println!(
+            "✓ Gradient verification PASSED (max rel error {:.4})",
+            max_rel_err
+        );
     }
 
     #[test]
     fn test_neural_fitness_predictor() {
         let mut predictor = NeuralFitnessPredictor::new(10, &[32, 32], 10);
-        
+
         // Dummy training data
         let genomes = vec![vec![0.5; 10]; 5];
         let targets = vec![vec![Cf32::new(1.0, 0.0); 10]; 5];
-        
+
         predictor.train(&genomes, &targets, 0.01);
-        
+
         let fitness = predictor.predict_fitness(&genomes[0]);
         assert!(fitness > 0.0);
     }
@@ -751,10 +785,16 @@ mod tests {
         let mut adam = AdamOptimizer::new(0.01);
         let mut params = vec![1.0, 2.0, 3.0];
         let grads = vec![0.1, -0.2, 0.3];
-        
+
         adam.step(&mut params, &grads);
-        
-        assert!(params[0] < 1.0, "Adam should decrease param with positive grad");
-        assert!(params[1] > 2.0, "Adam should increase param with negative grad");
+
+        assert!(
+            params[0] < 1.0,
+            "Adam should decrease param with positive grad"
+        );
+        assert!(
+            params[1] > 2.0,
+            "Adam should increase param with negative grad"
+        );
     }
 }

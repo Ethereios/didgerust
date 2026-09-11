@@ -9,8 +9,8 @@
 //! - Naturally models tonehole radiation and branching
 //! - Provides time-domain impulse responses for validation
 
-use std::f64::consts::PI;
 use num_complex::Complex64;
+use std::f64::consts::PI;
 
 /// 2-D Digital Waveguide Mesh using rectangular topology
 /// Each junction has 4 ports (N, S, E, W) connected by unit-delay lines
@@ -94,13 +94,29 @@ impl DWMMesh2D {
                 let bc = self.boundary[idx];
 
                 // Get incoming waves from neighbors
-                let p_n = if y + 1 < h { self.pressure[self.idx(x, y + 1)] } else { 0.0 };
-                let p_s = if y > 0 { self.pressure[self.idx(x, y - 1)] } else { 0.0 };
-                let p_e = if x + 1 < w { self.pressure[self.idx(x + 1, y)] } else { 0.0 };
-                let p_w = if x > 0 { self.pressure[self.idx(x - 1, y)] } else { 0.0 };
+                let p_n = if y + 1 < h {
+                    self.pressure[self.idx(x, y + 1)]
+                } else {
+                    0.0
+                };
+                let p_s = if y > 0 {
+                    self.pressure[self.idx(x, y - 1)]
+                } else {
+                    0.0
+                };
+                let p_e = if x + 1 < w {
+                    self.pressure[self.idx(x + 1, y)]
+                } else {
+                    0.0
+                };
+                let p_w = if x > 0 {
+                    self.pressure[self.idx(x - 1, y)]
+                } else {
+                    0.0
+                };
 
                 let p_in = self.pressure[idx];
-                
+
                 // Scattering junction (lossless, 4-port isotropic)
                 // p_J = (2/N) * sum(p_i^+) - p_J(n-1)
                 let sum_incoming = p_n + p_s + p_e + p_w;
@@ -114,10 +130,18 @@ impl DWMMesh2D {
 
                 // Apply boundary conditions
                 match bc {
-                    0 => { new_pressure[idx] = 0.0; } // rigid
-                    1 => { new_pressure[idx] = 0.0; } // pressure-release
-                    2 => { new_pressure[idx] = scattered * 0.99; } // absorbing
-                    _ => { new_pressure[idx] = scattered; }
+                    0 => {
+                        new_pressure[idx] = 0.0;
+                    } // rigid
+                    1 => {
+                        new_pressure[idx] = 0.0;
+                    } // pressure-release
+                    2 => {
+                        new_pressure[idx] = scattered * 0.99;
+                    } // absorbing
+                    _ => {
+                        new_pressure[idx] = scattered;
+                    }
                 }
             }
         }
@@ -128,7 +152,8 @@ impl DWMMesh2D {
         self.waves_e = new_waves_e;
         self.waves_w = new_waves_w;
         self.t += 1;
-        self.pressure_history.push(self.pressure[self.idx(self.width / 2, self.height / 2)]);
+        self.pressure_history
+            .push(self.pressure[self.idx(self.width / 2, self.height / 2)]);
     }
 
     pub fn run(&mut self, n_steps: usize) {
@@ -139,10 +164,12 @@ impl DWMMesh2D {
 
     /// Extract 1-D line of pressure values (for bore cross-section)
     pub fn extract_line(&self, y: usize) -> Vec<f64> {
-        (0..self.width).map(|x| {
-            let idx = self.idx(x, y);
-            self.pressure[idx]
-        }).collect()
+        (0..self.width)
+            .map(|x| {
+                let idx = self.idx(x, y);
+                self.pressure[idx]
+            })
+            .collect()
     }
 
     /// Get frequency response at a point using DFT of time-domain signal.
@@ -150,12 +177,12 @@ impl DWMMesh2D {
     /// Note: This uses a naive O(n²) DFT. For long signals, use an FFT library.
     pub fn frequency_response(&self, _x: usize, _y: usize) -> Vec<f64> {
         let signal = self.pressure_history.clone();
-        
+
         let n = signal.len();
         if n == 0 {
             return vec![];
         }
-        
+
         let mut spectrum = vec![0.0; n / 2];
         for (k, spec) in spectrum.iter_mut().enumerate() {
             let mut re = 0.0;
@@ -242,21 +269,45 @@ impl DWMMesh3D {
                 for x in 0..nx {
                     let idx = self.idx(x, y, z);
                     let bc = self.boundary[idx];
-                    
+
                     let p_center = self.pressure[idx];
-                    
+
                     // Get neighbor pressures
-                    let p_xp = if x + 1 < nx { self.pressure[self.idx(x + 1, y, z)] } else { 0.0 };
-                    let p_xm = if x > 0 { self.pressure[self.idx(x - 1, y, z)] } else { 0.0 };
-                    let p_yp = if y + 1 < ny { self.pressure[self.idx(x, y + 1, z)] } else { 0.0 };
-                    let p_ym = if y > 0 { self.pressure[self.idx(x, y - 1, z)] } else { 0.0 };
-                    let p_zp = if z + 1 < nz { self.pressure[self.idx(x, y, z + 1)] } else { 0.0 };
-                    let p_zm = if z > 0 { self.pressure[self.idx(x, y, z - 1)] } else { 0.0 };
-                    
+                    let p_xp = if x + 1 < nx {
+                        self.pressure[self.idx(x + 1, y, z)]
+                    } else {
+                        0.0
+                    };
+                    let p_xm = if x > 0 {
+                        self.pressure[self.idx(x - 1, y, z)]
+                    } else {
+                        0.0
+                    };
+                    let p_yp = if y + 1 < ny {
+                        self.pressure[self.idx(x, y + 1, z)]
+                    } else {
+                        0.0
+                    };
+                    let p_ym = if y > 0 {
+                        self.pressure[self.idx(x, y - 1, z)]
+                    } else {
+                        0.0
+                    };
+                    let p_zp = if z + 1 < nz {
+                        self.pressure[self.idx(x, y, z + 1)]
+                    } else {
+                        0.0
+                    };
+                    let p_zm = if z > 0 {
+                        self.pressure[self.idx(x, y, z - 1)]
+                    } else {
+                        0.0
+                    };
+
                     // 6-port scattering (isotropic)
                     let sum_incoming = p_xp + p_xm + p_yp + p_ym + p_zp + p_zm;
                     let scattered = (2.0 / 6.0) * sum_incoming - p_center;
-                    
+
                     // Update outgoing waves
                     new_waves[0][idx] = scattered + p_xp - p_center; // +x
                     new_waves[1][idx] = scattered + p_xm - p_center; // -x
@@ -264,13 +315,21 @@ impl DWMMesh3D {
                     new_waves[3][idx] = scattered + p_ym - p_center; // -y
                     new_waves[4][idx] = scattered + p_zp - p_center; // +z
                     new_waves[5][idx] = scattered + p_zm - p_center; // -z
-                    
+
                     // Apply boundary conditions
                     match bc {
-                        0 => { new_pressure[idx] = 0.0; }
-                        1 => { new_pressure[idx] = 0.0; }
-                        2 => { new_pressure[idx] = scattered * 0.98; }
-                        _ => { new_pressure[idx] = scattered; }
+                        0 => {
+                            new_pressure[idx] = 0.0;
+                        }
+                        1 => {
+                            new_pressure[idx] = 0.0;
+                        }
+                        2 => {
+                            new_pressure[idx] = scattered * 0.98;
+                        }
+                        _ => {
+                            new_pressure[idx] = scattered;
+                        }
                     }
                 }
             }
@@ -279,7 +338,8 @@ impl DWMMesh3D {
         self.pressure = new_pressure;
         self.waves = new_waves;
         self.t += 1;
-        self.pressure_history.push(self.pressure[self.idx(self.nx / 2, self.ny / 2, self.nz / 2)]);
+        self.pressure_history
+            .push(self.pressure[self.idx(self.nx / 2, self.ny / 2, self.nz / 2)]);
     }
 
     pub fn run(&mut self, n_steps: usize) {
@@ -292,18 +352,24 @@ impl DWMMesh3D {
     /// `axis` must be "x", "y", or "z". `pos` is the fixed coordinate for the other axes.
     pub fn extract_line(&self, axis: &str, pos: usize) -> Vec<f64> {
         match axis {
-            "x" => (0..self.nx).map(|x| {
-                let idx = self.idx(x, pos % self.ny, pos % self.nz);
-                self.pressure[idx]
-            }).collect(),
-            "y" => (0..self.ny).map(|y| {
-                let idx = self.idx(pos % self.nx, y, pos % self.nz);
-                self.pressure[idx]
-            }).collect(),
-            "z" => (0..self.nz).map(|z| {
-                let idx = self.idx(pos % self.nx, pos % self.ny, z);
-                self.pressure[idx]
-            }).collect(),
+            "x" => (0..self.nx)
+                .map(|x| {
+                    let idx = self.idx(x, pos % self.ny, pos % self.nz);
+                    self.pressure[idx]
+                })
+                .collect(),
+            "y" => (0..self.ny)
+                .map(|y| {
+                    let idx = self.idx(pos % self.nx, y, pos % self.nz);
+                    self.pressure[idx]
+                })
+                .collect(),
+            "z" => (0..self.nz)
+                .map(|z| {
+                    let idx = self.idx(pos % self.nx, pos % self.ny, z);
+                    self.pressure[idx]
+                })
+                .collect(),
             _ => vec![],
         }
     }

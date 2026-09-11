@@ -2,7 +2,9 @@
 //!
 //! Provides energy-conserving integration for long-time wave simulations.
 
-use conservation_law::lagrangian::{AgentState, Lagrangian, MechanicalLagrangian, SymplecticIntegrator};
+use conservation_law::lagrangian::{
+    AgentState, Lagrangian, MechanicalLagrangian, SymplecticIntegrator,
+};
 
 /// Wrapper around `conservation_law::SymplecticIntegrator` for 1D wave segments.
 pub struct SymplecticIntegratorWrapper {
@@ -20,7 +22,12 @@ impl SymplecticIntegratorWrapper {
 
     /// Perform one Verlet step for a harmonic oscillator with mass `m`
     /// and stiffness `k`, returning the new state.
-    pub fn step_harmonic(&self, m: f64, k: f64, state: &AgentState<f64, 1>) -> Result<AgentState<f64, 1>, String> {
+    pub fn step_harmonic(
+        &self,
+        m: f64,
+        k: f64,
+        state: &AgentState<f64, 1>,
+    ) -> Result<AgentState<f64, 1>, String> {
         let integrator = SymplecticIntegrator::new(self.dt).map_err(|e| format!("{:?}", e))?;
         integrator
             .step(m, &|q: &[f64; 1]| 0.5 * k * q[0] * q[0], state)

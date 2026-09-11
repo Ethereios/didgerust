@@ -3,10 +3,10 @@
 //! This module implements various loss functions for evaluating didgeridoo geometries
 //! based on their acoustic properties, similar to the Python implementation.
 
-use crate::Geo;
 use crate::evo::Genome;
 use crate::sim::DidgeridooSimulator;
 use crate::tonehole::Tonehole;
+use crate::Geo;
 use serde::{Deserialize, Serialize};
 
 /// Base trait for loss components
@@ -20,7 +20,7 @@ pub trait LossComponent: Send + Sync {
         all_impedances: &[f64],
         peak_indices: &[usize],
     ) -> f64;
-    
+
     /// Calculate loss with tonehole data.
     /// Default implementation falls back to `calculate` ignoring toneholes.
     fn calculate_with_toneholes(
@@ -32,7 +32,13 @@ pub trait LossComponent: Send + Sync {
         peak_indices: &[usize],
         _toneholes: &[Tonehole],
     ) -> f64 {
-        self.calculate(peak_freqs_log, peak_impedances, all_freqs, all_impedances, peak_indices)
+        self.calculate(
+            peak_freqs_log,
+            peak_impedances,
+            all_freqs,
+            all_impedances,
+            peak_indices,
+        )
     }
 }
 
@@ -44,11 +50,15 @@ pub struct TestLossFunction {
 
 impl TestLossFunction {
     pub fn new() -> Self {
-        Self { target_value: 100.0 }
+        Self {
+            target_value: 100.0,
+        }
     }
-    
+
     pub fn with_target(target: f64) -> Self {
-        Self { target_value: target }
+        Self {
+            target_value: target,
+        }
     }
 }
 
@@ -74,11 +84,7 @@ pub struct FrequencyTuningLoss {
 }
 
 impl FrequencyTuningLoss {
-    pub fn new(
-        target_freqs_log: Vec<f64>,
-        target_impedances: Vec<f64>,
-        weights: Vec<f64>,
-    ) -> Self {
+    pub fn new(target_freqs_log: Vec<f64>, target_impedances: Vec<f64>, weights: Vec<f64>) -> Self {
         Self {
             target_freqs_log,
             target_impedances,
@@ -97,37 +103,45 @@ impl LossComponent for FrequencyTuningLoss {
         _peak_indices: &[usize],
     ) -> f64 {
         let mut total_loss = 0.0;
-        
+
         for (i, &target_f_log) in self.target_freqs_log.iter().enumerate() {
             // Find closest actual peak to target frequency
-            let closest_idx = peak_freqs_log.iter()
+            let closest_idx = peak_freqs_log
+                .iter()
                 .enumerate()
                 .min_by(|(_, &a), (_, &b)| {
-                    (a - target_f_log).abs().partial_cmp(&(b - target_f_log).abs()).unwrap()
+                    (a - target_f_log)
+                        .abs()
+                        .partial_cmp(&(b - target_f_log).abs())
+                        .unwrap()
                 })
                 .map(|(idx, _)| idx)
                 .unwrap_or(0);
-            
+
             let actual_f_log = peak_freqs_log[closest_idx];
             let actual_amp = peak_impedances[closest_idx];
-            
+
             // Frequency loss (normalized by 600 cents)
             let freq_error_cents = 1200.0 * (target_f_log - actual_f_log).abs();
             let freq_loss = freq_error_cents / 600.0;
-            
+
             // Impedance loss (if target != -1)
-            let amp_loss = if self.target_impedances.get(i).is_some_and(|&imp| imp != -1.0) {
+            let amp_loss = if self
+                .target_impedances
+                .get(i)
+                .is_some_and(|&imp| imp != -1.0)
+            {
                 (self.target_impedances[i] - actual_amp).abs()
             } else {
                 0.0
             };
-            
+
             // Combine with weight
             if let Some(&weight) = self.weights.get(i) {
                 total_loss += (freq_loss + amp_loss) * weight;
             }
         }
-        
+
         total_loss
     }
 }
@@ -155,16 +169,17 @@ impl LossComponent for QFactorLoss {
         peak_indices: &[usize],
     ) -> f64 {
         let mut qs = Vec::new();
-        
+
         for &p_idx in peak_indices {
             let f_center = all_freqs[p_idx];
             let target_amp = all_impedances[p_idx] / 2.0f64.sqrt();
-            
+
             // Find -3dB points
             let left_side = &all_impedances[..p_idx];
             let right_side = &all_impedances[p_idx..];
-            
-            let f_low_idx = left_side.iter()
+
+            let f_low_idx = left_side
+                .iter()
                 .enumerate()
                 .min_by(|(_, a), (_, b)| {
                     let diff_a = (**a - target_amp).abs();
@@ -173,8 +188,9 @@ impl LossComponent for QFactorLoss {
                 })
                 .map(|(idx, _)| idx)
                 .unwrap_or(0);
-            
-            let f_high_idx = right_side.iter()
+
+            let f_high_idx = right_side
+                .iter()
                 .enumerate()
                 .min_by(|(_, a), (_, b)| {
                     let diff_a = (**a - target_amp).abs();
@@ -183,20 +199,20 @@ impl LossComponent for QFactorLoss {
                 })
                 .map(|(idx, _)| p_idx + idx)
                 .unwrap_or(all_freqs.len() - 1);
-            
+
             let f_low = all_freqs[f_low_idx];
             let f_high = all_freqs[f_high_idx];
-            
+
             let q = f_center / (f_high - f_low + 1e-9);
             qs.push(q);
         }
-        
+
         let avg_q = if !qs.is_empty() {
             qs.iter().sum::<f64>() / qs.len() as f64
         } else {
             0.0
         };
-        
+
         (avg_q - self.target_q).abs() * self.weight
     }
 }
@@ -210,7 +226,10 @@ pub struct ModalDensityLoss {
 
 impl ModalDensityLoss {
     pub fn new(cluster_range_cents: f64, weight: f64) -> Self {
-        Self { cluster_range_cents, weight }
+        Self {
+            cluster_range_cents,
+            weight,
+        }
     }
 }
 
@@ -226,18 +245,20 @@ impl LossComponent for ModalDensityLoss {
         if peak_freqs_log.len() < 2 {
             return self.weight;
         }
-        
-        let diffs: Vec<f64> = peak_freqs_log.windows(2)
+
+        let diffs: Vec<f64> = peak_freqs_log
+            .windows(2)
             .map(|window| (window[1] - window[0]) * 1200.0)
             .collect();
-        
-        let shimmer_score: f64 = diffs.iter()
+
+        let shimmer_score: f64 = diffs
+            .iter()
             .map(|&diff| {
                 let val: f64 = diff - self.cluster_range_cents;
                 (-val.powi(2) / 100.0).exp()
             })
             .sum();
-        
+
         self.weight / (1.0 + shimmer_score)
     }
 }
@@ -266,16 +287,19 @@ impl LossComponent for HighInharmonicLoss {
         if peak_freqs_log.is_empty() {
             return self.weight;
         }
-        
+
         let f0 = 2.0f64.powf(peak_freqs_log[0]);
-        let ratios: Vec<f64> = peak_freqs_log.iter()
+        let ratios: Vec<f64> = peak_freqs_log
+            .iter()
             .map(|&f_log| 2.0f64.powf(f_log) / f0)
             .collect();
-        
-        let dist_to_int: f64 = ratios.iter()
+
+        let dist_to_int: f64 = ratios
+            .iter()
             .map(|&ratio| (ratio - ratio.round()).abs())
-            .sum::<f64>() / ratios.len() as f64;
-        
+            .sum::<f64>()
+            / ratios.len() as f64;
+
         self.weight * (0.5 - dist_to_int)
     }
 }
@@ -286,7 +310,10 @@ pub enum PeakDetectionMode {
     /// Strict local maxima (default, fast)
     LocalMaxima,
     /// Prominence-based filtering (more robust to noise)
-    Prominence { prominence: usize, min_prominence: f64 },
+    Prominence {
+        prominence: usize,
+        min_prominence: f64,
+    },
     /// Phase-based detection (most robust, slower)
     PhaseBased { threshold: f64, prominence: usize },
 }
@@ -302,7 +329,14 @@ pub struct CompositeTairuaLoss {
 impl std::fmt::Debug for CompositeTairuaLoss {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CompositeTairuaLoss")
-            .field("components", &self.components.iter().map(|(name, _)| name).collect::<Vec<_>>())
+            .field(
+                "components",
+                &self
+                    .components
+                    .iter()
+                    .map(|(name, _)| name)
+                    .collect::<Vec<_>>(),
+            )
             .field("max_error", &self.max_error)
             .field("target_freqs", &self.target_freqs)
             .finish()
@@ -348,13 +382,34 @@ impl CompositeTairuaLoss {
     /// - ScaleTuningLoss (weight 5.0)
     pub fn with_default_components(max_error: f64) -> Self {
         let mut loss = Self::new(max_error);
-        loss.add_component("integer_harmonic".to_string(), Box::new(IntegerHarmonicLoss::new(5.0)));
-        loss.add_component("near_integer".to_string(), Box::new(NearIntegerLoss::new(0.05, 5.0)));
-        loss.add_component("stretched_odd".to_string(), Box::new(StretchedOddLoss::new(1.0, 5.0)));
-        loss.add_component("harmonic_splitting".to_string(), Box::new(HarmonicSplittingLoss::new(5.0)));
-        loss.add_component("peak_quantity".to_string(), Box::new(PeakQuantityLoss::new(5, 2.0)));
-        loss.add_component("peak_amplitude".to_string(), Box::new(PeakAmplitudeLoss::new(2.0)));
-        loss.add_component("scale_tuning".to_string(), Box::new(ScaleTuningLoss::new(5.0)));
+        loss.add_component(
+            "integer_harmonic".to_string(),
+            Box::new(IntegerHarmonicLoss::new(5.0)),
+        );
+        loss.add_component(
+            "near_integer".to_string(),
+            Box::new(NearIntegerLoss::new(0.05, 5.0)),
+        );
+        loss.add_component(
+            "stretched_odd".to_string(),
+            Box::new(StretchedOddLoss::new(1.0, 5.0)),
+        );
+        loss.add_component(
+            "harmonic_splitting".to_string(),
+            Box::new(HarmonicSplittingLoss::new(5.0)),
+        );
+        loss.add_component(
+            "peak_quantity".to_string(),
+            Box::new(PeakQuantityLoss::new(5, 2.0)),
+        );
+        loss.add_component(
+            "peak_amplitude".to_string(),
+            Box::new(PeakAmplitudeLoss::new(2.0)),
+        );
+        loss.add_component(
+            "scale_tuning".to_string(),
+            Box::new(ScaleTuningLoss::new(5.0)),
+        );
         loss
     }
 
@@ -364,11 +419,7 @@ impl CompositeTairuaLoss {
     /// * `curvature` — bent-shape curvature (m⁻¹). Only used when the
     ///   `bent_effective_length` component is enabled.
     /// * `taper_coeff` — bent-shape taper coefficient.
-    pub fn from_toggles(
-        toggles: &[(String, bool, f64)],
-        curvature: f64,
-        taper_coeff: f64,
-    ) -> Self {
+    pub fn from_toggles(toggles: &[(String, bool, f64)], curvature: f64, taper_coeff: f64) -> Self {
         let mut loss = Self::new(50.0);
         for (name, enabled, weight) in toggles {
             if !enabled {
@@ -399,7 +450,12 @@ impl CompositeTairuaLoss {
                 "bent_effective_length" => {
                     loss.add_component(
                         name.clone(),
-                        Box::new(BentEffectiveLengthLoss::new(1.0, *weight, curvature, taper_coeff)),
+                        Box::new(BentEffectiveLengthLoss::new(
+                            1.0,
+                            *weight,
+                            curvature,
+                            taper_coeff,
+                        )),
                     );
                 }
                 _ => {}
@@ -429,7 +485,7 @@ impl crate::evo::LossFunction for CompositeTairuaLoss {
 
         let mut simulator = DidgeridooSimulator::from_geo(&geo.geo);
         simulator.toneholes = toneholes.clone();
-        
+
         let freqs = self._get_frequency_grid();
         let spectrum = simulator.impedance(&freqs);
         if spectrum.is_empty() {
@@ -441,12 +497,14 @@ impl crate::evo::LossFunction for CompositeTairuaLoss {
         // Find peaks using the selected detection mode
         let peaks = match self.peak_mode {
             PeakDetectionMode::LocalMaxima => simulator.peaks(&freqs),
-            PeakDetectionMode::Prominence { prominence, min_prominence } => {
-                simulator.peaks_with_prominence(&freqs, prominence, min_prominence)
-            }
-            PeakDetectionMode::PhaseBased { threshold, prominence } => {
-                simulator.peaks_phase_based(&freqs, prominence, threshold)
-            }
+            PeakDetectionMode::Prominence {
+                prominence,
+                min_prominence,
+            } => simulator.peaks_with_prominence(&freqs, prominence, min_prominence),
+            PeakDetectionMode::PhaseBased {
+                threshold,
+                prominence,
+            } => simulator.peaks_phase_based(&freqs, prominence, threshold),
         };
         if peaks.is_empty() {
             return 1e6; // Large penalty for no peaks
@@ -462,19 +520,18 @@ impl crate::evo::LossFunction for CompositeTairuaLoss {
         let mut total_loss = 0.0;
         for (_name, component) in &self.components {
             let component_loss = component.calculate_with_toneholes(
-                 &peak_freqs_log,
-                 &peak_impedances,
-                 &all_freqs,
-                 &all_impedances,
-                 &peak_indices,
-                 &toneholes,
-             );
+                &peak_freqs_log,
+                &peak_impedances,
+                &all_freqs,
+                &all_impedances,
+                &peak_indices,
+                &toneholes,
+            );
             total_loss += component_loss;
         }
         total_loss
     }
 }
-
 
 /// Integer harmonic loss - encourage integer harmonic relationships
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -500,16 +557,18 @@ impl LossComponent for IntegerHarmonicLoss {
         if peak_freqs_log.is_empty() {
             return self.weight;
         }
-        
+
         let f0 = 2.0f64.powf(peak_freqs_log[0]);
-        let inharmonicity: f64 = peak_freqs_log.iter()
+        let inharmonicity: f64 = peak_freqs_log
+            .iter()
             .map(|&f_log| {
                 let f = 2.0f64.powf(f_log);
                 let ratio = f / f0;
                 (ratio - ratio.round()).abs()
             })
-            .sum::<f64>() / peak_freqs_log.len() as f64;
-            
+            .sum::<f64>()
+            / peak_freqs_log.len() as f64;
+
         inharmonicity * self.weight
     }
 }
@@ -539,9 +598,10 @@ impl LossComponent for NearIntegerLoss {
         if peak_freqs_log.is_empty() {
             return self.weight;
         }
-        
+
         let f0 = 2.0f64.powf(peak_freqs_log[0]);
-        let error: f64 = peak_freqs_log.iter()
+        let error: f64 = peak_freqs_log
+            .iter()
             .map(|&f_log| {
                 let f = 2.0f64.powf(f_log);
                 let ratio = f / f0;
@@ -552,8 +612,9 @@ impl LossComponent for NearIntegerLoss {
                     dist - self.tolerance
                 }
             })
-            .sum::<f64>() / peak_freqs_log.len() as f64;
-            
+            .sum::<f64>()
+            / peak_freqs_log.len() as f64;
+
         error * self.weight
     }
 }
@@ -567,7 +628,10 @@ pub struct StretchedOddLoss {
 
 impl StretchedOddLoss {
     pub fn new(stretch_factor: f64, weight: f64) -> Self {
-        Self { stretch_factor, weight }
+        Self {
+            stretch_factor,
+            weight,
+        }
     }
 }
 
@@ -583,17 +647,20 @@ impl LossComponent for StretchedOddLoss {
         if peak_freqs_log.is_empty() {
             return self.weight;
         }
-        
+
         let f0 = 2.0f64.powf(peak_freqs_log[0]);
-        let error: f64 = peak_freqs_log.iter().enumerate()
+        let error: f64 = peak_freqs_log
+            .iter()
+            .enumerate()
             .map(|(i, &f_log)| {
                 let f = 2.0f64.powf(f_log);
                 let ratio = f / f0;
                 let target_ratio = ((2 * i + 1) as f64) * self.stretch_factor;
                 (ratio - target_ratio).abs()
             })
-            .sum::<f64>() / peak_freqs_log.len() as f64;
-            
+            .sum::<f64>()
+            / peak_freqs_log.len() as f64;
+
         error * self.weight
     }
 }
@@ -622,17 +689,19 @@ impl LossComponent for HarmonicSplittingLoss {
         if peak_freqs_log.is_empty() {
             return self.weight;
         }
-        
+
         let f0 = 2.0f64.powf(peak_freqs_log[0]);
-        let split_loss: f64 = peak_freqs_log.iter()
+        let split_loss: f64 = peak_freqs_log
+            .iter()
             .map(|&f_log| {
                 let f = 2.0f64.powf(f_log);
                 let ratio = f / f0;
                 let dist = (ratio - ratio.round()).abs();
                 (0.5 - dist).max(0.0)
             })
-            .sum::<f64>() / peak_freqs_log.len() as f64;
-            
+            .sum::<f64>()
+            / peak_freqs_log.len() as f64;
+
         split_loss * self.weight
     }
 }
@@ -646,7 +715,10 @@ pub struct PeakQuantityLoss {
 
 impl PeakQuantityLoss {
     pub fn new(target_quantity: usize, weight: f64) -> Self {
-        Self { target_quantity, weight }
+        Self {
+            target_quantity,
+            weight,
+        }
     }
 }
 
@@ -692,7 +764,7 @@ impl LossComponent for PeakAmplitudeLoss {
         if peak_impedances.is_empty() {
             return self.weight;
         }
-        
+
         let avg_amp = peak_impedances.iter().sum::<f64>() / peak_impedances.len() as f64;
         (1.0 - avg_amp).max(0.0) * self.weight
     }
@@ -722,16 +794,18 @@ impl LossComponent for ScaleTuningLoss {
         if peak_freqs_log.is_empty() {
             return self.weight;
         }
-        
-        let error: f64 = peak_freqs_log.iter()
+
+        let error: f64 = peak_freqs_log
+            .iter()
             .map(|&f_log| {
                 let f = 2.0f64.powf(f_log);
                 let midi_note = 69.0 + 12.0 * (f / 440.0).log2();
                 let dist = (midi_note - midi_note.round()).abs();
                 dist / 0.5
             })
-            .sum::<f64>() / peak_freqs_log.len() as f64;
-        
+            .sum::<f64>()
+            / peak_freqs_log.len() as f64;
+
         error * self.weight
     }
 }
@@ -767,7 +841,7 @@ impl LossComponent for ToneholeTuningLoss {
         }
         self.weight
     }
-    
+
     fn calculate_with_toneholes(
         &self,
         _peak_freqs_log: &[f64],
@@ -780,24 +854,28 @@ impl LossComponent for ToneholeTuningLoss {
         if self.targets.is_empty() || toneholes.is_empty() {
             return 0.0;
         }
-        
+
         let mut total_error = 0.0;
-        for (i, th) in toneholes.iter().enumerate().take(self.targets.len().min(toneholes.len())) {
+        for (i, th) in toneholes
+            .iter()
+            .enumerate()
+            .take(self.targets.len().min(toneholes.len()))
+        {
             let target = self.targets[i];
-            
+
             let x_norm = th.x / 2000.0;
             let d_norm = (th.diameter - 2.0) / 28.0;
             let depth_norm = (th.depth - 1.0) / 19.0;
             let coverage_norm = th.coverage;
-            
+
             let dx = (x_norm - target.0).powi(2);
             let dd = (d_norm - target.1).powi(2);
             let dp = (depth_norm - target.2).powi(2);
             let dc = (coverage_norm - target.3).powi(2);
-            
+
             total_error += dx + dd + dp + dc;
         }
-        
+
         total_error * self.weight
     }
 }
@@ -811,7 +889,9 @@ pub struct TairuaLoss {
 impl TairuaLoss {
     /// Creates a new Tairua loss calculator
     pub fn new() -> Self {
-        Self { target_frequency: 0.0 }
+        Self {
+            target_frequency: 0.0,
+        }
     }
 
     /// Sets the target frequency for loss calculation
@@ -823,7 +903,10 @@ impl TairuaLoss {
     /// Computes loss based on how close the fundamental frequency is to target
     pub fn compute_loss(&self, geometry: &Geo) -> f64 {
         let simulator = DidgeridooSimulator::from_geo(&geometry.geo);
-        let freqs = vec![20.0, 30.0, 40.0, 50.0, 60.0, 80.0, 100.0, 120.0, 150.0, 200.0, 250.0, 300.0, 400.0, 500.0, 600.0, 800.0, 1000.0, 1200.0, 1500.0, 2000.0];
+        let freqs = vec![
+            20.0, 30.0, 40.0, 50.0, 60.0, 80.0, 100.0, 120.0, 150.0, 200.0, 250.0, 300.0, 400.0,
+            500.0, 600.0, 800.0, 1000.0, 1200.0, 1500.0, 2000.0,
+        ];
         let spectrum = simulator.impedance(&freqs);
         if spectrum.is_empty() {
             return 1e6;
@@ -864,7 +947,12 @@ pub struct BentEffectiveLengthLoss {
 }
 
 impl BentEffectiveLengthLoss {
-    pub fn new(target_effective_length: f64, weight: f64, curvature: f64, taper_coeff: f64) -> Self {
+    pub fn new(
+        target_effective_length: f64,
+        weight: f64,
+        curvature: f64,
+        taper_coeff: f64,
+    ) -> Self {
         Self {
             target_effective_length,
             weight,
@@ -883,12 +971,8 @@ impl LossComponent for BentEffectiveLengthLoss {
         _all_impedances: &[f64],
         _peak_indices: &[usize],
     ) -> f64 {
-        let effective = crate::sim::bent_effective_length(
-            1.0,
-            self.curvature,
-            0.016,
-            self.taper_coeff,
-        );
+        let effective =
+            crate::sim::bent_effective_length(1.0, self.curvature, 0.016, self.taper_coeff);
         (effective - self.target_effective_length).abs() * self.weight
     }
 }
@@ -907,21 +991,17 @@ mod tests {
         let loss = loss_fn.calculate(&genome);
         assert!(loss >= 0.0);
     }
-    
+
     #[test]
     fn test_frequency_tuning_loss() {
-        let loss_fn = FrequencyTuningLoss::new(
-            vec![2.0, 3.0],
-            vec![0.5, 0.3],
-            vec![1.0, 1.0],
-        );
-        
+        let loss_fn = FrequencyTuningLoss::new(vec![2.0, 3.0], vec![0.5, 0.3], vec![1.0, 1.0]);
+
         let peak_freqs = Array1::from(vec![2.1, 2.9]);
         let peak_impedances = Array1::from(vec![0.4, 0.4]);
         let all_freqs: Vec<f64> = (0..10).map(|i| i as f64 * 10.0).collect();
         let all_impedances: Vec<f64> = (0..10).map(|i| i as f64 * 100.0).collect();
         let peak_indices = vec![0, 1];
-        
+
         let loss = loss_fn.calculate(
             &peak_freqs.to_vec(),
             &peak_impedances.to_vec(),
@@ -929,20 +1009,20 @@ mod tests {
             &all_impedances,
             &peak_indices,
         );
-        
+
         assert!(loss >= 0.0);
         assert!(loss.is_finite());
     }
-    
+
     #[test]
     fn test_modal_density_loss() {
         let loss_fn = ModalDensityLoss::new(50.0, 1.0);
-        
+
         let peak_freqs = Array1::from(vec![2.0, 2.1, 2.2]);
         let all_freqs: Vec<f64> = (0..10).map(|i| i as f64 * 10.0).collect();
         let all_impedances: Vec<f64> = (0..10).map(|i| i as f64 * 100.0).collect();
         let peak_indices = vec![0, 1, 2];
-        
+
         let loss = loss_fn.calculate(
             &peak_freqs.to_vec(),
             &vec![0.0; 3],
@@ -950,20 +1030,20 @@ mod tests {
             &all_impedances,
             &peak_indices,
         );
-        
+
         assert!(loss >= 0.0);
         assert!(loss <= 1.0);
     }
-    
+
     #[test]
     fn test_high_inharmonic_loss() {
         let loss_fn = HighInharmonicLoss::new(1.0);
-        
+
         let perfect_harmonics = Array1::from(vec![0.0, 1.0, 1.585]);
         let all_freqs: Vec<f64> = (0..10).map(|i| i as f64 * 10.0).collect();
         let all_impedances: Vec<f64> = (0..10).map(|i| i as f64 * 100.0).collect();
         let peak_indices = vec![0, 1, 2];
-        
+
         let perfect_loss = loss_fn.calculate(
             &perfect_harmonics.to_vec(),
             &vec![0.0; 3],
@@ -971,7 +1051,7 @@ mod tests {
             &all_impedances,
             &peak_indices,
         );
-        
+
         let inharmonic_freqs = Array1::from(vec![0.0, 1.1, 1.7]);
         let inharmonic_loss = loss_fn.calculate(
             &inharmonic_freqs.to_vec(),
@@ -980,35 +1060,31 @@ mod tests {
             &all_impedances,
             &peak_indices,
         );
-        
+
         assert!(inharmonic_loss <= perfect_loss);
     }
-    
+
     #[test]
     fn test_composite_loss() {
         let mut composite_loss = CompositeTairuaLoss::new(5.0);
-        
+
         composite_loss.add_component(
             "freq_tuning".to_string(),
-            Box::new(FrequencyTuningLoss::new(
-                vec![2.0],
-                vec![0.5],
-                vec![1.0],
-            ))
+            Box::new(FrequencyTuningLoss::new(vec![2.0], vec![0.5], vec![1.0])),
         );
-        
+
         composite_loss.add_component(
             "modal_density".to_string(),
-            Box::new(ModalDensityLoss::new(50.0, 0.5))
+            Box::new(ModalDensityLoss::new(50.0, 0.5)),
         );
-        
+
         let genome = KigaliGenome::new(10, 32.0, 50.0, 80.0, 1800.0, 1500.0, 0, 0.3, 0.0, 300.0, 0);
         let loss = composite_loss.calculate(&genome);
-        
+
         assert!(loss >= 0.0);
         assert!(loss.is_finite());
     }
-    
+
     #[test]
     fn test_new_loss_components() {
         let f_log = vec![f64::log2(100.0), f64::log2(200.0), f64::log2(300.0)];
@@ -1045,36 +1121,46 @@ mod tests {
         let val_scale = loss_scale.calculate(&f_log, &amps, &all_f, &all_z, &idx);
         assert!(val_scale >= 0.0);
     }
-    
+
     #[test]
     fn test_tonehole_tuning_loss() {
         use crate::tonehole::Tonehole;
-        
-        let targets = vec![
-            (0.3, 0.5, 0.3, 0.0),
-            (0.7, 0.4, 0.2, 0.0),
-        ];
+
+        let targets = vec![(0.3, 0.5, 0.3, 0.0), (0.7, 0.4, 0.2, 0.0)];
         let loss_fn = ToneholeTuningLoss::new(targets.clone(), 1.0);
-        
+
         let f_log = vec![];
         let amps = vec![];
         let all_f = vec![];
         let all_z = vec![];
         let idx = vec![];
-        
+
         let toneholes = vec![
             Tonehole::new(600.0, 15.0, 5.0, true),
             Tonehole::new(1400.0, 12.0, 4.0, true),
         ];
-        
-        let loss = loss_fn.calculate_with_toneholes(&f_log, &amps, &all_f, &all_z, &idx, &toneholes);
+
+        let loss =
+            loss_fn.calculate_with_toneholes(&f_log, &amps, &all_f, &all_z, &idx, &toneholes);
         assert!(loss > 0.0);
-        
+
         let perfect_toneholes = vec![
             Tonehole::with_coverage(600.0, 16.0, 6.7, 0.0),
             Tonehole::with_coverage(1400.0, 13.2, 4.8, 0.0),
         ];
-        let perfect_loss = loss_fn.calculate_with_toneholes(&f_log, &amps, &all_f, &all_z, &idx, &perfect_toneholes);
-        assert!(perfect_loss < loss, "perfect_loss={} should be < loss={}", perfect_loss, loss);
+        let perfect_loss = loss_fn.calculate_with_toneholes(
+            &f_log,
+            &amps,
+            &all_f,
+            &all_z,
+            &idx,
+            &perfect_toneholes,
+        );
+        assert!(
+            perfect_loss < loss,
+            "perfect_loss={} should be < loss={}",
+            perfect_loss,
+            loss
+        );
     }
 }

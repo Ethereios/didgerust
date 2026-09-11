@@ -3,61 +3,62 @@
 //! Provides real JSON file save/load for AppSettings, ProjectState,
 //! and optimizer checkpoints via serde_json + std::fs.
 
+use crate::tonehole::Tonehole;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
-use crate::tonehole::Tonehole;
 
 /// Validates geometry points for consistency and physical plausibility
 pub fn validate_geo_points(points: &[[f64; 2]]) -> Result<(), String> {
     if points.is_empty() {
         return Err("Geometry points cannot be empty".to_string());
     }
-    
+
     // Minimum 2 points required to define a bore shape
     if points.len() < 2 {
         return Err("Geometry must have at least 2 points to define a bore shape".to_string());
     }
-    
+
     let mut prev_length: Option<f64> = None;
     let mut prev_diameter: Option<f64> = None;
-    
+
     for point in points {
         // Check that we have exactly 2 elements per point
         if point.len() != 2 {
             return Err("Each geometry point must have exactly 2 coordinates".to_string());
         }
-        
+
         // Validate X coordinate (position along bore)
         if point[0] < 0.0 {
             return Err("X coordinates must be non-negative".to_string());
         }
-        
+
         // Validate diameter (index 1) - must be positive
         let diameter = point[1];
         if diameter <= 0.0 {
             return Err("Diameters must be positive".to_string());
         }
-        
+
         // Validate that X coordinates are strictly increasing
         if let Some(prev_x) = prev_length {
             if point[0] <= prev_x {
                 return Err("X coordinates must be strictly increasing".to_string());
             }
         }
-        
+
         // Validate that diameters don't decrease too rapidly (minimum taper)
         if let (Some(prev_d), Some(prev_x)) = (prev_diameter, prev_length) {
             let taper_rate = (diameter - prev_d) / (point[0] - prev_x + f64::EPSILON);
-            if taper_rate < -10.0 { // Too steep negative taper
+            if taper_rate < -10.0 {
+                // Too steep negative taper
                 return Err("Diameter taper too steep".to_string());
             }
         }
-        
+
         prev_length = Some(point[0]);
         prev_diameter = Some(diameter);
     }
-    
+
     Ok(())
 }
 
@@ -117,18 +118,16 @@ impl AppSettings {
             return Self::default();
         }
         match fs::read_to_string(path) {
-            Ok(contents) => {
-                match serde_json::from_str::<Self>(&contents) {
-                    Ok(settings) => {
-                        log::info!("Settings loaded from {}", path);
-                        settings.validate()
-                    }
-                    Err(e) => {
-                        log::error!("Failed to parse settings file {}: {}", path, e);
-                        Self::default()
-                    }
+            Ok(contents) => match serde_json::from_str::<Self>(&contents) {
+                Ok(settings) => {
+                    log::info!("Settings loaded from {}", path);
+                    settings.validate()
                 }
-            }
+                Err(e) => {
+                    log::error!("Failed to parse settings file {}: {}", path, e);
+                    Self::default()
+                }
+            },
             Err(e) => {
                 log::error!("Failed to read settings file {}: {}", path, e);
                 Self::default()
@@ -147,33 +146,33 @@ impl AppSettings {
     /// Validate settings and return a validated copy with corrected values
     pub fn validate(&self) -> Self {
         let mut result = self.clone();
-        
+
         // Temperature clamping
         if result.temperature < -273.15 {
             result.temperature = -273.15;
         }
-        
+
         // Wall thickness minimum
         if result.wall_thickness <= 0.0 {
             result.wall_thickness = 1.0;
         }
-        
+
         // Boolean validation - ensure they are proper booleans
         // In serde JSON, booleans are always valid, just reassign to confirm
-        
+
         // Non-negative values
         if result.mesh_rotation_speed < 0.0 {
             result.mesh_rotation_speed = 0.0;
         }
-        
+
         // Pressure must be positive
         if result.pressure_pa < 100.0 {
             result.pressure_pa = 101325.0;
         }
-        
+
         // Humidity bounds
         result.relative_humidity = result.relative_humidity.clamp(0.0, 1.0);
-        
+
         // Non-empty strings (at minimum set to "unknown" if empty)
         if result.color_scheme.is_empty() {
             result.color_scheme = "unknown".to_string();
@@ -181,12 +180,12 @@ impl AppSettings {
         if result.theme.is_empty() {
             result.theme = "dark".to_string();
         }
-        
+
         // Log verbosity bounds
         if result.log_verbosity > 4 {
             result.log_verbosity = 4;
         }
-        
+
         // Ensure all fields are properly set
         result
     }
@@ -213,18 +212,16 @@ impl ProjectState {
             return None;
         }
         match fs::read_to_string(path) {
-            Ok(contents) => {
-                match serde_json::from_str::<ProjectState>(&contents) {
-                    Ok(state) => {
-                        log::info!("Project state loaded from {}", path);
-                        Some(state)
-                    }
-                    Err(e) => {
-                        log::error!("Failed to parse project file {}: {}", path, e);
-                        None
-                    }
+            Ok(contents) => match serde_json::from_str::<ProjectState>(&contents) {
+                Ok(state) => {
+                    log::info!("Project state loaded from {}", path);
+                    Some(state)
                 }
-            }
+                Err(e) => {
+                    log::error!("Failed to parse project file {}: {}", path, e);
+                    None
+                }
+            },
             Err(e) => {
                 log::error!("Failed to read project file {}: {}", path, e);
                 None
@@ -276,18 +273,16 @@ impl OptimizerCheckpoint {
             return None;
         }
         match fs::read_to_string(path) {
-            Ok(contents) => {
-                match serde_json::from_str::<OptimizerCheckpoint>(&contents) {
-                    Ok(cp) => {
-                        log::info!("Checkpoint loaded from {}", path);
-                        Some(cp)
-                    }
-                    Err(e) => {
-                        log::error!("Failed to parse checkpoint file {}: {}", path, e);
-                        None
-                    }
+            Ok(contents) => match serde_json::from_str::<OptimizerCheckpoint>(&contents) {
+                Ok(cp) => {
+                    log::info!("Checkpoint loaded from {}", path);
+                    Some(cp)
                 }
-            }
+                Err(e) => {
+                    log::error!("Failed to parse checkpoint file {}: {}", path, e);
+                    None
+                }
+            },
             Err(e) => {
                 log::error!("Failed to read checkpoint file {}: {}", path, e);
                 None
@@ -307,14 +302,14 @@ impl OptimizerCheckpoint {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_validate_empty_points() {
         let result = validate_geo_points(&[]);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("empty"));
     }
-    
+
     #[test]
     fn test_validate_negative_x() {
         // Test that negative X coordinates are rejected (using 2 points to satisfy minimum)
@@ -345,41 +340,37 @@ mod tests {
         let result = validate_geo_points(&[[0.0, 32.0], [1.0, 32.0]]);
         assert!(result.is_ok());
     }
-    
+
     #[test]
     fn test_valid_geometry_points() {
         // Should accept strictly increasing X coordinates with positive diameters
         let result = validate_geo_points(&[[0.0, 32.0], [1000.0, 20.0]]);
         assert!(result.is_ok());
     }
-    
+
     #[test]
     fn test_validate_acceptable_taper() {
         // Acceptable taper: 100mm to 20mm over 1000mm length = 0.08 taper
         let result = validate_geo_points(&[[0.0, 100.0], [1000.0, 20.0]]);
         assert!(result.is_ok());
     }
-    
-#[test]
-fn test_validate_unacceptable_taper() {
-    // Unacceptable taper: 10mm to 1mm over 0.1mm length = -99 taper
-    let result = validate_geo_points(&[[1.0, 10.0], [1.1, 1.0]]);
-    assert!(result.is_err());
-    assert!(result.unwrap_err().contains("too steep"));
-}
-    
+
+    #[test]
+    fn test_validate_unacceptable_taper() {
+        // Unacceptable taper: 10mm to 1mm over 0.1mm length = -99 taper
+        let result = validate_geo_points(&[[1.0, 10.0], [1.1, 1.0]]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("too steep"));
+    }
+
     #[test]
     fn test_validate_geo_schema() {
         // Test saving and loading geo schema validation
-        let geo_points = vec![
-            [0.0, 32.0],
-            [1000.0, 20.0],
-            [2000.0, 25.0]
-        ];
+        let geo_points = vec![[0.0, 32.0], [1000.0, 20.0], [2000.0, 25.0]];
         let result = validate_geo_points(&geo_points);
         assert!(result.is_ok());
     }
-    
+
     // Additional comprehensive tests
     #[test]
     fn test_validate_diameter_positive() {
@@ -387,14 +378,14 @@ fn test_validate_unacceptable_taper() {
         assert!(validate_geo_points(&[[0.0, 1.0], [1.0, 0.0]]).is_err());
         assert!(validate_geo_points(&[[0.0, 1.0], [1.0, -1.0]]).is_err());
     }
-    
+
     #[test]
     fn test_minimum_geometry_points() {
         // Minimum valid geometry must have at least 2 points to form a segment
         assert!(validate_geo_points(&[[0.0, 10.0]]).is_err());
         assert!(validate_geo_points(&[[0.0, 10.0], [1.0, 10.0]]).is_ok());
     }
-    
+
     #[test]
     fn test_large_negative_taper() {
         // Very steep negative taper should fail
@@ -402,32 +393,27 @@ fn test_validate_unacceptable_taper() {
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("too steep"));
     }
-    
+
     #[test]
     fn test_large_positive_taper() {
         // Very steep positive taper should pass (not restricted)
         let result = validate_geo_points(&[[0.0, 5.0], [0.1, 100.0]]);
         assert!(result.is_ok());
     }
-    
+
     #[test]
     fn test_complex_multi_segment_validation() {
         // Multi-segment geometry validation
-        let geometry = vec![
-            [0.0, 32.0],
-            [1000.0, 25.0], 
-            [2000.0, 80.0],
-            [3000.0, 20.0]
-        ];
+        let geometry = vec![[0.0, 32.0], [1000.0, 25.0], [2000.0, 80.0], [3000.0, 20.0]];
         assert!(validate_geo_points(&geometry).is_ok());
     }
-    
+
     #[test]
     fn test_identical_x_coordinates() {
         // Identical X coordinates at different points should fail
         assert!(validate_geo_points(&[[0.0, 10.0], [0.0, 20.0]]).is_err());
     }
-    
+
     #[test]
     fn test_appsettings_save_load_roundtrip() {
         // Test that AppSettings can be serialized and deserialized
@@ -436,7 +422,7 @@ fn test_validate_unacceptable_taper() {
         let loaded: AppSettings = serde_json::from_str(&json).unwrap();
         assert_eq!(settings.temperature, loaded.temperature);
     }
-    
+
     #[test]
     fn test_project_state_serialization() {
         // Test ProjectState serialization with geo_history

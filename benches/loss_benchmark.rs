@@ -1,7 +1,10 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use cadsd::loss::{CompositeTairuaLoss, BentEffectiveLengthLoss, LossComponent};
+use cadsd::loss::{BentEffectiveLengthLoss, CompositeTairuaLoss, LossComponent};
 use cadsd::sim::create_segments_from_geo_with_curvature;
-use cadsd::{Geo, evo::{KigaliGenome, LossFunction}};
+use cadsd::{
+    evo::{KigaliGenome, LossFunction},
+    Geo,
+};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn bench_composite_loss(c: &mut Criterion) {
     let _geo = Geo::make_cone(1500.0, 32.0, 65.0, 30);

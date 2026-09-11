@@ -1,0 +1,3 @@
+[I] D:\didgeridoo\makepad\platform\src\web_socket.rs:280:13 - studio websocket disabled: empty studio_http
+[makepad-remote] listening on 127.0.0.1:60043 pid=2504 app=cadsd-gui.exe grabs=C:\Users\ETHERE~1\AppData\Local\Temp\makepad-remote\cadsd-gui.exe-2504
+[E] D:\didgeridoo\makepad\platform\src\os\windows\d3d11.rs:2207:13 - D3D11 ID3D11Device::CreateBuffer failed, device still alive: The parameter is incorrect. (0x80070057)

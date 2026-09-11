@@ -178,12 +178,12 @@ bore_style_dropdown := DropDown{
                                           draw_text +: {color: #xa0a0a0}
                                       }
 
-                                      length_value := TextInput{
-                                          width: 80
-                                          height: 18
-                                          text: "950"
-                                          draw_text +: {color: #xaaaaff, font_size: 14}
-                                      }
+length_value := Label{
+                                           width: 80
+                                           height: 18
+                                           text: "950"
+                                           draw_text +: {color: #xaaaaff, font_size: 14}
+                                       }
 
                                       length_slider := Slider{
                                           width: Fill
@@ -201,12 +201,12 @@ bore_style_dropdown := DropDown{
                                           draw_text +: {color: #xa0a0a0}
                                       }
 
-                                      top_value := TextInput{
-                                          width: 80
-                                          height: 18
-                                          text: "35.0"
-                                          draw_text +: {color: #xaaaaff, font_size: 14}
-                                      }
+top_value := Label{
+                                           width: 80
+                                           height: 18
+                                           text: "35.0"
+                                           draw_text +: {color: #xaaaaff, font_size: 14}
+                                       }
 
                                       top_slider := Slider{
                                           width: Fill
@@ -224,12 +224,12 @@ bore_style_dropdown := DropDown{
                                           draw_text +: {color: #xa0a0a0}
                                       }
 
-                                      bell_value := TextInput{
-                                          width: 80
-                                          height: 18
-                                          text: "85.0"
-                                          draw_text +: {color: #aaaaff, font_size: 14}
-                                      }
+bell_value := Label{
+                                           width: 80
+                                           height: 18
+                                           text: "85.0"
+                                           draw_text +: {color: #aaaaff, font_size: 14}
+                                       }
 
                                       bell_slider := Slider{
                                           width: Fill
@@ -247,12 +247,12 @@ bore_style_dropdown := DropDown{
                                           draw_text +: {color: #xa0a0a0}
                                       }
 
-                                      segments_value := TextInput{
-                                          width: 80
-                                          height: 18
-                                          text: "50"
-                                          draw_text +: {color: #xaaaaff, font_size: 14}
-                                      }
+segments_value := Label{
+                                           width: 80
+                                           height: 18
+                                           text: "50"
+                                           draw_text +: {color: #xaaaaff, font_size: 14}
+                                       }
 
                                       segments_slider := Slider{
                                           width: Fill
@@ -270,12 +270,12 @@ bore_style_dropdown := DropDown{
                                           draw_text +: {color: #xa0a0a0}
                                       }
 
-                                       bore_curve_value := TextInput{
-                                           width: 80
-                                           height: 18
-                                           text: "0.0"
-                                           draw_text +: {color: #xaaaaff, font_size: 14}
-                                       }
+bore_curve_value := Label{
+                                            width: 80
+                                            height: 18
+                                            text: "1.0"
+                                            draw_text +: {color: #xaaaaff, font_size: 14}
+                                        }
 
 bore_curve_slider := Slider{
                                             width: Fill

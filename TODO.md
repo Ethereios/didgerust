@@ -23,8 +23,8 @@ Status levels: 🔄 partial, ❌ missing, ⚠️ needs improvement.
 - **3-D bore preview** — ⚠️ Wireframe exists in `src/app.rs::draw_bore_gizmos`. Add camera controls, zoom, rotation.
 - **Optimizer loop** — ⚠️ Buttons log only; no real async execution with progress callbacks.
 - **Frequency grid** — ⚠️ Linear by default; log grid not cents-based everywhere.
-- **Mouthpiece controls** — ❌ Not wired into Makepad GUI; available in backend state but no UI.
-- **Hole editor** — ❌ Not wired into Makepad GUI; available in backend state but no UI.
+- **Mouthpiece controls** — ⚠️ UI controls wired (toggle + type dropdown + length/diameter sliders), but backend equations are incomplete — no acoustic simulation resolution yet.
+- **Hole editor** — ⚠️ UI controls wired (toggle + count slider), but backend equations are incomplete — no acoustic simulation resolution yet.
 - **Loss breakdown preview** — ❌ Not implemented; Tairua loss components not exposed in GUI.
 - **Cross-section view** — ⚠️ 2D diameter-vs-position plot not yet implemented in GUI; segments available in backend Geo format.
 - **Bore curve preview** — ✅ Kigali/Mbeya profiles now render correctly with power-law taper; curve slider has visual feedback via profile label; all 5 bore styles supported (Cone, Cylinder, Exponential, Kigali, Mbeya)

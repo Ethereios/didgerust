@@ -1,6 +1,6 @@
 # DidgeRust - CADSD Didgeridoo Simulator
 
-A Rust-based Computer-Aided Didgeridoo Sound Design (CADSD) toolkit featuring TLM simulation, evolutionary optimization, and a Bevy/egui GUI.
+A Rust-based Computer-Aided Didgeridoo Sound Design (CADSD) toolkit featuring TLM simulation, evolutionary optimization, and a Makepad GUI.
 
 ## CLI Tools (for non-Rust developers)
 

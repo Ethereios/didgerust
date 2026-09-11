@@ -165,11 +165,11 @@ script_mod! {
                                       }
 
 bore_style_dropdown := DropDown{
-                                           width: Fill
-                                           height: 28
-                                           labels: ["Cone", "Cylinder", "Exponential", "Kigali", "Mbeya"]
-                                           selected_item: 0
-                                       }
+                                            width: Fill
+                                            height: 28
+                                            labels: ["Cone", "Kigali", "Mbeya"]
+                                            selected_item: 0
+                                        }
 
                                       length_label := Label{
                                           width: Fill
@@ -1092,10 +1092,8 @@ impl MatchEvent for App {
         }
         let profile_name = match style {
             0 => "Cone",
-            1 => "Cylinder",
-            2 => "Exponential",
-            3 => "Kigali",
-            4 => "Mbeya",
+            1 => "Kigali",
+            2 => "Mbeya",
             _ => "Cone",
         };
         self.ui

@@ -3,10 +3,15 @@ pub use makepad_widgets::*;
 pub use makepad_xr::scene::*;
 
 use cadsd_accurate::conv::{freq_to_note, note_name};
+use cadsd_accurate::evo::{GeoGenome, LossFunctionType, Nuevolution};
 use cadsd_accurate::geo::Geo;
+use cadsd_accurate::loss::TairuaLoss;
 use cadsd_accurate::sim::{acoustical_simulation, get_log_simulation_frequencies};
 use makepad_render::scene::set_pass_camera;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
+use std::sync::Arc;
+use rand;
 
 app_main!(App);
 
@@ -1264,29 +1269,23 @@ pub struct App {
     #[rust]
     loss_peaks_text: String,
     #[rust]
-    #[allow(dead_code)]
     optimization_running: bool,
     #[rust]
-    #[allow(dead_code)]
     optimization_target_freq: f64,
     #[rust]
-    #[allow(dead_code)]
     optimization_progress: f64,
     #[rust]
-    #[allow(dead_code)]
     optimization_status_text: String,
     #[rust]
-    #[allow(dead_code)]
     optimization_best_top: f32,
     #[rust]
-    #[allow(dead_code)]
     optimization_best_bell: f32,
     #[rust]
-    #[allow(dead_code)]
     optimization_best_style: u32,
     #[rust]
-    #[allow(dead_code)]
-    optimization_stop_tx: Option<mpsc::Sender<()>>,
+    optimization_stop_flag: Option<Arc<AtomicBool>>,
+    #[rust]
+    opt_rx: Option<mpsc::Receiver<OptProgress>>,
 }
 
 #[allow(dead_code)]
@@ -1546,6 +1545,152 @@ impl MatchEvent for App {
         {
             self.export_geometry_json();
         }
+
+        // Handle optimization controls
+        if self.ui.button(cx, ids!(opt_start_button)).clicked(actions) {
+            if self.opt_rx.is_some() {
+                return;
+            }
+            self.optimization_running = true;
+            self.optimization_progress = 0.0;
+            self.optimization_status_text = "Starting...".to_string();
+            self.optimization_target_freq = self.target_freq;
+            self.ui
+                .label(cx, ids!(opt_progress_label))
+                .set_text(cx, "Status: starting");
+            self.ui
+                .label(cx, ids!(opt_target_label))
+                .set_text(cx, &format!("Target Freq: {:.1} Hz", self.target_freq));
+
+            let (tx, rx) = mpsc::channel();
+            self.opt_rx = Some(rx);
+            let stop_flag = Arc::new(AtomicBool::new(false));
+            self.optimization_stop_flag = Some(stop_flag.clone());
+
+            let opt_geo = if let Some(ref geo) = self.current_geo {
+                geo.copy()
+            } else {
+                create_base_geo(950.0, 35.0, 85.0, 0, 0.0, 50)
+            };
+            let target_freq = self.optimization_target_freq;
+            let weight_fundamental = self.weight_fundamental;
+            let weight_harmonics = self.weight_harmonics;
+            let weight_peaks = self.weight_peaks;
+
+            std::thread::spawn(move || {
+                let loss_fn = TairuaLoss::new()
+                    .with_target_frequency(target_freq)
+                    .with_weights(weight_fundamental, weight_harmonics, weight_peaks);
+
+                let pop_size = 12usize;
+                let generations = 30usize;
+
+                let mut population = Vec::new();
+                for _ in 0..pop_size {
+                    let genes = vec![
+                        opt_geo.length() + (rand::random::<f64>() - 0.5) * 400.0,
+                        opt_geo.geo.first().map(|s| s[1]).unwrap_or(35.0)
+                            + (rand::random::<f64>() - 0.5) * 20.0,
+                        opt_geo.bellsize() + (rand::random::<f64>() - 0.5) * 40.0,
+                        (rand::random::<f64>() * 40.0).max(5.0).min(50.0),
+                    ];
+                    population.push(GeoGenome::new(genes));
+                }
+
+                let evolver = Nuevolution::new(pop_size, generations)
+                    .set_mutation_rate(0.15)
+                    .set_crossover_rate(0.8)
+                    .set_elite_size(2)
+                    .set_verbose(false);
+
+                let stop = stop_flag.clone();
+                let progress_tx = tx.clone();
+
+                let result = evolver.evolve(
+                    population,
+                    &LossFunctionType::TairuaLoss(loss_fn),
+                    Some(&|gen: usize, best_fitness: f64| {
+                        if stop.load(Ordering::Relaxed) {
+                            return;
+                        }
+                        let _ = progress_tx.send(OptProgress {
+                            progress: gen as f64 / generations as f64,
+                            status: format!("Gen {}/{} best loss {:.4}", gen, generations, best_fitness),
+                            best_top: 0.0,
+                            best_bell: 0.0,
+                            best_style: 0,
+                        });
+                    }),
+                );
+
+                match result {
+                    Ok(final_pop) => {
+                        if let Some(best) = final_pop.first() {
+                            let best_geo = best.to_geo();
+                            let best_top = best_geo.geo.first().map(|s| s[1]).unwrap_or(35.0) as f32;
+                            let best_bell = best_geo.bellsize() as f32;
+                            let best_fitness = best.fitness.unwrap_or(f64::INFINITY);
+                            let _ = progress_tx.send(OptProgress {
+                                progress: 1.0,
+                                status: format!("Done. Best loss: {:.4}", best_fitness),
+                                best_top,
+                                best_bell,
+                                best_style: 0,
+                            });
+                        }
+                    }
+                    Err(e) => {
+                        let _ = progress_tx.send(OptProgress {
+                            progress: 0.0,
+                            status: format!("Error: {}", e),
+                            best_top: 0.0,
+                            best_bell: 0.0,
+                            best_style: 0,
+                        });
+                    }
+                }
+            });
+        }
+
+        if self.ui.button(cx, ids!(opt_stop_button)).clicked(actions) {
+            if let Some(flag) = &self.optimization_stop_flag {
+                flag.store(true, Ordering::Relaxed);
+            }
+            self.optimization_running = false;
+            self.optimization_status_text = "Stopped".to_string();
+            self.ui
+                .label(cx, ids!(opt_progress_label))
+                .set_text(cx, "Status: stopped");
+        }
+
+        // Drain optimization progress channel
+        if let Some(rx) = &mut self.opt_rx {
+            while let Ok(progress) = rx.try_recv() {
+                self.optimization_progress = progress.progress;
+                self.optimization_status_text = progress.status;
+                self.optimization_best_top = progress.best_top;
+                self.optimization_best_bell = progress.best_bell;
+                self.optimization_best_style = progress.best_style;
+            }
+            if self.optimization_progress >= 1.0 || !self.optimization_running && self.optimization_progress > 0.0 {
+                self.opt_rx = None;
+                self.optimization_stop_flag = None;
+                self.optimization_running = false;
+            }
+        }
+
+        // Update optimization UI labels
+        self.ui
+            .label(cx, ids!(opt_progress_label))
+            .set_text(cx, &format!("Status: {}", self.optimization_status_text));
+        self.ui.label(cx, ids!(opt_target_label)).set_text(
+            cx,
+            &format!(
+                "Target Freq: {:.1} Hz | Progress: {:.0}%",
+                self.optimization_target_freq,
+                self.optimization_progress * 100.0
+            ),
+        );
 
         // Update segments list and label from current_geo
         if let Some(ref geo) = self.current_geo {

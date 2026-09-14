@@ -101,7 +101,7 @@ The results panel now shows:
 - Top diameter slider (10-100mm)
 - Bottom diameter slider (20-150mm)
 - Segments slider (10-50)
-- Bore profile selection: Cone, Cylinder, Exponential, Kigali, Mbeya
+- Bore profile selection: Cone, Kigali, Mbeya
 - Bore curve adjustment (-2.0 to 2.0)
 
 ### Simulation Features

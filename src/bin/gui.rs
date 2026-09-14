@@ -1,3 +1,4 @@
+pub use makepad_widgets::chart::DataPoint;
 pub use makepad_widgets::*;
 pub use makepad_xr::scene::*;
 
@@ -108,14 +109,15 @@ script_mod! {
                         flow: Down
                         draw_bg +: {color: #x0d1116}
 
-                        header := SolidView{
-                            width: Fill
-                            height: 44.0
-                            flow: Right
-                            align: Align{x: 0.0 y: 0.5}
-                            padding: Inset{left: 14.0 right: 14.0}
-                            spacing: 12.0
-                            draw_bg +: {color: #x171d24}
+header := SolidView{
+                             width: Fill
+                             height: 44.0
+                             flow: Right
+                             align: Align{x: 0.0 y: 0.5}
+                             padding: Inset{left: 14.0 right: 14.0}
+                             spacing: 12.0
+                             draw_bg +: {color: #x171d24}
+                             new_batch: true
 
                             title := H3{
                                 text: "CADSD - Didgeridoo Analyzer"
@@ -134,14 +136,17 @@ script_mod! {
                             spacing: 4
                             padding: 8
                             draw_bg +: {color: #x12161d}
+                            show_bg: true
+                            new_batch: true
 
-                            sidebar := SolidView{
-                                  width: 320
-                                  height: Fill
-                                  flow: Down
-                                  spacing: 10
-                                  padding: 10
-                                  draw_bg +: {color: #x171d24}
+sidebar := SolidView{
+                                   width: 320
+                                   height: Fill
+                                   flow: Down
+                                   spacing: 10
+                                   padding: 10
+                                   draw_bg +: {color: #x171d24}
+                                   new_batch: true
 
                                   scroller := ScrollYView{
                                       width: Fill
@@ -293,20 +298,22 @@ bore_curve_slider := Slider{
                                            draw_text +: {color: #x88cc88}
                                        }
 
-                                       bubble_section := View{
-                                           width: Fill
-                                           height: Fit
-                                           flow: Down
-                                           spacing: 4
-                                           padding: 4
-                                           draw_bg +: {color: #x2d2d2d}
+bubble_section := View{
+                                            width: Fill
+                                            height: Fit
+                                            flow: Down
+                                            spacing: 4
+                                            padding: 4
+                                            draw_bg +: {color: #x2d2d2d}
+                                            show_bg: true
+                                            new_batch: true
 
-                                           bubble_title := Label{
-                                               width: Fill
-                                               height: 18
-                                               text: "Bubbles (pos, width, height) mm"
-                                               draw_text +: {color: #xdfe7ee}
-                                           }
+bubble_title := Label{
+                                                width: Fill
+                                                height: 18
+                                                text: "Bubbles (pos, width, height) mm"
+                                                draw_text +: {color: #xdfe7ee}
+                                            }
 
                                            bubble_add_row := View{
                                                width: Fill
@@ -352,26 +359,28 @@ bore_curve_slider := Slider{
                                            }
                                        }
 
-                                       segment_ops_section := View{
-                                           width: Fill
-                                           height: Fit
-                                           flow: Down
-                                           spacing: 4
-                                           padding: 4
-                                           draw_bg +: {color: #x2d2d2d}
+segment_ops_section := View{
+                                            width: Fill
+                                            height: Fit
+                                            flow: Down
+                                            spacing: 4
+                                            padding: 4
+                                            draw_bg +: {color: #x2d2d2d}
+                                            show_bg: true
+                                            new_batch: true
 
-                                           seg_ops_title := Label{
-                                               width: Fill
-                                               height: 18
-                                               text: "Segment Ops (move, sort)"
-                                               draw_text +: {color: #xdfe7ee}
-                                           }
+                                            seg_ops_title := Label{
+                                                width: Fill
+                                                height: 18
+                                                text: "Segment Ops (move, sort)"
+                                                draw_text +: {color: #xdfe7ee}
+                                            }
 
-                                           seg_ops_row := View{
-                                               width: Fill
-                                               height: 20
-                                               flow: Right
-                                               spacing: 4
+                                            seg_ops_row := View{
+                                                width: Fill
+                                                height: 20
+                                                flow: Right
+                                                spacing: 4
 
                                                seg_start_input := TextInput{
                                                    width: 50
@@ -408,7 +417,7 @@ bore_curve_slider := Slider{
                                         segment_editor_toggle := Button{
                                             width: Fill
                                             height: 24
-                                            text: if self.show_segment_editor { "Hide Segment Editor" } else { "Show Segment Editor" }
+                                            text: "Show Segment Editor"
                                         }
 
                                         segment_editor_list := Label{
@@ -418,14 +427,15 @@ bore_curve_slider := Slider{
                                             draw_text +: {color: #x88cc88, font_size: 12}
                                         }
 
-                                        mouthpiece_section := View{
-                                            width: Fill
-                                            height: Fit
-                                            flow: Down
-                                            spacing: 4
-                                            padding: 4
-                                            draw_bg +: {color: #x2d2d2d}
-                                            new_batch: true
+mouthpiece_section := View{
+                                             width: Fill
+                                             height: Fit
+                                             flow: Down
+                                             spacing: 4
+                                             padding: 4
+                                             draw_bg +: {color: #x2d2d2d}
+                                             show_bg: true
+                                             new_batch: true
 
                                             mp_title := Label{
                                                 width: Fill
@@ -437,7 +447,7 @@ bore_curve_slider := Slider{
                                             mp_toggle := Button{
                                                 width: Fill
                                                 height: 24
-                                                text: if self.enable_mouthpiece { "Disable Mouthpiece" } else { "Enable Mouthpiece" }
+                                                text: "Enable Mouthpiece"
                                             }
 
                                             mp_type_dropdown := DropDown{
@@ -501,19 +511,20 @@ bore_curve_slider := Slider{
                                             spacing: 4
                                             padding: 4
                                             draw_bg +: {color: #x2d2d2d}
+                                            show_bg: true
                                             new_batch: true
 
-                                            holes_title := Label{
-                                                width: Fill
-                                                height: 18
-                                                text: "Finger Holes"
-                                                draw_text +: {color: #xdfe7ee}
-                                            }
+holes_title := Label{
+                                                    width: Fill
+                                                    height: 18
+                                                    text: "Finger Holes (Experimental)"
+                                                    draw_text +: {color: #xdfe7ee}
+                                                }
 
                                             holes_toggle := Button{
                                                 width: Fill
                                                 height: 24
-                                                text: if self.enable_holes { "Disable Holes" } else { "Enable Holes" }
+                                                text: "Enable Holes"
                                             }
 
                                             holes_count_label := Label{
@@ -540,18 +551,167 @@ bore_curve_slider := Slider{
                                             }
                                         }
 
-                                        run_button := Button{
-                                           width: Fill
-                                           height: 36
-                                           text: "Run Simulation"
-                                       }
+loss_section := View{
+                                             width: Fill
+                                             height: Fit
+                                             flow: Down
+                                             spacing: 4
+                                             padding: 4
+                                             draw_bg +: {color: #x2d2d2d}
+                                             show_bg: true
+                                             new_batch: true
 
-                                       running_label := Label{
-                                           width: Fill
-                                           height: 18
-                                           text: "Ready"
-                                           draw_text +: {color: #xffaa00}
-                                       }
+                                            loss_title := Label{
+                                                width: Fill
+                                                height: 18
+                                                text: "Loss Breakdown"
+                                                draw_text +: {color: #xdfe7ee}
+                                            }
+
+                                            loss_total := Label{
+                                                width: Fill
+                                                height: 18
+                                                draw_text +: {color: #x88cc88, font_size: 13}
+                                            }
+
+                                            loss_w_fund := Label{
+                                                width: Fill
+                                                height: 18
+                                                draw_text +: {color: #xdfe7ee}
+                                            }
+
+                                            loss_fund_slider := Slider{
+                                                width: Fill
+                                                height: 30
+                                                min: 0.0
+                                                max: 10.0
+                                                step: 0.5
+                                                default: 5.0
+                                            }
+
+                                            loss_w_harm := Label{
+                                                width: Fill
+                                                height: 18
+                                                draw_text +: {color: #xdfe7ee}
+                                            }
+
+                                            loss_harm_slider := Slider{
+                                                width: Fill
+                                                height: 30
+                                                min: 0.0
+                                                max: 10.0
+                                                step: 0.5
+                                                default: 5.0
+                                            }
+
+                                            loss_w_peak := Label{
+                                                width: Fill
+                                                height: 18
+                                                draw_text +: {color: #xdfe7ee}
+                                            }
+
+                                            loss_peak_slider := Slider{
+                                                width: Fill
+                                                height: 30
+                                                min: 0.0
+                                                max: 10.0
+                                                step: 0.5
+                                                default: 5.0
+                                            }
+
+                                            loss_chart := mod.widgets.BarChart{
+                                                width: Fill
+                                                height: 120
+                                                draw_bg +: {color: #x12161d}
+                                            }
+
+                                            loss_target_label := Label{
+                                                width: Fill
+                                                height: 18
+                                                text: "Target Freq (Hz)"
+                                                draw_text +: {color: #xa0a0a0}
+                                            }
+
+                                            loss_target_input := TextInput{
+                                                width: Fill
+                                                height: 24
+                                                text: "440"
+                                                draw_text +: {color: #xaaaaff, font_size: 12}
+                                            }
+                                        }
+
+                                        export_section := View{
+                                            width: Fill
+                                            height: Fit
+                                            flow: Right
+                                            spacing: 4
+                                            padding: 4
+                                            draw_bg +: {color: #x2d2d2d}
+                                            show_bg: true
+                                            new_batch: true
+
+                                            export_csv_button := Button{
+                                                width: Fill
+                                                height: 28
+                                                text: "Export CSV"
+                                            }
+                                            export_json_button := Button{
+                                                width: Fill
+                                                height: 28
+                                                text: "Export JSON"
+                                            }
+                                        }
+
+                                        optimization_section := View{
+                                            width: Fill
+                                            height: Fit
+                                            flow: Down
+                                            spacing: 2
+                                            padding: 4
+                                            draw_bg +: {color: #x121212}
+                                            show_bg: true
+                                            new_batch: true
+
+                                            opt_title := Label{
+                                                width: Fill
+                                                height: 18
+                                                text: "Optimization"
+                                                draw_text +: {color: #xffcc66}
+                                            }
+
+                                            opt_target_label := Label{
+                                                width: Fill
+                                                height: 16
+                                                text: "Target Freq: - Hz"
+                                                draw_text +: {color: #xdfe7ee}
+                                            }
+
+                                            opt_progress_label := Label{
+                                                width: Fill
+                                                height: 16
+                                                text: "Status: idle"
+                                                draw_text +: {color: #xb0b0b0}
+                                            }
+
+                                            opt_buttons := View{
+                                                width: Fill
+                                                height: Fit
+                                                flow: Right
+                                                spacing: 4
+
+                                                opt_start_button := Button{
+                                                    width: Fill
+                                                    height: 24
+                                                    text: "Start Opt"
+                                                }
+
+                                                opt_stop_button := Button{
+                                                    width: Fill
+                                                    height: 24
+                                                    text: "Stop"
+                                                }
+                                            }
+                                        }
 
                                        fundamental_label := Label{
                                            width: Fill
@@ -569,47 +729,77 @@ bore_curve_slider := Slider{
                                    }
                                }
 
-                            main_area := View{
-                                width: Fill
-                                height: Fill
-                                flow: Down
-                                spacing: 4
-                                padding: 0
-                                draw_bg +: {color: #x12161d}
+main_area := View{
+                                 width: Fill
+                                 height: Fill
+                                 flow: Down
+                                 spacing: 4
+                                 padding: 0
+                                 draw_bg +: {color: #x12161d}
+                                 show_bg: true
+                                 new_batch: true
 
                                 viewport := mod.widgets.BoreViewport{
                                     height: 400
                                 }
 
-                                impedance_preview := View{
+impedance_preview := View{
+                                        width: Fill
+                                        height: 300
+                                        flow: Down
+                                        spacing: 4
+                                        padding: 8
+                                        draw_bg +: {color: #x171d24}
+                                        show_bg: true
+                                        new_batch: true
+
+                                        impedance_title := Label{
+                                            width: Fill
+                                            height: 20
+                                            text: "Impedance Spectrum"
+                                            draw_text +: {color: #xdfe7ee}
+                                        }
+
+                                        impedance_chart := mod.widgets.LineChart{
+                                            width: Fill
+                                            height: Fill
+                                            draw_bg +: {color: #x12161d}
+                                        }
+                                    }
+
+                                    cross_section := View{
+                                        width: Fill
+                                        height: Fit
+                                        flow: Down
+                                        spacing: 4
+                                        padding: 8
+                                        draw_bg +: {color: #x171d24}
+                                        show_bg: true
+                                        new_batch: true
+
+                                        cross_section_title := Label{
+                                            width: Fill
+                                            height: 20
+                                            text: "Cross-Section View"
+                                            draw_text +: {color: #xdfe7ee}
+                                        }
+
+                                        cross_section_plot := mod.widgets.LineChart{
+                                            width: Fill
+                                            height: Fill
+                                            draw_bg +: {color: #x12161d}
+                                        }
+                                    }
+
+                                    geometry_summary := View{
                                     width: Fill
-                                    height: 300
+                                    height: Fit
                                     flow: Down
                                     spacing: 4
                                     padding: 8
                                     draw_bg +: {color: #x171d24}
-
-                                    impedance_title := Label{
-                                        width: Fill
-                                        height: 20
-                                        text: "Impedance Spectrum"
-                                        draw_text +: {color: #xdfe7ee}
-                                    }
-
-                                    impedance_chart := mod.widgets.LineChart{
-                                        width: Fill
-                                        height: Fill
-                                        draw_bg +: {color: #x12161d}
-                                    }
-                                }
-
-                                geometry_summary := View{
-                                    width: Fill
-                                    height: 200
-                                    flow: Down
-                                    spacing: 4
-                                    padding: 8
-                                    draw_bg +: {color: #x171d24}
+                                    show_bg: true
+                                    new_batch: true
 
                                     geo_summary_title := Label{
                                         width: Fill
@@ -624,6 +814,9 @@ bore_curve_slider := Slider{
                                         flow: Right
                                         spacing: 8
                                         padding: 4
+                                        draw_bg +: {color: #x171d24}
+                                        show_bg: true
+                                        new_batch: true
 
                                         geo_col1 := View{
                                             width: Fill
@@ -651,17 +844,30 @@ bore_curve_slider := Slider{
 
                                 resonance_analysis := View{
                                     width: Fill
-                                    height: 250
+                                    height: Fit
                                     flow: Down
                                     spacing: 4
                                     padding: 8
                                     draw_bg +: {color: #x171d24}
+                                    show_bg: true
+                                    new_batch: true
 
                                     resonance_title := Label{
                                         width: Fill
                                         height: 20
                                         text: "Resonance Analysis"
                                         draw_text +: {color: #xdfe7ee}
+                                    }
+
+                                    resonance_grid := mod.widgets.DataGrid{
+                                        width: Fill
+                                        height: Fit
+                                        rows: 10
+                                        cols: 5
+                                        default_col_width: 120
+                                        default_row_height: 20
+                                        color_bg: #x171d24
+                                        color_text: #xdfe7ee
                                     }
 
                                     resonance_list := Label{
@@ -1027,14 +1233,78 @@ pub struct App {
     hole_positions: Vec<f32>,
     #[rust]
     hole_diameters: Vec<f32>,
+    #[rust]
+    weight_fundamental: f64,
+    #[rust]
+    weight_harmonics: f64,
+    #[rust]
+    weight_peaks: f64,
+    #[rust]
+    loss_fundamental_value: f64,
+    #[rust]
+    loss_harmonics_value: f64,
+    #[rust]
+    loss_peaks_value: f64,
+    #[rust]
+    tairua_loss_value: f64,
+    #[rust]
+    target_freq: f64,
+    #[rust]
+    top_diameter: f32,
+    #[rust]
+    bore_style_name: String,
+    #[rust]
+    cross_section_data: Vec<(f32, f32)>,
+    #[rust]
+    loss_total_text: String,
+    #[rust]
+    loss_fundamental_text: String,
+    #[rust]
+    loss_harmonics_text: String,
+    #[rust]
+    loss_peaks_text: String,
+    #[rust]
+    #[allow(dead_code)]
+    optimization_running: bool,
+    #[rust]
+    #[allow(dead_code)]
+    optimization_target_freq: f64,
+    #[rust]
+    #[allow(dead_code)]
+    optimization_progress: f64,
+    #[rust]
+    #[allow(dead_code)]
+    optimization_status_text: String,
+    #[rust]
+    #[allow(dead_code)]
+    optimization_best_top: f32,
+    #[rust]
+    #[allow(dead_code)]
+    optimization_best_bell: f32,
+    #[rust]
+    #[allow(dead_code)]
+    optimization_best_style: u32,
+    #[rust]
+    #[allow(dead_code)]
+    optimization_stop_tx: Option<mpsc::Sender<()>>,
 }
 
+#[allow(dead_code)]
 struct SimResult {
     data: Vec<DataPoint>,
     fundamental: f64,
     note: String,
     resonance_count: usize,
     peaks: Vec<(f64, f64)>,
+}
+
+#[allow(dead_code)]
+struct OptProgress {
+    progress: f64,
+    status: String,
+    best_top: f32,
+    best_bell: f32,
+    best_style: u32,
 }
 
 impl MatchEvent for App {
@@ -1044,7 +1314,7 @@ impl MatchEvent for App {
         let mut top = 35.0;
         let mut bell = 85.0;
         let mut style = 0u32;
-        let mut bore_curve = 0.0f32;
+        let mut bore_curve = 1.0f32;
         let mut segments = 50usize;
 
         if let Some(v) = self.ui.slider(cx, ids!(length_slider)).slided(actions) {
@@ -1162,27 +1432,38 @@ impl MatchEvent for App {
         }
 
         // Handle mouthpiece controls
-        if let Some(v) = self.ui.button(cx, ids!(mp_toggle)).clicked(actions) {
+        if self.ui.button(cx, ids!(mp_toggle)).clicked(actions) {
             self.enable_mouthpiece = !self.enable_mouthpiece;
-            btn = self.ui.button(cx, ids!(mp_toggle));
-            btn.set_text(cx, if self.enable_mouthpiece { "Disable Mouthpiece" } else { "Enable Mouthpiece" });
+            let btn = self.ui.button(cx, ids!(mp_toggle));
+            btn.set_text(
+                cx,
+                if self.enable_mouthpiece {
+                    "Disable Mouthpiece"
+                } else {
+                    "Enable Mouthpiece"
+                },
+            );
             needs_viewport_update = true;
         }
         if self.enable_mouthpiece {
-            if let Some(v) = self.ui.drop_down(cx, ids!(mp_type_dropdown)).selected(actions) {
+            if let Some(v) = self
+                .ui
+                .drop_down(cx, ids!(mp_type_dropdown))
+                .selected(actions)
+            {
                 let types = ["None", "Reed", "Embouchure", "Fipple", "Cup"];
                 self.mouthpiece_type = types[v].to_string();
                 needs_viewport_update = true;
             }
             if let Some(v) = self.ui.slider(cx, ids!(mp_length_slider)).slided(actions) {
-                self.mouthpiece_length = v;
+                self.mouthpiece_length = v as f32;
                 self.ui
                     .label(cx, ids!(mp_length_value))
                     .set_text(cx, &format!("Length: {:.0} mm", v));
                 needs_viewport_update = true;
             }
             if let Some(v) = self.ui.slider(cx, ids!(mp_diameter_slider)).slided(actions) {
-                self.mouthpiece_diameter = v;
+                self.mouthpiece_diameter = v as f32;
                 self.ui
                     .label(cx, ids!(mp_diameter_value))
                     .set_text(cx, &format!("Diameter: {:.0} mm", v));
@@ -1191,10 +1472,17 @@ impl MatchEvent for App {
         }
 
         // Handle hole controls
-        if let Some(v) = self.ui.button(cx, ids!(holes_toggle)).clicked(actions) {
+        if self.ui.button(cx, ids!(holes_toggle)).clicked(actions) {
             self.enable_holes = !self.enable_holes;
-            btn = self.ui.button(cx, ids!(holes_toggle));
-            btn.set_text(cx, if self.enable_holes { "Disable Holes" } else { "Enable Holes" });
+            let btn = self.ui.button(cx, ids!(holes_toggle));
+            btn.set_text(
+                cx,
+                if self.enable_holes {
+                    "Disable Holes"
+                } else {
+                    "Enable Holes"
+                },
+            );
             needs_viewport_update = true;
         }
         if self.enable_holes {
@@ -1221,9 +1509,42 @@ impl MatchEvent for App {
         } else {
             "Holes: none".to_string()
         };
-        self.ui
-            .label(cx, ids!(holes_list))
-            .set_text(cx, &hole_text);
+        self.ui.label(cx, ids!(holes_list)).set_text(cx, &hole_text);
+
+        // Handle loss breakdown controls
+        if let Some(v) = self.ui.slider(cx, ids!(loss_fund_slider)).slided(actions) {
+            self.weight_fundamental = v;
+            needs_viewport_update = true;
+        }
+        if let Some(v) = self.ui.slider(cx, ids!(loss_harm_slider)).slided(actions) {
+            self.weight_harmonics = v;
+            needs_viewport_update = true;
+        }
+        if let Some(v) = self.ui.slider(cx, ids!(loss_peak_slider)).slided(actions) {
+            self.weight_peaks = v;
+            needs_viewport_update = true;
+        }
+        if let Some(v) = self
+            .ui
+            .text_input(cx, ids!(loss_target_input))
+            .changed(actions)
+        {
+            if let Ok(freq) = v.parse::<f64>() {
+                self.target_freq = freq;
+                needs_viewport_update = true;
+            }
+        }
+
+        // Handle export buttons
+        if self.ui.button(cx, ids!(export_csv_button)).clicked(actions) {
+            self.export_impedance_csv();
+        }
+        if self
+            .ui
+            .button(cx, ids!(export_json_button))
+            .clicked(actions)
+        {
+            self.export_geometry_json();
         }
 
         // Update segments list and label from current_geo
@@ -1272,16 +1593,29 @@ impl MatchEvent for App {
             }
             self.geo_length = length as f32;
             self.geo_bell = bell as f32;
+            self.top_diameter = top as f32;
+            self.bore_style_name = match style {
+                0 => "Cone".to_string(),
+                1 => "Kigali".to_string(),
+                2 => "Mbeya".to_string(),
+                _ => "Cone".to_string(),
+            };
             let max_d = bell.max(top);
             self.geo_max_d = max_d as f32;
-            let taper = if top > 0.0 { top / bell } else { 0.0 };
+            let taper = if top > 0.0 && bell > 0.0 {
+                max_d / top.min(bell)
+            } else {
+                1.0
+            };
             self.geo_taper = taper as f32;
             self.geo_segments = segments as f32;
-            let r1 = (top / 2.0) as f64;
-            let r2 = (bell / 2.0) as f64;
+            // Volume formula matches Geo::compute_volume: PI * (d1² + d1*d2 + d2²) * L / 12
+            // where d1=top, d2=bell are diameters (not radii)
+            let d1 = top as f64;
+            let d2 = bell as f64;
             let h = length as f64;
             self.geo_volume =
-                (std::f64::consts::PI * (r1 * r1 + r1 * r2 + r2 * r2) * h / 3.0) as f32;
+                (std::f64::consts::PI * (d1 * d1 + d1 * d2 + d2 * d2) * h / 12.0) as f32;
         }
 
         if let Some(rx) = self.sim_rx.take() {
@@ -1332,7 +1666,10 @@ impl MatchEvent for App {
                         .peaks
                         .iter()
                         .take(10)
-                        .map(|(f, z)| format!("{:.1} Hz ({:.0} Pa)\n", f, z))
+                        .map(|(f, z)| {
+                            let note = note_name(freq_to_note(*f));
+                            format!("{:.1} Hz ({:.0} Pa, {note})\n", f, z)
+                        })
                         .collect();
                     self.ui
                         .label(cx, ids!(resonance_list))
@@ -1347,6 +1684,66 @@ impl MatchEvent for App {
                         .set_text(cx, "Simulation failed");
                 }
             }
+        }
+
+        self.update_loss_values();
+        self.ui
+            .label(cx, ids!(loss_total))
+            .set_text(cx, &self.loss_total_text);
+        self.ui
+            .label(cx, ids!(loss_w_fund))
+            .set_text(cx, &self.loss_fundamental_text);
+        self.ui
+            .label(cx, ids!(loss_w_harm))
+            .set_text(cx, &self.loss_harmonics_text);
+        self.ui
+            .label(cx, ids!(loss_w_peak))
+            .set_text(cx, &self.loss_peaks_text);
+
+        // Update loss breakdown BarChart with per-component loss values
+        let loss_chart_data: Vec<DataPoint> = vec![
+            DataPoint {
+                x: 0.0,
+                y: self.loss_fundamental_value,
+            },
+            DataPoint {
+                x: 1.0,
+                y: self.loss_harmonics_value,
+            },
+            DataPoint {
+                x: 2.0,
+                y: self.loss_peaks_value,
+            },
+            DataPoint {
+                x: 3.0,
+                y: self.tairua_loss_value,
+            },
+        ];
+        if let Some(mut chart) = self
+            .ui
+            .widget(cx, ids!(loss_chart))
+            .borrow_mut::<BarChart>()
+        {
+            chart.set_data(loss_chart_data);
+        }
+
+        self.update_cross_section_data();
+
+        // Update cross-section plot
+        if let Some(mut chart) = self
+            .ui
+            .widget(cx, ids!(cross_section_plot))
+            .borrow_mut::<LineChart>()
+        {
+            let data_points: Vec<DataPoint> = self
+                .cross_section_data
+                .iter()
+                .map(|(x, y)| DataPoint {
+                    x: *x as f64,
+                    y: *y as f64,
+                })
+                .collect();
+            chart.set_data(data_points);
         }
 
         if self.ui.button(cx, ids!(run_button)).clicked(actions) {
@@ -1425,6 +1822,182 @@ impl MatchEvent for App {
                     peaks,
                 });
             });
+        }
+    }
+}
+
+impl App {
+    fn export_impedance_csv(&mut self) {
+        if self.impedance_data.is_empty() {
+            return;
+        }
+
+        if let Some(path) = rfd::FileDialog::new()
+            .set_file_name("impedance_spectrum.csv")
+            .add_filter("CSV", &["csv"])
+            .save_file()
+        {
+            let mut content = String::new();
+            content.push_str("frequency_hz,impedance_magnitude\n");
+            for point in &self.impedance_data {
+                content.push_str(&format!("{},{}\n", point.x, point.y));
+            }
+
+            if let Err(e) = std::fs::write(&path, content) {
+                ::log::error!("Failed to export CSV: {}", e);
+            } else {
+                ::log::info!("Exported impedance data to: {}", path.display());
+            }
+        }
+    }
+
+    fn export_geometry_json(&mut self) {
+        if let Some(geo) = &self.current_geo {
+            use serde::Serialize;
+
+            #[derive(Serialize)]
+            struct GeometryExport {
+                segments: Vec<[f64; 2]>,
+                bubbles: Vec<(f64, f64, f64)>,
+                metadata: serde_json::Value,
+            }
+
+            let export = GeometryExport {
+                segments: geo.geo.clone(),
+                bubbles: self
+                    .bubbles
+                    .iter()
+                    .map(|(pos, width, height)| (*pos as f64, *width as f64, *height as f64))
+                    .collect(),
+                metadata: serde_json::json!({
+                    "length_mm": self.geo_length,
+                    "top_diameter_mm": self.top_diameter,
+                    "bell_diameter_mm": self.geo_bell,
+                    "segments": self.geo_segments,
+                    "bore_style": self.bore_style_name,
+                    "bore_curve": self.geo_taper,
+                }),
+            };
+
+            if let Some(path) = rfd::FileDialog::new()
+                .set_file_name("geometry.json")
+                .add_filter("JSON", &["json"])
+                .save_file()
+            {
+                if let Ok(json) = serde_json::to_string_pretty(&export) {
+                    if let Err(e) = std::fs::write(&path, json) {
+                        ::log::error!("Failed to export JSON: {}", e);
+                    } else {
+                        ::log::info!("Exported geometry to: {}", path.display());
+                    }
+                }
+            }
+        }
+    }
+
+    fn update_loss_values(&mut self) {
+        if let Some(ref geo) = self.current_geo {
+            let freqs = get_log_simulation_frequencies();
+            let impedances = match acoustical_simulation(&geo, &freqs, "tlm_python") {
+                Ok(impedances) => impedances,
+                Err(_) => {
+                    self.tairua_loss_value = 0.0;
+                    self.loss_fundamental_value = 0.0;
+                    self.loss_harmonics_value = 0.0;
+                    self.loss_peaks_value = 0.0;
+                    return;
+                }
+            };
+
+            let mut total_loss = 0.0;
+
+            let mut peaks = Vec::new();
+            let mag: Vec<f64> = impedances.iter().map(|c| c.abs()).collect();
+            for i in 1..mag.len() - 1 {
+                if mag[i] > mag[i - 1] && mag[i] > mag[i + 1] {
+                    peaks.push((i, freqs[i], mag[i]));
+                }
+            }
+
+            if !peaks.is_empty() {
+                if let Some(first_peak) = peaks.first() {
+                    let f0 = first_peak.1;
+                    let freq_diff = (f0 - self.target_freq).abs();
+                    let fundamental_loss = (freq_diff / 5.0).powi(2);
+                    self.loss_fundamental_value = fundamental_loss * self.weight_fundamental;
+                }
+
+                if peaks.len() >= 2 && self.target_freq > 0.0 {
+                    let f0 = peaks[0].1;
+                    let mut harmonic_loss = 0.0;
+                    for (i, (_, freq, _)) in peaks.iter().enumerate().skip(1) {
+                        let expected_harmonic = f0 * (i + 1) as f64;
+                        let harmonic_deviation =
+                            (freq - expected_harmonic).abs() / expected_harmonic;
+                        harmonic_loss += harmonic_deviation;
+                    }
+                    harmonic_loss /= peaks.len() as f64;
+                    self.loss_harmonics_value = harmonic_loss * self.weight_harmonics;
+                }
+
+                if !peaks.is_empty() {
+                    let peak_count_loss =
+                        (5usize as f64 - peaks.len().min(5) as f64).max(0.0) / 5.0;
+                    let avg_mag =
+                        peaks.iter().map(|(_, _, mag)| *mag).sum::<f64>() / peaks.len() as f64;
+                    let mag_loss = (1.0 - avg_mag).max(0.0);
+                    self.loss_peaks_value = (peak_count_loss + mag_loss) * self.weight_peaks;
+                }
+
+                total_loss =
+                    self.loss_fundamental_value + self.loss_harmonics_value + self.loss_peaks_value;
+            }
+
+            self.tairua_loss_value = total_loss.min(10.0);
+
+            self.loss_total_text = if total_loss > 0.0 {
+                format!("Total Tairua Loss: {:.3}", total_loss)
+            } else {
+                "Total Tairua Loss: -".to_string()
+            };
+            self.loss_fundamental_text = if self.loss_fundamental_value > 0.0 {
+                format!(
+                    "Fundamental Loss: {:.3} (w: {:.1})",
+                    self.loss_fundamental_value, self.weight_fundamental
+                )
+            } else {
+                "Fundamental Loss: -".to_string()
+            };
+            self.loss_harmonics_text = if self.loss_harmonics_value > 0.0 {
+                format!(
+                    "Harmonic Loss: {:.3} (w: {:.1})",
+                    self.loss_harmonics_value, self.weight_harmonics
+                )
+            } else {
+                "Harmonic Loss: -".to_string()
+            };
+            self.loss_peaks_text = if self.loss_peaks_value > 0.0 {
+                format!(
+                    "Peak Loss: {:.3} (w: {:.1})",
+                    self.loss_peaks_value, self.weight_peaks
+                )
+            } else {
+                "Peak Loss: -".to_string()
+            };
+        }
+    }
+
+    fn update_cross_section_data(&mut self) {
+        if let Some(ref geo) = self.current_geo {
+            let mut data = Vec::new();
+            for (_i, segment) in geo.geo.iter().enumerate() {
+                let x = segment[0] as f32;
+                let radius = segment[1] as f32;
+                data.push((x, radius));
+            }
+            self.cross_section_data = data;
+        } else {
+            self.cross_section_data = vec![];
         }
     }
 }

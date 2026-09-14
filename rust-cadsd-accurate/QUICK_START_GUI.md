@@ -26,7 +26,7 @@ When the GUI opens successfully, you should see:
 
 ### Left Panel - Controls
 - **Geometry Parameters**: Length, Top Diameter, Bottom Diameter, Segments
-- **Bore Style**: Choose from Cone, Cylinder, Exponential (Kigali, Mbeya planned)
+- **Bore Style**: Choose from Cone, Kigali, Mbeya
 - **Run Simulation Button**: Execute acoustic analysis
 - **Results Section**: Shows fundamental frequency and resonance details
 

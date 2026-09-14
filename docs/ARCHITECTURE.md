@@ -99,7 +99,7 @@ EvolutionaryOptimizer::evolve() → best genome
 | Strategy dispatch | `SimulationStrategy` + `DidgeridooSimulator::impedance` | ✅ Complete | Tlm/Waveguide/ComplexImpedance dispatch |
 | Waveguide freq-domain | `src/waveguide/mod.rs::WaveguideEngine` | ⚠️ Partial | Returns complex spectrum; no time-domain synthesis |
 | Complex impedance | `SimulationStrategy::ComplexImpedance` | ⚠️ Partial | Basic implementation; needs validation against TLM |
-| Geometry ops | `rust-cadsd-accurate/src/geo/mod.rs` | ✅ Complete | cone, cylinder, bubble, stretch, scale, volume, Kigali, Mbeya |
+| Geometry ops | `rust-cadsd-accurate/src/geo/mod.rs` | ✅ Complete | cone, bubble, stretch, scale, volume, Kigali, Mbeya |
 | Evolutionary optimizer | `src/evo/mod.rs` | ✅ Complete | Multiple mutation/crossover strategies, tournament selection, elite preservation, async execution |
 | Loss functions | `src/loss/mod.rs` | ✅ Complete | 10+ components, CompositeTairuaLoss with PeakDetectionMode, from_toggles() |
 | Peak detection | `src/sim/mod.rs::find_peaks*` | ✅ Complete | Three modes: local maxima, prominence, phase-based |

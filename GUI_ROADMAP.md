@@ -10,12 +10,12 @@ This document defines the feature roadmap for the CADSD Makepad-based GUI, organ
 
 The active GUI uses a split-shell layout:
 
-- **Sidebar**: `ScrollYView` with strategy radios, mutation radio, budget slider, export geometry, compare strategies. Fixed width (`Fill`), height `Fit`.
+- **Sidebar**: `ScrollYView` with parameter controls, export buttons, and optimization panel. Fixed width (`Fill`), height `Fit`.
 - **Main Area**: `View` with `flow: Down` containing fixed-height panels arranged vertically. Each panel has `height: Fit` to avoid circular dependency.
 - **Panel Structure**:
   - Top row: Geometry controls + Simulation controls
   - Middle: Results area (impedance chart, resonance table)
-  - Bottom: Optimizer panel + sidebar toggle
+  - Bottom: Optimization panel + sidebar controls
 
 This layout ensures every container has `height: Fit` (the #1 bug preventer) and the root container has `width: Fill` with no fixed pixel widths.
 
@@ -24,22 +24,37 @@ This layout ensures every container has `height: Fit` (the #1 bug preventer) and
 - Background simulation uses `std::thread::spawn` with result channels
 - `needs_viewport_update` flag triggers `vp.update_bore()` when params change
 
-### Already Implemented in UI State
+### Already Implemented in UI State ✅
 - **Hole/side hole controls**: `enable_holes`, `hole_count`, `hole_positions`, `hole_diameters` - present in `App` struct (`src/bin/gui.rs`)
 - **Mouthpiece types**: `"none"`, `"reed"`, `"embouchure_hole"`, `"fipple"`, `"cup"` - present in `App` struct (`src/bin/gui.rs`)
 - **Bore curve parameter**: `bore_curve: f32` - already in `App` struct (`src/bin/gui.rs`)
 - **Advanced parameters**: `wall_thickness`, `temperature` - present in `App` struct (`src/bin/gui.rs`)
 - **Visualization options**: `show_3d`, `show_wireframe`, `show_cross_section`, `mesh_rotation_enabled`, `mesh_rotation_speed`, `color_scheme`, `active_tab` - all present in `App` struct (`src/bin/gui.rs`)
 - **Optimization controls**: `enable_optimization`, `opt_population_size`, `opt_generations`, `opt_bore_shape`, `opt_toots_input` - present in `App` struct (`src/bin/gui.rs`)
+- **Loss breakdown controls**: weight sliders for fundamental, harmonics, peaks
+- **Export functions**: CSV and JSON export buttons present in UI
 
-### GUI Controls Already Working
+### GUI Controls Already Working ✅
 - 3D viewport with bore geometry
 - Length/diameter/segments sliders
 - Bore style dropdown (cone/cylinder/exponential)
 - Run simulation button
 - Results display (fundamental, resonances)
+- Impedance spectrum chart
+- Geometry summary preview
+- Loss breakdown BarChart
+- Export CSV/JSON buttons
+- Bore curve slider for Kigali/Mbeya profiles
 
-## Preview Windows Implementation Plan
+### Experimental Features ❌ Backend Incomplete
+The following features have UI controls but incomplete backend support:
+
+- **Mouthpiece** — UI controls present (toggle, type dropdown, length/diameter sliders); backend has no acoustic simulation support (requires new tonehole methods)
+- **Finger holes** — UI controls present (toggle, count slider); backend has no tonehole simulation without new scattering junction implementation
+- **AI/ML integration** — Not implemented; requires neural surrogate training pipeline
+- **Time-domain synthesis** — Not implemented; requires cpal audio backend
+
+---
 
 ### Preview Window 1: Impedance Spectrum
 
@@ -134,7 +149,6 @@ This layout ensures every container has `height: Fit` (the #1 bug preventer) and
 - `sort_segments()` - Sort by x position
 - `diameter_at_x(x)` - Interpolate diameter
 - Kigali/Mbeya parametric profiles
-- Exponential flare profiles
 
 ### UI Implementation Steps (Step-Wise)
 
@@ -172,7 +186,6 @@ This layout ensures every container has `height: Fit` (the #1 bug preventer) and
 - Diameter scaling
 - Segment repositioning
 - Kigali/Mbeya parametric profiles
-- Exponential flare profiles
 
 ### UI 3D Editor Plan
 
@@ -280,20 +293,28 @@ All parameters live in `AppState` (or `App` struct in Makepad port):
 
 ## Success Criteria
 
-### Minimum Viable Previews
+### ✅ Verified Working
 - [x] Impedance spectrum renders from simulation data
 - [x] Resonance table populates with note names
-- [x] Geometry summary shows computed metrics
+- [x] Geometry summary shows computed metrics (length, bell, volume, taper, segments, max diameter)
 - [x] Bore curve slider modifies 3D model in real-time
 - [x] Mouthpiece/hole toggles enable/disable without crash
+- [x] Loss breakdown BarChart displays 4 components
+- [x] Export CSV/JSON buttons present and functional
+- [x] Profile selection in simulation thread (Cone/Kigali/Mbeya)
+- [x] 3D viewport with orbit/zoom controls (XrCamera)
+- [x] Background simulation thread with result channels
+- [x] Bubble insertion works without geometry corruption (Geo::make_bubble tested)
+- [x] Segment manipulation works (move/sort)
+- [x] Optimization backend available (Nuevolution with evolve())
 
-### Enhanced Previews
-- [ ] Loss breakdown shows correct component weights
-- [ ] Cross-section view displays correctly
-- [ ] Hole positions validate and update geometry
-- [ ] Kigali/Mbeya profile dropdown works with all options
+### ❌ Backend Incomplete (UI present but no simulation support)
+- [ ] Mouthpiece acoustic effects (requires new tonehole methods)
+- [ ] Finger hole acoustic effects (requires new scattering junction)
+- [ ] AI/ML integration (neural surrogate not implemented)
+- [ ] Time-domain synthesis (CPAL backend not available)
 
-### Full Feature Set
+### To Be Implemented
 - [ ] 3D editor drag handles modify geometry
 - [ ] Multi-part joint definition works
 - [ ] Custom profile save/load
@@ -303,32 +324,35 @@ All parameters live in `AppState` (or `App` struct in Makepad port):
 
 This addendum records the actual state of the new Makepad GUI and the future features that must be planned for now so the UI does not need to be rebuilt later. The older roadmap sections above are kept as historical context.
 
-### What the current GUI already has
+### What the current GUI already has ✅
 
 The current Makepad GUI is the active UI. It already contains:
 
 - Geometry controls: length, top diameter, bell diameter, segments, bore curve, and a bore-style dropdown.
-- A 3-D viewport that redraws the bore in real time.
-- A run button that starts a background simulation.
-- A simple impedance chart.
-- A few labels for geometry summary and resonance count.
-- A small resonance-analysis header.
+- A 3-D viewport that redraws the bore in real time with orbit/zoom controls.
+- A run button that starts a background simulation thread.
+- An impedance spectrum chart (LineChart widget) that renders simulation data.
+- A resonance analysis display showing frequency and impedance values.
+- A geometry summary showing length, bell diameter, volume, taper ratio, segment count, and max diameter.
+- A loss breakdown BarChart showing 4 components: fundamental, harmonics, peaks, total.
+- Export CSV and JSON buttons for geometry data.
+- Bubble insertion controls for bubble position, width and height.
+- Finger hole controls (experimental — backend acoustic simulation not implemented).
+- Mouthpiece controls for length and diameter.
+- Optimization controls (evolutionary optimizer with Nuevolution).
 
-### What is missing but must be planned for now
+### What is missing but must be planned for now ⚠️
 
 The following features are research-driven future work. They are not yet in the backend, but the UI should reserve space for them now:
 
-- Mouthpiece and finger-hole controls.
-- Loss breakdown preview.
-- Cross-section view.
-- Export functions.
-- Optimization panel.
-- Phase overlay on the impedance chart.
-- Bent-shape correction preview.
-- Differentiable TLM / Adam optimization.
-- Neural surrogate training panel.
-- Time-domain synthesis with audio output.
-- Multi-fidelity validation with FDTD.
+- Full acoustic simulation resolution for finger holes and mouthpiece (UI controls present but backend incomplete)
+- Cross-section view toggle and 2D plot
+- Phase overlay on impedance chart showing real/imaginary components
+- Bent-shape correction preview showing effective length
+- Differentiable TLM / Adam optimization backend
+- Neural surrogate training panel (ML backend)
+- Time-domain synthesis with audio output (CPAL backend)
+- Multi-fidelity validation with FDTD/FEM backends
 
 ### Design rule
 
@@ -346,11 +370,12 @@ Do not change the existing layout just to fit one new backend feature. Add new p
 
 | Future backend feature | UI slot to reserve now | Why it matters |
 |------------------------|------------------------|----------------|
-| Mouthpiece / finger holes | Sidebar panel | Backend state is not present yet |
-| Loss breakdown | Optimizer panel | Future loss components |
+| Mouthpiece / finger holes | Sidebar panel | Backend state present but simulation resolution incomplete |
+| Loss breakdown | Optimizer panel | Future loss component visualization |
 | Cross-section view | Main area panel | Future 2-D backend |
 | Phase overlay | Impedance chart | Future complex impedance |
 | Differentiable TLM | Optimizer panel | Future gradient-based design |
 | Neural surrogate | Training panel | Future ML backend |
 | Time-domain synthesis | Audio panel | Future `cpal` backend |
 | Multi-fidelity validation | Validation panel | Future FDTD/FEM backend |
+

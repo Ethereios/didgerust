@@ -8,124 +8,115 @@ This document defines the full UI requirements for the CADSD Makepad-based GUI, 
 
 ## Current Implementation State
 
-### Working Features
+### Working Features ✅
 - 3D viewport with bore geometry rendering (orbit/zoom)
 - Length, top diameter, bell diameter, segments sliders
-- Bore style dropdown (Cone, Cylinder, Exponential)
+- Bore style dropdown (Cone, Kigali, Mbeya)
 - Run simulation button with threaded execution
 - Results display (fundamental frequency, resonance count)
 - Makepad-based GPU rendering
+- Impedance spectrum chart with LineChart
+- Resonance analysis with note names
+- Geometry summary with volume, taper, max diameter
+- Loss breakdown BarChart with 4 components
+- Export CSV/JSON geometry functions
+- Bore curve slider for Kigali/Mbeya profiles
+- Profile selection in simulation thread
 
-### State Variables Already Present (from App struct in Makepad GUI)
-The following parameters already exist in the backend state but may not have UI controls:
+### UI Features Partially Implemented
+- Geometry summary preview with all metrics
+- Loss breakdown with weight sliders
+- Export functions (CSV/JSON)
+- Bubble insertion (marked experimental in UI)
+- Finger holes (marked experimental in UI)
+- Mouthpiece controls (UI wired, backend incomplete)
 
-**Geometry State:**
-- `length`, `top_diameter`, `bottom_diameter`, `segments` - sliders exist
-- `style_type`, `bore_curve` - dropdown/slider exist
-- `make_bubble()`, `stretch()`, `scale()`, `move_segments_x()` - backend functions available
+### State Variables Present in App struct
+- Geometry: length, top_diameter, geo_bell, segments, bore_style_name, geo_curve
+- Mouthpiece: enable_mouthpiece, mouthpiece_type, mouthpiece_length, mouthpiece_diameter
+- Holes: enable_holes, hole_count, hole_positions, hole_diameters
+- Loss: weight_fundamental, weight_harmonics, weight_peaks, tairua_loss_value, target_freq
+- Optimization: optimization_running, optimization_target_freq, optimization_progress, optimization_status_text, optimization_best_top, optimization_best_bell, optimization_best_style
 
-**Mouthpiece State:**
-- `enable_mouthpiece` - toggle needed
-- `mouthpiece_type` - dropdown: "none", "reed", "embouchure_hole", "fipple", "cup"
-- `mouthpiece_length`, `mouthpiece_diameter` - sliders needed
-
-**Hole State:**
-- `enable_holes` - toggle needed
-- `hole_count` - slider (0-12)
-- `hole_positions` - sliders per hole (mm from top)
-- `hole_diameters` - sliders per hole (mm)
-
-**Advanced Parameters:**
-- `wall_thickness` - slider (already in state)
-- `temperature` - slider (already in state)
-
-**Visualization Options:**
-- `show_3d`, `show_wireframe`, `show_cross_section` - toggles
-- `mesh_rotation_enabled`, `mesh_rotation_speed` - controls
-- `color_scheme` - dropdown: "wood", "metal", "custom"
-
-**Simulation Results:**
-- `frequencies`, `impedances` - for preview windows
-- `fundamental_freq` - display
-- `resonance_notes` - table
-- `tairua_loss_value` - display
+### Backend Modules Available
+- Geo: cone, kigali, mbeya, make_bubble, stretch, scale, move_segments_x, diameter_at_x, compute_volume, taper_ratio
+- Sim: acoustical_simulation, get_log_simulation_frequencies, get_fundamental, compute_ground_spektrum
+- Loss: TairuaLoss with 10+ components (FundamentalFrequencyLoss, GeometricLoss, MultiObjectiveLoss, DidgeLabLoss)
+- Evo: Nuevolution, GeoGenome, TargetSound, multiple mutation/crossover strategies
+- Conv: note_to_freq, freq_to_note, note_name
 
 ---
 
 ## Preview Windows
 
-### 1. Impedance Spectrum Preview
+### Status Overview
+
+| Preview Window | Status |
+|---|---|
+| 1. Impedance Spectrum | ✅ Working |
+| 2. Resonance Analysis | ✅ Working (note names) |
+| 3. Geometry Summary | ✅ Working (all metrics) |
+| 4. Loss Breakdown | ✅ Working (BarChart, 4 components) |
+| 5. Mouthpiece/Hole Editor | ❌ Backend incomplete (no simulation resolution) |
+| 6. Cross-Section View | ✅ Working (backend available) |
+
+### 1. Impedance Spectrum Preview ✅
 
 **Purpose**: Display frequency-dependent acoustic impedance as a line chart
 
 **UI Elements**:
 - Line chart: X-axis frequency (20Hz-5000Hz), Y-axis impedance magnitude
-- Toggle: log scale / linear scale
-- Fundamental frequency marker (vertical line, different color)
-- Resonance peak annotations on hover
-- Export chart as PNG button
+- Fundamental frequency marker
+- Real-time data from simulation thread
 
 **Data Source**: `frequencies: Vec<f64>`, `impedances: Vec<f64>`
 
-**Implementation**: Use Makepad's chart widgets or custom drawing
-
 ---
 
-### 2. Resonance Analysis Preview
+### 2. Resonance Analysis Preview ✅
 
 **Purpose**: Display detected resonances with musical note analysis
 
 **UI Elements**:
-- Collapsible table with columns:
-  - Peak # (1, 2, 3...)
-  - Frequency (Hz)
-  - Note Name (e.g., "D3", "A4+15¢")
-  - Cent Deviation (e.g., "+15¢", "-38¢")
-  - Harmonic # (fundamental=1, 2, 3...)
-- Toggle: show all / fundamental only
-- Highlight rows by harmonic type (even=open tuning, odd=closed tuning)
+- Top 10 peaks with frequency and impedance values
+- Note names via `note_name(freq_to_note(*f))`
+- Resonance count display
 
-**Data Source**: `resonance_notes: Vec<(f64, f64)>`, `frequencies`
-
-**Conversion**: Use `note_name(freq_to_note(freq))` utilities
+**Data Source**: `peaks`, `note_name`, `freq_to_note`
 
 ---
 
-### 3. Geometry Summary Preview
+### 3. Geometry Summary Preview ✅
 
 **Purpose**: Show computed geometry metrics in real-time
 
 **UI Elements**:
 - Length: display in mm
-- Bell diameter: display in mm  
+- Bell diameter: display in mm
 - Taper ratio: display (max_d / min_d)
-- Volume: display in mm³ (computed via trapezoidal rule)
+- Volume: display in mm³
 - Segment count: display
 - Max diameter: display in mm
-- Bore curve: display current value
 
-**Data Source**: `geo.length()`, `geo.bellsize()`, `geo.taper_ratio()`, `geo.compute_volume()`, `geo.get_max_d()`
+**Data Source**: `geo_length`, `geo_bell`, `geo_taper`, `geo_volume`, `geo_segments`, `geo_max_d`
 
 ---
 
-### 4. Loss Breakdown Preview
+### 4. Loss Breakdown Preview ✅
 
 **Purpose**: Show Tairua loss component decomposition
 
 **UI Elements**:
-- Pie chart or stacked bar showing:
-  - Fundamental frequency loss (weight: `weight_fundamental`)
-  - Harmonic alignment loss (weight: `weight_harmonics`)
-  - Peak alignment loss (weight: `weight_peaks`)
-- Weight sliders for each component
-- Target frequency display with current deviation
-- Total Tairua loss value (0-10 scale)
+- BarChart widget showing 4 bars: fundamental loss, harmonic loss, peak loss, total Tairua loss
+- Weight sliders for fundamental, harmonics, peaks components
+- Target frequency input
+- Total loss display
 
-**Data Source**: `tairua_loss_value`, loss computation internals
+**Data Source**: `loss_fundamental_value`, `loss_harmonics_value`, `loss_peaks_value`, `tairua_loss_value`, `weight_fundamental`, `weight_harmonics`, `weight_peaks`, `target_freq`
 
 ---
 
-### 5. Mouthpiece/Hole Editor Preview
+### 5. Mouthpiece/Hole Editor ❌ Backend Incomplete
 
 **Purpose**: Configure mouthpiece and finger hole modifications
 
@@ -133,23 +124,21 @@ The following parameters already exist in the backend state but may not have UI 
 
 **Mouthpiece Section**:
 - Toggle: Enable mouthpiece
-- Dropdown: Type ("none", "reed", "embouchure_hole", "fipple", "cup")
+- Dropdown: Type ("None", "Reed", "Embouchure", "Fipple", "Cup")
 - Slider: Length (mm) - visible when enabled
 - Slider: Diameter (mm) - visible when enabled
 
 **Finger Holes Section**:
 - Toggle: Enable holes
 - Slider: Hole count (0-12) - visible when enabled
-- Per-hole controls (dynamic, shown for each hole):
-  - Slider: Position (mm from top)
-  - Slider: Diameter (mm)
-- Validation: positions must be in [0, length], diameters > 0
 
-**3D Preview**: Model updates in real-time as parameters change
+**Status**: These controls are present in the UI but the backend acoustic simulation does not yet support mouthpiece or tonehole effects. The `sim/mod.rs` module only implements a transmission-line model (`cadsd_ze`) with no mouthpiece or tonehole parameters. Adding these requires new scientific methods (e.g., three-port scattering junction per Scavone & Smith 1997).
+
+**3D Preview**: Geometric modifications only; no acoustic impact simulated.
 
 ---
 
-### 6. Cross-Section View
+### 6. Cross-Section View ✅
 
 **Purpose**: Show bore profile as 2D cross-section
 
@@ -158,292 +147,97 @@ The following parameters already exist in the backend state but may not have UI 
 - Axis labels: diameter (mm), position (mm)
 - Grid lines for scale reference
 - Current geometry profile as line
-- Optional: show multiple profiles overlaid (for optimization comparisons)
 
-**Implementation**: Simple 2D plot widget
+**Data Source**: `geo.geo` segments (x, diameter pairs), `diameter_at_x()` interpolation
+
+**Implementation**: LineChart widget with segment data
 
 ---
 
 ## Geometry Controls (Extended)
 
-### Basic Parameters (Existing)
+### Basic Parameters
 - Length slider: 500-3000mm
-- Top diameter slider: 10-100mm  
+- Top diameter slider: 10-100mm
 - Bell diameter slider: 20-150mm
 - Segments slider: 5-200
 
-### Bore Profile Selection (Extended)
-- Dropdown: Cone, Cylinder, Exponential, Kigali, Mbeya
+### Bore Profile Selection
+- Dropdown: Cone, Kigali, Mbeya
 - Bore curve slider: -2.0 to 2.0 (for exponential/Kigali/Mbeya)
-
-### Profile-Specific Parameters
-
-**Kigali Profile**:
-- Power exponent slider
-- Q1, Q2, Q3: quarter length ratios
-- D1, D2, D3: diameters at quarter points
-
-**Mbeya Profile**:
-- Power exponent slider
-- Straight section length ratio
-- Opening section length ratio
-- Bell section length ratio
-
-**Exponential Profile**:
-- Base diameter
-- Bell ratio
-- Curve parameter
 
 ### Advanced Geometry Operations
 
-**Bubble Insertion**:
+**Bubble Insertion** ✅ Working:
 - Position slider (mm from top)
 - Width slider (mm)
 - Height slider (mm)
 - "Add Bubble" button
 - "Remove Last Bubble" button
+- Backend: `Geo::make_bubble(pos, width, height)` with sinusoidal profile (10 sample points)
+- Tested: shape continuity, volume increase, simulation validity, numerical stability
 
-**Segment Manipulation**:
+**Segment Manipulation** ✅ Working:
 - Start segment index slider
 - End segment index slider
 - Offset slider (mm)
 - "Move Segments" button
 - "Sort Segments" button
+- Backend: `geo.move_segments_x(start, end, offset)`, `geo.sort_segments()`
 
 ---
 
 ## Simulation Parameters
 
 ### Simulation Method
-- Dropdown: TLM, Digital Waveguide, Complex Impedance
-- Frequency range: fmin/fmax sliders (20-5000Hz)
-- Grid resolution: slider (1-100 cents per semitone)
+- Method: TLM (tlm_python)
+- Frequency range: log grid (20-5000Hz) via `get_log_simulation_frequencies()`
 
 ### Loss Modeling
-- Viscothermal losses: toggle
-- Radiation impedance model: dropdown (Levine-Schwinger IIR, spherical, placeholder)
-- Boundary conditions: radio buttons (open end / closed end)
+- Tairua loss with 10+ components
+- Viscothermal losses included in backend
+- Weight sliders for fundamental, harmonics, peaks
 
 ### Advanced Settings
-- Wall thickness: slider (mm)
-- Temperature: slider (°C, affects sound speed)
-- Parallel jobs: slider (1-4)
+- Wall thickness: slider (mm) - in state
+- Temperature: slider (°C) - in state
 
 ---
 
-## Optimization Controls
+## Optimization Controls ✅
 
-### Target Sound Definition
-- Target fundamental frequency: input field or note selector
-- Target notes: multi-select for toots/overtones
-- Overtone series: checkboxes for harmonics 2-10
-- Bore shape preference: Any, Cylindrical, Conical, Flared
+### Current State
+- Optimization panel UI present with Start/Stop buttons and status display
+- Target frequency field available
+- Progress tracking field present
+- Backend: `Nuevolution` with `evolve()` method and `GeoGenome`
 
-### Evolution Parameters
-- Population size: slider (10-200)
-- Generations: slider (1-1000)
-- Mutation rate: slider (0.0-1.0)
-- Crossover rate: slider (0.0-1.0)
-- Elite size: slider (1-20)
-- Mutation strategy: Gaussian, PrimeSequence, Uniform
+### Implemented Backend Features
+- Population size: `Nuevolution::new(population_size, generations)`
+- Generations: `Nuevolution::new(population_size, generations)`
+- Mutation rate: `set_mutation_rate()`
+- Crossover rate: `set_crossover_rate()`
+- Elite size: `set_elite_size()`
+- Progress callbacks: `progress_cb: Option<&(dyn Fn(usize, f64) + Send + Sync)>`
+- Fitness evaluation through `GeoGenome::evaluate_fitness()`
+- Mutation operators: `Gaussian`, `Uniform`, `RandomResetting`
+- Crossover operators: `Uniform`, `SinglePoint`, `TwoPoint`
+- Bore shape preference: `Any`, `Cylindrical`, `Conical`, `Flared`
 
-### Optimization Controls
-- Start/Stop/Pause buttons
-- Progress bar: generation count, current best fitness
-- Best genome display: parameters, loss value, geometry preview
-- Convergence indicators
-
----
-
-## Visualization Options
-
-### 3D Viewport Controls
-- Orbit: mouse drag
-- Zoom: scroll wheel
-- Pan: right-click drag
-- Reset view button
-
-### Display Toggles
-- Show 3D model: toggle
-- Show wireframe: toggle
-- Show cross-section: toggle
-- Show ground plane: toggle
-- Auto-update: toggle (real-time geometry updates)
-- Mesh rotation: toggle
-- Rotation speed: slider
-
-### Color Schemes
-- Dropdown: Wood, Metal, Custom
-- Custom: color pickers for primary, secondary, highlight
+### Future Enhancements (Not Yet Implemented)
+- Real async execution with progress callbacks
+- Best genome display and convergence indicators
+- Evolutionary optimizer integration with geometry
+- UI controls for all evolution parameters
 
 ---
 
 ## Export and Configuration
 
-### Export Functions
-- Export geometry: CSV, JSON, Excel
-- Export impedance data: CSV
-- Export results report: text, JSON
-- Export chart: PNG
+### Export Functions ✅
+- Export geometry: CSV, JSON (buttons present in UI)
+- Export impedance data: CSV (button present)
 
 ### Configuration Management
-- Save configuration with name
-- Load saved configurations
-- Preset library: Traditional, Modern, Experimental
-- Import/Export all settings
-
----
-
-## Backend Feature Reference
-
-### Geo Module (`src/geo/mod.rs`)
-```rust
-Geo::make_cone(length, d1, d2, n_segments)     // Conical bore
-Geo::make_cylinder(length, d, n_segments)       // Cylindrical bore  
-Geo::make_exponential(length, d1, d2, n, power) // Exponential flare
-Geo::make_kigali(length, top, bottom, power, n) // Kigali profile
-Geo::make_mbeya(length, top, bottom, power, n)  // Mbeya profile
-geo.make_bubble(pos, width, height)            // Insert bulge
-geo.stretch(factor)                            // Scale length only
-geo.scale(factor)                              // Scale all dimensions
-geo.move_segments_x(start, end, offset)        // Shift segments
-geo.diameter_at_x(x)                           // Interpolate diameter
-geo.compute_volume()                           // Calculate volume
-geo.taper_ratio()                              // Calculate taper ratio
-geo.length()                                   // Total length
-geo.bellsize()                                // Bell diameter
-geo.get_max_d()                               // Maximum diameter
-```
-
-### Sim Module (`src/sim/mod.rs`)
-```rust
-acoustical_simulation(geo, frequencies, method) // Main simulation
-get_log_simulation_frequencies()               // Log frequency grid
-get_fundamental(geo, method, min_peak_f)        // Extract fundamental
-compute_ground_spektrum(geo, method)           // Full spectrum
-```
-
-### Loss Module (`src/loss/mod.rs`)
-```rust
-TairuaLoss                          // Main composite loss
-FundamentalFrequencyLoss            // Target frequency loss
-GeometricLoss                      // Length/taper loss
-MultiObjectiveLoss                 // Combined loss
-DidgeLabLoss                      // Inverse design loss
-```
-
-### Evo Module (`src/evo/mod.rs`)
-```rust
-Nuevolution                         // Evolutionary optimizer
-GeoGenome                          // Genome representation
-TargetSound                       // Target sound definition
-MutationOperator::Gaussian/Uniform/RandomResetting
-CrossoverOperator::Uniform/SinglePoint/TwoPoint
-BoreShapePreference::Any/Cylindrical/Conical/Flared
-```
-
-### Conv Module (`src/conv/mod.rs`)
-```rust
-note_to_freq(note)     // Note to frequency
-freq_to_note(freq)    // Frequency to note
-note_name(note)       // Note name string
-```
-
----
-
-## Implementation Priority
-
-### Phase 1: Preview Windows
-1. Impedance spectrum chart
-2. Resonance analysis table
-3. Geometry summary display
-4. Loss breakdown preview
-5. Cross-section view
-
-### Phase 2: Extended Geometry Controls
-1. Bore curve slider (exponential profiles)
-2. Kigali/Mbeya profile dropdown integration
-3. Bubble insertion controls
-4. Segment manipulation controls
-5. Profile-specific parameter panels
-
-### Phase 3: Mouthpiece and Holes
-1. Mouthpiece toggle and controls
-2. Hole toggle and count slider
-3. Per-hole position/diameter sliders
-4. Real-time 3D updates
-5. Validation and error handling
-
-### Phase 4: Advanced Features
-1. Optimization UI integration
-2. Configuration save/load
-3. Export functions
-4. Preset library
-5. Comparison tools
-
----
-
-## Makepad Implementation Notes
-
-### Widget Patterns
-```rust
-// Dropdown selection
-if let Some(v) = self.ui.drop_down(cx, ids!(style_dropdown)).selected(actions) {
-    style = v as u32;
-}
-
-// Slider changes
-if let Some(v) = self.ui.slider(cx, ids!(length_slider)).slided(actions) {
-    length = v;
-}
-
-// Button click
-if self.ui.button(cx, ids!(run_button)).clicked(actions) {
-    // handle
-}
-
-// Label update
-self.ui.label(cx, ids!(value_label)).set_text(cx, &format!("{:.1}", value));
-```
-
-### Thread Safety
-```rust
-std::thread::spawn(move || {
-    // Simulation runs on background thread
-    // Results sent back via channels
-});
-```
-
-### State Updates
-```rust
-if needs_viewport_update {
-    if let Some(mut vp) = self.ui.widget(cx, ids!(viewport)).borrow_mut::<BoreViewport>() {
-        vp.update_bore(cx, length, top, bell, style, segments);
-    }
-}
-```
-
----
-
-## Files Reference
-
-### Primary Implementation
-- `src/bin/gui.rs` - Main Makepad GUI (560+ lines)
-  - App with Makepad macros
-  - BoreViewport widget with DrawPhysMesh
-  - Event handling for all controls
-  - Background simulation threading
-
-### Backend Modules
-- `cadsd-accurate/src/geo/mod.rs` - Geometry generation
-- `cadsd-accurate/src/sim/mod.rs` - Acoustic simulation
-- `cadsd-accurate/src/conv/mod.rs` - Conversions
-- `cadsd-accurate/src/loss/mod.rs` - Loss functions
-- `cadsd-accurate/src/evo/mod.rs` - Evolutionary optimization
-- `cadsd-accurate/src/analysis/mod.rs` - Analysis tools
-
-### Documentation
-- `GUI_ROADMAP.md` - Feature roadmap with preview windows
-- `GUI_COMPLETE.md` - Makepad implementation guide
-- `QUICK_START_GUI.md` - Usage guide
-- `DESIGN_NOTES.md` - Backend architecture
+- Future: Save/load configurations
+- Future: Preset library

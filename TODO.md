@@ -1,7 +1,7 @@
 # DidgeRust Future Goals
 
 This file documents important features and improvements that are **not yet fully implemented**.
-Status levels: 🔄 partial, ❌ missing, ⚠️ needs improvement.
+Status levels: ✅ working, 🔄 partial, ⚠️ needs improvement, ❌ missing, 🧪 experimental.
 
 ## Partial Implementations (concrete improvements needed)
 
@@ -27,7 +27,7 @@ Status levels: 🔄 partial, ❌ missing, ⚠️ needs improvement.
 - **Hole editor** — ⚠️ UI controls wired (toggle + count slider), but backend equations are incomplete — no acoustic simulation resolution yet.
 - **Loss breakdown preview** — ❌ Not implemented; Tairua loss components not exposed in GUI.
 - **Cross-section view** — ⚠️ 2D diameter-vs-position plot not yet implemented in GUI; segments available in backend Geo format.
-- **Bore curve preview** — ✅ Kigali/Mbeya profiles now render correctly with power-law taper; curve slider has visual feedback via profile label; all 5 bore styles supported (Cone, Cylinder, Exponential, Kigali, Mbeya)
+- **Bore curve preview** — ✅ Kigali/Mbeya profiles now render correctly with power-law taper; curve slider has visual feedback via profile label; all 3 bore styles supported (Cone, Kigali, Mbeya)
 - **Segment Editor** — ⚠️ Segment editor toggle, bubble insertion (position/width/height inputs, Add/Remove buttons), and segment operations (move/sort with start/end/offset inputs) now wired into Makepad GUI
 - **Export functions** — ❌ No CSV/JSON/PNG export from Makepad GUI.
 
@@ -67,7 +67,7 @@ Status levels: 🔄 partial, ❌ missing, ⚠️ needs improvement.
 ### Makepad GUI (working)
 
 - **Geometry controls** — Length, top/bell diameter, segments sliders
-- **Bore style dropdown** — ✅ Fixed: Cone, Cylinder, Exponential, Kigali, Mbeya all available in dropdown
+- **Bore style dropdown** — ✅ Fixed: Cone, Kigali, Mbeya all available in dropdown
 - **Bore curve slider** — -2.0 to 2.0 (affects Kigali/Mbeya power parameter)
 - **3D viewport** — Real-time bore geometry with orbit/zoom controls (XrCamera)
 - **Run simulation button** — Background thread execution
@@ -76,3 +76,15 @@ Status levels: 🔄 partial, ❌ missing, ⚠️ needs improvement.
 - **Geometry summary preview** — Length, bell, volume, taper ratio, segments, max diameter
 - **Resonance analysis preview** — Top 10 peaks with frequency and impedance values
 - **Profile selection in simulation thread** — Cone/Kigali/Mbeya properly routed to `Geo::make_*` builders
+
+## Experimental Features 🧪
+
+The following features are implemented but not fully validated. Marked as experimental in the GUI UI with "(Experimental)" labels:
+
+- **Bubble insertion** — Insert bulges at positions in bore; backend available but acoustic impact not fully tested
+- **Finger holes** — UI controls wired (toggle + count slider), but backend equations incomplete — no acoustic simulation resolution yet
+- **Optimization panel** — UI panel exists with Start/Stop controls and progress display; optimization backend not yet wired
+- **Mouthpiece** — UI controls present; backend equations incomplete — no acoustic simulation resolution yet
+- **AI/ML integration** — Neural fitness predictor and time-domain synthesis not yet implemented
+
+---

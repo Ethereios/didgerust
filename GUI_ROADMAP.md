@@ -379,3 +379,325 @@ Do not change the existing layout just to fit one new backend feature. Add new p
 | Time-domain synthesis | Audio panel | Future `cpal` backend |
 | Multi-fidelity validation | Validation panel | Future FDTD/FEM backend |
 
+---
+
+## 11. DidgeLab Workflow Review and App Menu Architecture 
+
+[certain] This revision corrects the prior "tec" typo: the top menu is **File, Edit, Theme, Help** (standard desktop app structure), NOT a "Tech" section. The analysis below maps each DidgeLab web-feature to our app's correct placement: main window, auxiliary window, or future work.
+
+### 11.1 Current GUI Feature Inventory (verified against src/bin/gui.rs)
+
+The minimum working GUI window currently contains:
+
+| Component | Location in GUI | Status |
+|---|---|---|
+| Header (title + hint) | SolidView, top 44px | ✅ Ready for menu bar replacement |
+| Sidebar | SolidView, 320px left | ✅ Complete |
+| Geometry controls | Sidebar | ✅ Length, top/bell diameter, segments, bore style, bore curve |
+| Bubble insertion | Sidebar | ✅ Position/width/height inputs + add/remove buttons |
+| Segment editor | Sidebar (toggle) | ✅ Start/end/offset + sort |
+| Mouthpiece controls | Sidebar | ✅ UI only (backend incomplete — tonehole simulation) |
+| Finger hole controls | Sidebar | ✅ UI only (backend incomplete — scattering junction) |
+| Loss breakdown | Sidebar | ✅ Weight sliders + BarChart + target freq |
+| Optimization panel | Sidebar | ✅ Start/Stop + async thread + Nuevolution backend |
+| 3D viewport | Main area | ✅ BoreViewport (orbit/zoom) |
+| Impedance spectrum | Main area | ✅ LineChart |
+| Cross-section view | Main area | ✅ Diameter vs position LineChart |
+| Geometry summary | Main area | ✅ Grid of: length, bell, volume, taper, segments, max d |
+| Resonance analysis | Main area | ✅ DataGrid (10 rows) + resonance_list label |
+| Export CSV/JSON | Sidebar | ✅ rfd dialog |
+
+**State fields confirmed** (App struct, lines 1192–1289): impedance_data, fundamental_freq, peaks, geo_*, bubbles, mouthpiece_*, hole_*, loss_*, optimization_*, cross_section_data — all verified present.
+
+### 11.2 Feature Placement Decision: Main Window vs Auxiliary Window vs Future
+
+[certain] The following table maps each DidgeLab feature to its correct location. This is a design decision, not yet implemented.
+
+| DidgeLab Feature | Placement | Rationale |
+|---|---|---|
+| **Acoustic Target** (multi-peak, scale tuning, weights) | **Auxiliary window** | Single target freq slider in sidebar covers basic case; full target builder (per-peak note, impedance amplitude, scale tuning) needs dedicated dialog to avoid cluttering sidebar |
+| **Shape Configuration with ranges** | **Main window** (extend sidebar) | Min/max sliders can extend existing geometry controls in sidebar |
+| **Forced diameters for joints** | **Main window** (viewport overlay) | Interacts directly with 3D viewport; can be inline overlay |
+| **Evolution settings** (clone, name, duration) | **Auxiliary window** | Clone from previous run + name + duration tiers need a configuration dialog, not inline sliders |
+| **Real-time loss chart over generations** | **Main window** (replace/augment BarChart) | Can extend the existing loss breakdown BarChart into a LineChart with generational history |
+| **Multi-shape results with tuning table** | **Auxiliary window** | 10 best shapes + per-shape tuning table (cents) needs dedicated result browser |
+| **Export pipeline** | **Main window** (extend File menu) | CSV/JSON already in sidebar; Blender/3D print prep as File → Export submenu |
+| **Advanced 3D editor** | **Main window** (viewport) | Drag handles, control points integrate directly with BoreViewport; right-click context menu |
+| **AI/ML features** | **Auxiliary window** | Neural predictor training and time-domain synthesis need dedicated panel |
+| **Documentation window** | **Auxiliary window** | Triggered via Help → Documentation; multi-page guided tour |
+| **Shape preview before simulation** | **Main window** (viewport) | Already have real-time 3D preview in viewport |
+| **Phase overlay on impedance** | **Main window** (impedance chart) | Extend existing LineChart |
+| **Community queue / etiquette** | Not applicable | Desktop app, not multi-user online service |
+| **Donate** | Not applicable | Not a web service |
+
+### 11.3 Proposed Top Menu Architecture
+
+[certain] Replacing the current simple header (title + hint) with a proper desktop-style menu bar:
+
+```
+File        Edit          View        Theme       Help
+```
+
+**File menu** (dropdown):
+- New Project — reset current session
+- Open Project — load JSON config
+- Save Project — save current settings to JSON
+- Save As — file dialog for save location
+- Export → Impedance CSV, Geometry CSV, Geometry JSON, Shape JSON
+- Print — print screenshot of current view
+- Quit / Ctrl+Q
+
+**Edit menu** (dropdown):
+- Undo / Ctrl+Z
+- Redo / Ctrl+Y
+- Copy View — copy current viewport snapshot to clipboard
+- Find Resonance — search peaks by note name
+- Preferences — units, simulation defaults
+
+**View menu** (dropdown):
+- Toggle Sidebar — show/hide sidebar
+- Toggle Wireframe — show/hide wireframe overlay (uses existing `show_wireframe`)
+- Toggle Cross-Section — show/hide cross-section chart (uses existing `show_cross_section`)
+- Zoom Extents — reset camera
+- Full Screen — maximize window
+
+**Theme menu** (dropdown):
+- Dark Mode — current default (#x0d1116 background)
+- Light Mode — alternate theme
+- Auto (System) — follow OS preference
+
+**Help menu** (dropdown):
+- Documentation — opens multi-page guided workflow window
+- Research Papers — list of relevant acoustics citations
+- About — version, authors, build info
+
+### 11.4 Auxiliary Windows Required
+
+Three auxiliary windows for features that don't fit the minimum main window:
+
+1. **Acoustic Target & Optimization Config Window** — Contains: Acoustic Target builder (per-peak note, impedance amplitude, scale tuning, target weights), Evolution Settings (clone from previous, optimization name, duration tiers: Medium/Long), and Results Browser (10 best shapes, tuning table with cents, individual loss breakdown).
+
+2. **AI/ML Features Window** — Contains: neural fitness predictor training panel, PINN surrogate configuration for bent geometries, time-domain synthesis controls (audio output), differentiable TLM parameters. Marked "Experimental" since backend is incomplete.
+
+3. **Documentation Window** — Multi-page guided workflow mirroring DidgeLab's docs: Introduction, Setup Optimization (Acoustic Target, Shape Configuration, Evolution Settings), Run Optimization (loss trends, results analysis), Build a Didgeridoo (export, Blender prep).
+
+### 11.5 Advanced 3D Editor Placement in Main Window
+
+[certain] These features integrate directly with the 3D viewport in the main window — no separate window needed:
+
+- Drag handles on 3D viewport segments (interact with existing BoreViewport)
+- Right-click context menu: add bubble, stretch, scale (context menu on viewport)
+- Control points for bore curve shape (overlay on viewport)
+- Multi-part joint definition at specific x positions (forced diameter markers on viewport)
+- Preserve/global modify toggle (sidebar toggle that affects viewport behavior)
+
+### 11.6 Feature That Must Stay in Sidebar (Main Window)
+
+- Acoustic target frequency input (existing single-target slider) — extend to multi-peak via auxiliary window
+- Loss weight sliders (existing) — extend to generational trend in main area
+- Geometry controls (existing sliders) — add min/max range sliders inline
+
+### 11.7 Implementation Priority (Revised)
+
+#### Immediate (Next UI Session)
+1. **Top menu bar** — replace current header with File/Edit/View/Theme/Help dropdowns
+2. **View menu toggles** — wire existing `show_wireframe`, `show_cross_section` to View menu items
+3. **Theme menu** — dark/light mode toggle (extend current dark theme)
+4. **Help → Documentation** — open auxiliary docs window with existing research docs
+
+#### Mid-term (2-3 UI Sessions)
+5. **Acoustic Target window** — per-peak note, scale tuning, weights builder
+6. **Evolution settings** — clone from previous, name, duration tiers
+7. **Generational loss chart** — replace single BarChart with LineChart showing freq/scale/q/total trends
+8. **Multi-shape results browser** — 10 best shapes + tuning table with cents
+9. **Advanced 3D viewport tools** — drag handles, control points, right-click menu (inline, main window)
+
+#### Lower Priority
+10. **AI/ML feature window** — neural predictor, PINN, time-domain synthesis
+11. **Export pipeline extension** — Blender/3D print prep (File → Export submenu)
+12. **Phase overlay** — extend impedance LineChart
+
+### 11.8 Makepad Verification Required
+
+[certain] Before implementing any new Makepad UI elements, verify against source in `D:/didgeridoo/makepad/`:
+- `DropDown` widget usage — confirm dropdown sub-menu API pattern
+- `Menu` widget — check if makepad provides a Menu/MenuItem widget, or custom SolidView pattern
+- `Window` widget — confirm multi-window creation pattern for auxiliary windows
+- `LineChart` widget — confirm API for multiple series (for generational loss chart)
+- `DataGrid` widget — confirm API for tuning table
+
+### 11.9 Summary: Menu Structure vs Feature Placement
+
+```
+Main Window (minimum working GUI):
+├── Top Menu Bar (File, Edit, View, Theme, Help)
+├── 3D Viewport (with advanced 3D tools inline: drag handles, control points, right-click menu)
+├── Sidebar (geometry controls, loss weights, optimization panel)
+└── Main Area (impedance chart with phase overlay, geometry summary, resonance analysis, cross-section view, generational loss chart)
+
+Auxiliary Windows (triggered from menus/toolbar):
+├── Documentation (Help → Documentation)
+├── Acoustic Target & Optimization Config (Tools → Optimization Settings)
+├── AI/ML Features (Tools → AI/ML)
+└── Results Browser (Run → Results Browser)
+```
+
+Based on thorough review of the DidgeLab website (didgelab.com), the following major UI/UX features are present in DidgeLab but **completely missing** from our current GUI. These must be planned before any further implementation.
+
+### 11.1 Top Menu Architecture (Corrected: etc, not tec)
+
+[certain] The top menu is **File, Edit, Theme, Help** — standard desktop app structure. Not a website nav bar.
+
+**File menu** (dropdown):
+- New Project — reset current session
+- Open Project — load JSON config
+- Save Project — save current settings to JSON
+- Save As — file dialog for save location
+- Export → Impedance CSV, Geometry CSV, Geometry JSON, Shape JSON (extend existing CSV/JSON export)
+- Quit / Ctrl+Q
+
+**Edit menu** (dropdown):
+- Undo / Ctrl+Z, Redo / Ctrl+Y
+- Preferences — units, simulation defaults
+
+**Theme menu** (dropdown):
+- Dark Mode — current default (#x0d1116)
+- Light Mode — alternate
+
+**Help menu** (dropdown):
+- Documentation — opens auxiliary window with existing research docs
+- About — version, authors
+
+### 11.2 Menu Integration with Current Page Structure
+
+DidgeLab's documentation is a **multi-page guided tour**:
+- **Introduction** — Overview, features (fundamental note, toots, shape config), experimental acoustic targets (harmonic/inharmonic/shimmering resonances)
+- **Setup Optimization** — 3 sections: Acoustic Target, Shape Configuration, Evolution Settings
+- **Run Optimization** — Status monitoring, real-time loss chart, results analysis
+- **Build a Didgeridoo** — Export shape data, Blender scripts for 3D printing, building methods
+
+**Our gap**: No documentation window, no guided workflow, no explanation of experimental features. User notes: "we already have research and methodology document to navigate for users" — this should be integrated as a Documentation window.
+
+### 11.3 Acoustic Target Definition
+
+DidgeLab's **Setup Optimization** page has a full Acoustic Target builder:
+
+**Basic Targets:**
+- **Frequency Tuning** — Per-peak: tune to specific note (e.g., B1, A2), set impedance amplitude ("Ignore" option), weight (priority)
+- **Scale Tuning** — Auto-tune all peaks to a scale (e.g., harmonic major)
+- **Peak Quantity** — Encourage high number of resonant peaks
+- **Peak Amplitude** — Encourage higher, more pronounced peaks
+
+**Weights & Tips:**
+- Weights determine priority when optimizer encounters conflicts
+- "Prioritize the drone" — high weight on fundamental for specific key
+- "Keep it simple" — start with few targets
+
+**Our gap**: We only have a single target frequency slider. No multi-peak targeting, no scale tuning, no weight system per-target, no impedance amplitude targets.
+
+### 11.4 Shape Configuration with Ranges & Forced Diameters
+
+DidgeLab's **Shape Configuration** section:
+- **Ranges** — Min/max for length, bell, bore sections (not fixed values)
+- **Forced Diameters** — Define specific diameters at certain x-positions for multi-part joint design
+- **Preview** — Visualize generated shape before running optimization
+
+**Our gap**: Only fixed sliders. No min/max ranges, no forced diameters for joints, no shape preview before simulation.
+
+### 11.5 Evolution Settings
+
+DidgeLab's **Evolution Settings**:
+- **Clone from existing optimization** — Copy shape, targets, or results from previous run to continue refining
+- **Optimization name** — Custom name or auto-generated from movie quotes
+- **Duration** — Generations: Medium (50 gens, ~30 min), Long (1000 gens, up to 10 hours)
+- **Community Etiquette** — Global limit: 3 parallel optimizations; run one at a time; start with test run
+
+**Our gap**: Basic Start/Stop only. No cloning, no naming, no duration tiers, no queue/etiquette system.
+
+### 11.6 Real-Time Loss Chart Over Generations
+
+DidgeLab's **Run Optimization** page shows:
+- **Loss chart** tracking freq/scale/q factor/total loss over generations (line chart)
+- Visualizes diminishing returns (flattens after ~150 generations)
+- "Balancing Weights" analysis: if scale loss high while freq low → optimizer sacrificing scale for note
+
+**Our gap**: Single BarChart showing current loss breakdown. No generational history, no trend visualization, no weight-balancing guidance.
+
+### 11.7 Multi-Shape Results with Tuning Table
+
+DidgeLab's **Results** section:
+- **10 best shapes** generated so far (smallest total loss)
+- Toggle between Individual 1, 2, 3...
+- Per-individual: bore visualization, **tuning table** (frequency, note, cents deviation), impedance spectrum, individual loss breakdown
+- **Cents deviation** — e.g., "D (-38 cents)" means between C# and D; <5 cents excellent, >10 cents audibly out of tune
+- Download shape data: JSON, Excel, CSV
+
+**Our gap**: Single result only. No tuning table with cents, no multi-shape comparison, no individual loss breakdown, no Excel export.
+
+### 11.8 Build/Export Pipeline
+
+DidgeLab's **Build a Didgeridoo** page:
+- Download shape data (JSON, Excel, CSV)
+- **Blender scripts** to turn results into 3D-printable meshes ([github.com/didgitaldoo/didge2blender](https://github.com/didgitaldoo/didge2blender))
+- External guide: Didgeridoo-Physik building methods
+
+**Our gap**: Basic CSV/JSON only. No Blender export, no 3D print preparation, no manufacturing guidance.
+
+### 11.9 Advanced 3D Editor for Generated Model
+
+User requirement: "more 3D editing of generated model" — DidgeLab only shows static bore visualization. We need:
+- Drag handles on 3D viewport to move selected segment
+- Scroll wheel to stretch/lengthen geometry
+- Right-click menu: add bubble, stretch, scale
+- Control points for bore curve shape (local exponent modification)
+- Multi-part joint definition at specific x positions
+- Forced diameter at joints
+- Profile editing with preserve/global modify toggle
+
+### 11.10 AI Features Section
+
+User requirement: "separate section needed for the AI features to control and manipulate"
+- Neural fitness predictor training panel
+- PINN surrogate for bent geometries
+- Time-domain synthesis with audio output
+- Differentiable TLM / Adam optimizer integration
+- ML backend training pipeline controls
+
+### 11.11 Summary: View Modes (NOT separate pages — single main window)
+
+[certain] These are **view modes** that switch the main area layout via the top menu — not separate web pages. The entire app is ONE window:
+
+| View Mode | Top Menu | Main Area Shows | Sidebar Shows |
+|---|---|---|---|
+| **Home/Start** | File → New | Quick action buttons, recent projects | Basic geometry controls |
+| **Setup** | Edit → Setup | Acoustic target builder, shape config, evolution settings | Target weights, shape ranges |
+| **Run** | Run → Start | Real-time loss chart, generational trends, status | Optimization controls, stop |
+| **Results** | Run → Results | 10 best shapes, tuning table (cents), impedance per shape | Shape selector, compare toggle |
+| **Build/Export** | File → Export | Blender export, 3D print prep, shape data download | Export format options |
+| **Documentation** | Help → Docs | Guided workflow steps | N/A |
+| **AI/ML** | Tools → AI/ML | Neural predictor training, PINN config, audio synthesis | ML backend controls |
+
+**Key point**: The main window is ALWAYS one window. The top menu switches which panels are visible in the main area. The sidebar context adapts to the active view mode.
+
+---
+
+### Updated Implementation Priority
+
+#### Immediate (Next UI Session)
+1. **Top menu bar** replacing header — File/Edit/Theme/Help dropdowns
+2. **View mode switching** — Setup, Run, Results, Documentation views in main area
+3. **Documentation window** — integrate existing research/methodology docs as Help menu
+4. **Acoustic Target builder** — multi-peak, scale tuning, weights (auxiliary window)
+5. **Shape Configuration** — ranges, forced diameters (sidebar extension)
+
+#### Mid-term (2-3 UI Sessions)
+6. **Evolution settings** — clone from previous, name, duration tiers (auxiliary window)
+7. **Generational loss chart** — LineChart replacing single BarChart
+8. **Multi-shape results view** — 10 best shapes, tuning table with cents (auxiliary window)
+9. **Advanced 3D editor** — drag handles, control points, right-click menu (inline in viewport)
+
+#### Lower Priority
+10. **AI/ML feature window** — neural predictor, PINN, differentiable TLM
+11. **Time-domain synthesis** — audio output
+12. **Blender/3D print export** — File → Export pipeline extension
+

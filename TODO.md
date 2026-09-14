@@ -21,15 +21,10 @@ Status levels: ✅ working, 🔄 partial, ⚠️ needs improvement, ❌ missing,
 
 - **GUI tonehole editor** — ⚠️ Sliders work; no drag-and-drop on bore preview.
 - **3-D bore preview** — ⚠️ Wireframe exists in `src/app.rs::draw_bore_gizmos`. Add camera controls, zoom, rotation.
-- **Optimizer loop** — ⚠️ Buttons log only; no real async execution with progress callbacks.
-- **Frequency grid** — ⚠️ Linear by default; log grid not cents-based everywhere.
-- **Mouthpiece controls** — ⚠️ UI controls wired (toggle + type dropdown + length/diameter sliders), but backend equations are incomplete — no acoustic simulation resolution yet.
-- **Hole editor** — ⚠️ UI controls wired (toggle + count slider), but backend equations are incomplete — no acoustic simulation resolution yet.
-- **Loss breakdown preview** — ❌ Not implemented; Tairua loss components not exposed in GUI.
-- **Cross-section view** — ⚠️ 2D diameter-vs-position plot not yet implemented in GUI; segments available in backend Geo format.
-- **Bore curve preview** — ✅ Kigali/Mbeya profiles now render correctly with power-law taper; curve slider has visual feedback via profile label; all 3 bore styles supported (Cone, Kigali, Mbeya)
-- **Segment Editor** — ⚠️ Segment editor toggle, bubble insertion (position/width/height inputs, Add/Remove buttons), and segment operations (move/sort with start/end/offset inputs) now wired into Makepad GUI
-- **Export functions** — ❌ No CSV/JSON/PNG export from Makepad GUI.
+- **Optimizer loop** — ✅ Wired: cancellable background thread with Nuevolution, progress callbacks, Start/Stop buttons and status labels
+- **Loss breakdown preview** — ✅ Implemented: TairuaLoss weights (fundamental, harmonics, peaks) exposed via sliders, BarChart showing 4 components, target freq input
+- **Cross-section view** — ✅ LineChart rendering diameter vs position from current Geo segments
+- **Export functions** — ✅ CSV and JSON export working via rfd file dialog
 
 ## Missing Implementations
 
@@ -76,6 +71,10 @@ Status levels: ✅ working, 🔄 partial, ⚠️ needs improvement, ❌ missing,
 - **Geometry summary preview** — Length, bell, volume, taper ratio, segments, max diameter
 - **Resonance analysis preview** — Top 10 peaks with frequency and impedance values
 - **Profile selection in simulation thread** — Cone/Kigali/Mbeya properly routed to `Geo::make_*` builders
+- **Optimizer panel** — Start/Stop/Progress buttons, async Nuevolution thread, TairuaLoss weights and target frequency
+- **Loss breakdown preview** — Tairua loss components exposed via sliders and BarChart
+- **Cross-section view** — Diameter-vs-position LineChart from current Geo segments
+- **Export functions** — CSV and JSON export via rfd file dialog
 
 ## Experimental Features 🧪
 
@@ -83,8 +82,8 @@ The following features are implemented but not fully validated. Marked as experi
 
 - **Bubble insertion** — Insert bulges at positions in bore; backend available but acoustic impact not fully tested
 - **Finger holes** — UI controls wired (toggle + count slider), but backend equations incomplete — no acoustic simulation resolution yet
-- **Optimization panel** — UI panel exists with Start/Stop controls and progress display; optimization backend not yet wired
 - **Mouthpiece** — UI controls present; backend equations incomplete — no acoustic simulation resolution yet
 - **AI/ML integration** — Neural fitness predictor and time-domain synthesis not yet implemented
+- **Optimization panel** — UI fully wired with Start/Stop/Progress and async thread using real `acoustical_simulation` + `Nuevolution` backend
 
 ---

@@ -2050,7 +2050,10 @@ impl MatchEvent for App {
         if let Some(idx) = self.ui.drop_down(cx, ids!(view_menu)).selected(actions) {
             if idx == 0 { self.show_sidebar = !self.show_sidebar; self.ui.widget(cx, ids!(sidebar)).set_visible(cx, self.show_sidebar); }
             if idx == 1 { self.show_wireframe = !self.show_wireframe; }
-            if idx == 2 { self.show_cross_section = !self.show_cross_section; }
+            if idx == 2 {
+                self.show_cross_section = !self.show_cross_section;
+                self.ui.widget(cx, ids!(cross_section)).set_visible(cx, self.show_cross_section);
+            }
         }
 
         if let Some(idx) = self.ui.drop_down(cx, ids!(theme_menu)).selected(actions) {
@@ -2063,6 +2066,48 @@ impl MatchEvent for App {
         if let Some(idx) = self.ui.drop_down(cx, ids!(current_view_selector)).selected(actions) {
             let views = ["Setup", "Segments", "Bubbles", "Optimization", "Export"];
             self.current_view = views[idx].to_string();
+
+            // Show viewport always
+            self.ui.widget(cx, ids!(viewport)).set_visible(cx, true);
+
+            match idx {
+                0 => {
+                    // Setup: all panels
+                    self.ui.widget(cx, ids!(impedance_preview)).set_visible(cx, true);
+                    self.ui.widget(cx, ids!(cross_section)).set_visible(cx, self.show_cross_section);
+                    self.ui.widget(cx, ids!(geometry_summary)).set_visible(cx, true);
+                    self.ui.widget(cx, ids!(resonance_analysis)).set_visible(cx, true);
+                }
+                1 => {
+                    // Segments: viewport + geometry summary + resonance analysis
+                    self.ui.widget(cx, ids!(impedance_preview)).set_visible(cx, true);
+                    self.ui.widget(cx, ids!(cross_section)).set_visible(cx, self.show_cross_section);
+                    self.ui.widget(cx, ids!(geometry_summary)).set_visible(cx, true);
+                    self.ui.widget(cx, ids!(resonance_analysis)).set_visible(cx, true);
+                }
+                2 => {
+                    // Bubbles: viewport only
+                    self.ui.widget(cx, ids!(impedance_preview)).set_visible(cx, false);
+                    self.ui.widget(cx, ids!(cross_section)).set_visible(cx, false);
+                    self.ui.widget(cx, ids!(geometry_summary)).set_visible(cx, false);
+                    self.ui.widget(cx, ids!(resonance_analysis)).set_visible(cx, false);
+                }
+                3 => {
+                    // Optimization: viewport + impedance preview
+                    self.ui.widget(cx, ids!(impedance_preview)).set_visible(cx, true);
+                    self.ui.widget(cx, ids!(cross_section)).set_visible(cx, false);
+                    self.ui.widget(cx, ids!(geometry_summary)).set_visible(cx, false);
+                    self.ui.widget(cx, ids!(resonance_analysis)).set_visible(cx, false);
+                }
+                4 => {
+                    // Export: viewport only
+                    self.ui.widget(cx, ids!(impedance_preview)).set_visible(cx, false);
+                    self.ui.widget(cx, ids!(cross_section)).set_visible(cx, false);
+                    self.ui.widget(cx, ids!(geometry_summary)).set_visible(cx, false);
+                    self.ui.widget(cx, ids!(resonance_analysis)).set_visible(cx, false);
+                }
+                _ => {}
+            }
         }
     }
 }

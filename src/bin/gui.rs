@@ -115,26 +115,89 @@ script_mod! {
                         draw_bg +: {color: #x0d1116}
 
 header := SolidView{
-                             width: Fill
-                             height: 44.0
-                             flow: Right
-                             align: Align{x: 0.0 y: 0.5}
-                             padding: Inset{left: 14.0 right: 14.0}
-                             spacing: 12.0
-                             draw_bg +: {color: #x171d24}
-                             new_batch: true
+                              width: Fill
+                              height: 44.0
+                              flow: Right
+                              align: Align{x: 0.0 y: 0.5}
+                              padding: Inset{left: 14.0 right: 14.0}
+                              spacing: 12.0
+                              draw_bg +: {color: #x171d24}
+                              new_batch: true
 
-                            title := H3{
-                                text: "CADSD - Didgeridoo Analyzer"
-                                draw_text +: {color: #dfe7ee}
-                            }
-                            hint := Label{
-                                text: "drag: orbit  wheel: zoom"
-                                draw_text +: {color: #x8391a0}
-                            }
-                        }
+                             title := H3{
+                                 text: "CADSD - Didgeridoo Analyzer"
+                                 draw_text +: {color: #dfe7ee}
+                             }
+                             hint := Label{
+                                  text: "drag: orbit  wheel: zoom"
+                                  draw_text +: {color: #x8391a0}
+                              }
 
-                        content := View{
+                             running_label := Label{
+                                     width: 100
+                                     height: 24
+                                     text: "Ready"
+                                     draw_text +: {color: #x88cc88}
+                             }
+
+                             current_view_selector := DropDown{
+                                     width: 100
+                                     height: 24
+                                     labels: ["Setup", "Segments", "Bubbles", "Optimization", "Export"]
+                                     selected_item: 0
+                                     draw_bg +: {color: #x202020}
+                                     draw_text +: {color: #dfe7ee, font_size: 12}
+                                 }
+                         }
+ menu_bar := View{
+                                  width: Fill
+                                  height: Fit
+                                  flow: Right
+                                  spacing: 2
+                                  align: Align{x: 0.0 y: 0.5}
+
+                                  file_menu := DropDown{
+                                      width: Fit
+                                      height: 24
+                                      labels: ["New Project", "Open Project", "Save Project", "Save As...", "Export", "Quit"]
+                                      selected_item: 0
+                                      draw_text +: {color: #dfe7ee, font_size: 12}
+                                  }
+
+                                  edit_menu := DropDown{
+                                      width: Fit
+                                      height: 24
+                                      labels: ["Undo", "Redo", "Preferences"]
+                                      selected_item: 0
+                                      draw_text +: {color: #dfe7ee, font_size: 12}
+                                  }
+
+                                  view_menu := DropDown{
+                                      width: Fit
+                                      height: 24
+                                      labels: ["Toggle Sidebar", "Toggle Wireframe", "Toggle Cross-Section", "Zoom Extents", "Full Screen"]
+                                      selected_item: 0
+                                      draw_text +: {color: #dfe7ee, font_size: 12}
+                                  }
+
+                                  theme_menu := DropDown{
+                                      width: Fit
+                                      height: 24
+                                      labels: ["Dark Mode", "Light Mode", "Auto"]
+                                      selected_item: 0
+                                      draw_text +: {color: #dfe7ee, font_size: 12}
+                                  }
+
+                                  help_menu := DropDown{
+                                      width: Fit
+                                      height: 24
+                                      labels: ["Documentation", "About"]
+                                      selected_item: 0
+                                      draw_text +: {color: #dfe7ee, font_size: 12}
+                                  }
+                              }
+
+content := View{
                             width: Fill
                             height: Fill
                             flow: Right
@@ -144,7 +207,7 @@ header := SolidView{
                             show_bg: true
                             new_batch: true
 
-sidebar := SolidView{
+                            sidebar := SolidView{
                                    width: 320
                                    height: Fill
                                    flow: Down
@@ -153,14 +216,14 @@ sidebar := SolidView{
                                    draw_bg +: {color: #x171d24}
                                    new_batch: true
 
-                                  scroller := ScrollYView{
-                                      width: Fill
-                                      height: Fill
-                                      flow: Down
-                                      spacing: 10
-                                      padding: 0
+scroller := ScrollYView{
+                                       width: Fill
+                                       height: Fill
+                                       flow: Down
+                                       spacing: 10
+                                       padding: 0
 
-                                      section_title := Label{
+                                       section_title := Label{
                                           width: Fill
                                           height: 40
                                           text: "Geometry"
@@ -1217,6 +1280,16 @@ pub struct App {
     #[rust]
     show_segment_editor: bool,
     #[rust]
+    current_view: String,
+    #[rust]
+    show_wireframe: bool,
+    #[rust]
+    show_cross_section: bool,
+    #[rust]
+    show_sidebar: bool,
+    #[rust]
+    theme_mode: String,
+    #[rust]
     current_geo: Option<Geo>,
     #[rust]
     bubbles: Vec<(f32, f32, f32)>,
@@ -1967,6 +2040,29 @@ impl MatchEvent for App {
                     peaks,
                 });
             });
+        }
+
+        // Handle menu bar DropDown selections
+        if let Some(idx) = self.ui.drop_down(cx, ids!(file_menu)).selected(actions) {
+            if idx == 5 { cx.quit(); }
+        }
+
+        if let Some(idx) = self.ui.drop_down(cx, ids!(view_menu)).selected(actions) {
+            if idx == 0 { self.show_sidebar = !self.show_sidebar; self.ui.widget(cx, ids!(sidebar)).set_visible(cx, self.show_sidebar); }
+            if idx == 1 { self.show_wireframe = !self.show_wireframe; }
+            if idx == 2 { self.show_cross_section = !self.show_cross_section; }
+        }
+
+        if let Some(idx) = self.ui.drop_down(cx, ids!(theme_menu)).selected(actions) {
+            if idx == 0 { self.theme_mode = "dark".to_string(); }
+            if idx == 1 { self.theme_mode = "light".to_string(); }
+            if idx == 2 { self.theme_mode = "auto".to_string(); }
+        }
+
+        // Handle view selector dropdown
+        if let Some(idx) = self.ui.drop_down(cx, ids!(current_view_selector)).selected(actions) {
+            let views = ["Setup", "Segments", "Bubbles", "Optimization", "Export"];
+            self.current_view = views[idx].to_string();
         }
     }
 }

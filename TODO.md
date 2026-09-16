@@ -74,6 +74,7 @@ Status levels: ✅ working, 🔄 partial, ⚠️ needs improvement, ❌ missing,
 - **Optimizer panel** — Start/Stop/Progress buttons, async Nuevolution thread, TairuaLoss weights and target frequency
 - **Loss breakdown preview** — Tairua loss components exposed via sliders and BarChart
 - **Cross-section view** — Diameter-vs-position LineChart from current Geo segments
+- **View selector** — Dropdown in header (Setup, Segments, Bubbles, Optimization, Export)
 - **Export functions** — CSV and JSON export via rfd file dialog
 
 ## Experimental Features 🧪

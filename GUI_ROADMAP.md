@@ -45,6 +45,7 @@ This layout ensures every container has `height: Fit` (the #1 bug preventer) and
 - Loss breakdown BarChart
 - Export CSV/JSON buttons
 - Bore curve slider for Kigali/Mbeya profiles
+- View selector dropdown (Setup, Segments, Bubbles, Optimization, Export)
 
 ### Experimental Features ❌ Backend Incomplete
 The following features have UI controls but incomplete backend support:
@@ -329,6 +330,7 @@ This addendum records the actual state of the new Makepad GUI and the future fea
 The current Makepad GUI is the active UI. It already contains:
 
 - Geometry controls: length, top diameter, bell diameter, segments, bore curve, and a bore-style dropdown.
+- A view selector dropdown in the header (Setup, Segments, Bubbles, Optimization, Export).
 - A 3-D viewport that redraws the bore in real time with orbit/zoom controls.
 - A run button that starts a background simulation thread.
 - An impedance spectrum chart (LineChart widget) that renders simulation data.
@@ -437,6 +439,8 @@ The minimum working GUI window currently contains:
 ```
 File        Edit          View        Theme       Help
 ```
+
+**Current Implementation**: The header now contains a view selector dropdown (Setup, Segments, Bubbles, Optimization, Export) alongside the menu bar. The menu bar itself uses `DropDown` widgets for File, Edit, View, Theme, and Help menus.
 
 **File menu** (dropdown):
 - New Project — reset current session

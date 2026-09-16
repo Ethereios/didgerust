@@ -59,6 +59,7 @@ This document defines the full UI requirements for the CADSD Makepad-based GUI, 
 | 4. Loss Breakdown | ✅ Working (BarChart, 4 components) |
 | 5. Mouthpiece/Hole Editor | ❌ Backend incomplete (no simulation resolution) |
 | 6. Cross-Section View | ✅ Working (backend available) |
+| 7. View Selector (Tab Navigation) | ✅ Working |
 
 ### 1. Impedance Spectrum Preview ✅
 
@@ -70,6 +71,27 @@ This document defines the full UI requirements for the CADSD Makepad-based GUI, 
 - Real-time data from simulation thread
 
 **Data Source**: `frequencies: Vec<f64>`, `impedances: Vec<f64>`
+
+---
+
+### 7. View Selector (Tab Navigation) ✅
+
+**Purpose**: Switch between different preview windows and view modes
+
+**UI Elements**:
+- View selector dropdown in header (Setup, Segments, Bubbles, Optimization, Export)
+- Displays current view label in header
+- Shows/hides sidebar based on view selection
+- Toggles wireframe and cross-section displays
+
+**Data Source**: `current_view: String` state variable
+
+**View Definitions**:
+- Setup: All geometry controls and 3D viewport
+- Segments: Segment manipulation tools
+- Bubbles: Bubble insertion controls
+- Optimization: Evolution settings and progress
+- Export: Save/load/export functions
 
 ---
 

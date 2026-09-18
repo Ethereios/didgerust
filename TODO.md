@@ -26,7 +26,7 @@ Status levels: ✅ working, 🔄 partial, ⚠️ needs improvement, ❌ missing,
 - **Generational loss chart** — ✅ Implemented: LineChart showing total_loss per generation in optimization panel, `GenerationLoss` struct tracks best fitness history, chart updates live during optimization
 - **Cross-section view** — ✅ LineChart rendering diameter vs position from current Geo segments
 - **Export functions** — ✅ CSV and JSON export working via rfd file dialog
-- **Menu bar** — ✅ Complete: File/Edit/View/Theme/Help with full functionality
+- **Menu bar** — ⚠️ Core items functional (New Project, Quit, Undo, Redo, Toggle Sidebar/Wireframe/Cross-Section, Zoom Extents), Export works; Open/Save Project, Full Screen, Preferences, Documentation, About are stubs (log-only)
 - **History/Undo system** — ✅ Full undo/redo with state persistence
 - **View selector** — ✅ Working: Setup, Segments, Bubbles, Optimization, Export dropdown
 

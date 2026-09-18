@@ -25,6 +25,9 @@ Status levels: ✅ working, 🔄 partial, ⚠️ needs improvement, ❌ missing,
 - **Loss breakdown preview** — ✅ Implemented: TairuaLoss weights (fundamental, harmonics, peaks) exposed via sliders, BarChart showing 4 components, target freq input
 - **Cross-section view** — ✅ LineChart rendering diameter vs position from current Geo segments
 - **Export functions** — ✅ CSV and JSON export working via rfd file dialog
+- **Menu bar** — ✅ Complete: File/Edit/View/Theme/Help with full functionality
+- **History/Undo system** — ✅ Full undo/redo with state persistence
+- **View selector** — ✅ Working: Setup, Segments, Bubbles, Optimization, Export dropdown
 
 ## Missing Implementations
 
@@ -76,6 +79,8 @@ Status levels: ✅ working, 🔄 partial, ⚠️ needs improvement, ❌ missing,
 - **Cross-section view** — Diameter-vs-position LineChart from current Geo segments
 - **View selector** — Dropdown in header (Setup, Segments, Bubbles, Optimization, Export)
 - **Export functions** — CSV and JSON export via rfd file dialog
+- **Menu bar** — Complete File/Edit/View/Theme/Help with full functionality
+- **History/Undo system** — Full undo/redo with state persistence
 
 ## Experimental Features 🧪
 

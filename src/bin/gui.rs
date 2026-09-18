@@ -31,12 +31,14 @@ script_mod! {
         draw_call: uniform_buffer(draw.DrawCallUniforms)
         draw_pass: uniform_buffer(draw.DrawPassUniforms)
         draw_list: uniform_buffer(draw.DrawListUniforms)
-        geom: vertex_buffer(geom.IcoVertex, geom.IcoGeom)
+        geom: vertex_buffer(geom.PbrVertex, geom.PbrGeom)
         u_light_dir: uniform(vec3(-0.35, 0.84, 0.42))
         u_fill_dir: uniform(vec3(0.58, 0.35, -0.62))
+        u_wireframe: uniform(float(0.0))
         v_world_clip: varying(vec4f)
         v_world: varying(vec3f)
         v_normal: varying(vec3f)
+        v_uv: varying(vec2f)
 
         active_camera_world_pos: fn() -> vec3f {
             let camera_world = self.draw_pass.camera_inv * vec4(0.0, 0.0, 0.0, 1.0)
@@ -49,20 +51,22 @@ script_mod! {
 
         vertex: fn() {
             let local_pos = vec3(
-                self.geom.pos.x * self.scale.x,
-                self.geom.pos.y * self.scale.y,
-                self.geom.pos.z * self.scale.z
+                self.geom.pos_nx.x,
+                self.geom.pos_nx.y,
+                self.geom.pos_nx.z
             )
             let local_normal = normalize(vec3(
-                self.geom.normal.x / max(self.scale.x, 0.00001),
-                self.geom.normal.y / max(self.scale.y, 0.00001),
-                self.geom.normal.z / max(self.scale.z, 0.00001)
+                self.geom.pos_nx.w,
+                self.geom.ny_nz_uv.x,
+                self.geom.ny_nz_uv.y
             ))
+            let local_uv = vec2(self.geom.ny_nz_uv.z, self.geom.ny_nz_uv.w)
             let model_view = self.draw_list.view_transform * self.transform
             let world = model_view * vec4(local_pos.x, local_pos.y, local_pos.z, 1.0)
             let world_normal = normalize((model_view * vec4(local_normal.x, local_normal.y, local_normal.z, 0.0)).xyz)
             self.v_world = world.xyz
             self.v_normal = world_normal
+            self.v_uv = local_uv
             self.v_world_clip = vec4(world.x, world.y, world.z, 1.0)
             let view_pos = self.draw_pass.camera_view * world
             self.vertex_pos = self.draw_pass.camera_projection * view_pos
@@ -76,6 +80,19 @@ script_mod! {
             let rim = pow(max(1.0 - max(dot(normal, view_dir), 0.0), 0.0), 2.5)
             let lit = 0.18 + key * 0.72 + fill * 0.20 + rim * 0.22
             let color = self.color.xyz * lit + vec3(0.04, 0.05, 0.07) * rim
+            if self.u_wireframe > 0.5 {
+                let bary = vec3(self.v_uv.x, self.v_uv.y, 1.0 - self.v_uv.x - self.v_uv.y)
+                let fw = vec3(
+                    abs(dFdx(bary.x)) + abs(dFdy(bary.x)),
+                    abs(dFdx(bary.y)) + abs(dFdy(bary.y)),
+                    abs(dFdx(bary.z)) + abs(dFdy(bary.z))
+                )
+                let edge = min(min(bary.x / max(fw.x, 0.00001), bary.y / max(fw.y, 0.00001)), bary.z / max(fw.z, 0.00001))
+                let line = 1.0 - clamp(edge - 0.6, 0.0, 1.0)
+                let edge_color = vec3(0.2, 0.7, 0.9)
+                let wire = mix(color, edge_color, line * 0.9)
+                return vec4(wire.x, wire.y, wire.z, 1.0)
+            }
             return vec4(color, self.color.w)
         }
 
@@ -971,6 +988,8 @@ pub struct DrawPhysMesh {
     scale: Vec3f,
     #[live(1.0)]
     depth_clip: f32,
+    #[live(0.0)]
+    wireframe: f32,
 }
 
 impl DrawPhysMesh {
@@ -986,6 +1005,11 @@ impl DrawPhysMesh {
             cx.cx,
             live_id!(u_fill_dir),
             &[fill_dir.x, fill_dir.y, fill_dir.z],
+        );
+        self.draw_vars.set_uniform(
+            cx.cx,
+            live_id!(u_wireframe),
+            &[self.wireframe],
         );
     }
 
@@ -1003,23 +1027,66 @@ fn build_bore_geometry(segments: &[(f32, f32)]) -> (Vec<u32>, Vec<f32>) {
     let mut indices = Vec::new();
     let mut vertices = Vec::new();
     let rings = segments.len();
-    for (i, &(x, d)) in segments.iter().enumerate() {
+    for i in 0..rings {
+        let (x, d) = segments[i];
         let radius = d * 0.05;
         let y = x * 0.1;
-        for j in 0..24 {
-            let theta = (j as f32) * std::f32::consts::TAU / 24.0;
-            let cx_ = radius * theta.cos();
-            let cz = radius * theta.sin();
-            vertices.extend_from_slice(&[cx_, y, cz, 1.0, theta.cos(), 0.0, theta.sin(), 0.0]);
-        }
         if i + 1 < rings {
-            for j in 0..24u32 {
-                let next = (j + 1) % 24;
-                let a = (i as u32) * 24 + j;
-                let b = (i as u32) * 24 + next;
-                let c = ((i + 1) as u32) * 24 + next;
-                let d_ = ((i + 1) as u32) * 24 + j;
-                indices.extend_from_slice(&[a, b, c, a, c, d_]);
+            let (x_next, d_next) = segments[i + 1];
+            let radius_next = d_next * 0.05;
+            let y_next = x_next * 0.1;
+            for j in 0..24 {
+                let theta = (j as f32) * std::f32::consts::TAU / 24.0;
+                let theta_next = ((j + 1) as f32) * std::f32::consts::TAU / 24.0;
+                let base = (i as u32) * 24 * 6 + (j as u32) * 6;
+
+                // Triangle 1: A(1,0,0), B(0,1,0), C(0,0,1)
+                // A: ring i, angle theta, barycentric UV (1,0)
+                vertices.extend_from_slice(&[
+                    radius * theta.cos(), y, radius * theta.sin(), theta.cos(),  // pos_nx.xyz + normal.x
+                    0.0, theta.sin(), 1.0, 0.0,                                      // ny_nz_uv: normal.yz + uv (bary 1,0)
+                    1.0, 1.0, 1.0, 1.0,                                                // color white
+                    0.0, 0.0, 0.0, 1.0,                                                // tangent
+                ]);
+                // B: ring i, angle theta_next, barycentric UV (0,1)
+                vertices.extend_from_slice(&[
+                    radius * theta_next.cos(), y, radius * theta_next.sin(), theta_next.cos(),  // pos_nx.xyz + normal.x
+                    0.0, theta_next.sin(), 0.0, 1.0,                                  // ny_nz_uv: normal.yz + uv (bary 0,1)
+                    1.0, 1.0, 1.0, 1.0,                                                // color white
+                    0.0, 0.0, 0.0, 1.0,                                                // tangent
+                ]);
+                // C: ring i+1, angle theta_next, barycentric UV (0,0)
+                vertices.extend_from_slice(&[
+                    radius_next * theta_next.cos(), y_next, radius_next * theta_next.sin(), theta_next.cos(),  // pos_nx.xyz + normal.x
+                    0.0, theta_next.sin(), 0.0, 0.0,                                  // ny_nz_uv: normal.yz + uv (bary 0,0)
+                    1.0, 1.0, 1.0, 1.0,                                                // color white
+                    0.0, 0.0, 0.0, 1.0,                                                // tangent
+                ]);
+                indices.extend_from_slice(&[base, base + 1, base + 2]);
+
+                // Triangle 2: A'(1,0,0), C'(0,1,0), D'(0,0,1)
+                // A': ring i, angle theta, barycentric UV (1,0)
+                vertices.extend_from_slice(&[
+                    radius * theta.cos(), y, radius * theta.sin(), theta.cos(),  // pos_nx.xyz + normal.x
+                    0.0, theta.sin(), 1.0, 0.0,                                      // ny_nz_uv: normal.yz + uv (bary 1,0)
+                    1.0, 1.0, 1.0, 1.0,                                                // color white
+                    0.0, 0.0, 0.0, 1.0,                                                // tangent
+                ]);
+                // C': ring i+1, angle theta_next, barycentric UV (0,1)
+                vertices.extend_from_slice(&[
+                    radius_next * theta_next.cos(), y_next, radius_next * theta_next.sin(), theta_next.cos(),  // pos_nx.xyz + normal.x
+                    0.0, theta_next.sin(), 0.0, 1.0,                                 // ny_nz_uv: normal.yz + uv (bary 0,1)
+                    1.0, 1.0, 1.0, 1.0,                                                // color white
+                    0.0, 0.0, 0.0, 1.0,                                                // tangent
+                ]);
+                // D': ring i+1, angle theta, barycentric UV (0,0)
+                vertices.extend_from_slice(&[
+                    radius_next * theta.cos(), y_next, radius_next * theta.sin(), theta.cos(),  // pos_nx.xyz + normal.x
+                    0.0, theta.sin(), 0.0, 0.0,                                      // ny_nz_uv: normal.yz + uv (bary 0,0)
+                    1.0, 1.0, 1.0, 1.0,                                                // color white
+                    0.0, 0.0, 0.0, 1.0,                                                // tangent
+                ]);
+                indices.extend_from_slice(&[base + 3, base + 4, base + 5]);
             }
         }
     }
@@ -1184,7 +1251,6 @@ impl BoreViewport {
         let previous_world = cx.set_scene_world_transform_3d(Mat4f::identity());
         if let Some(ref mut geometry) = self.geometry {
             self.draw_mesh.transform = Mat4f::identity();
-            self.draw_mesh.scale = vec3(1.0, 1.0, 1.0);
             self.draw_mesh.color = vec4(0.7, 0.75, 0.8, 1.0);
             self.draw_mesh.depth_clip = 0.0;
             self.draw_mesh.draw(cx, geometry.geometry_id());
@@ -1359,6 +1425,10 @@ pub struct App {
     optimization_stop_flag: Option<Arc<AtomicBool>>,
     #[rust]
     opt_rx: Option<mpsc::Receiver<OptProgress>>,
+    #[rust]
+    history: Vec<ProjectState>,
+    #[rust]
+    history_index: usize,
 }
 
 #[allow(dead_code)]
@@ -1379,6 +1449,18 @@ struct OptProgress {
     best_style: u32,
 }
 
+#[derive(Clone)]
+struct ProjectState {
+    geo: Geo,
+    bubbles: Vec<(f32, f32, f32)>,
+    length: f32,
+    top: f32,
+    bell: f32,
+    style: u32,
+    bore_curve: f32,
+    segments: usize,
+}
+
 impl MatchEvent for App {
     fn handle_actions(&mut self, cx: &mut Cx, actions: &Actions) {
         let mut needs_viewport_update = false;
@@ -1390,6 +1472,7 @@ impl MatchEvent for App {
         let mut segments = 50usize;
 
         if let Some(v) = self.ui.slider(cx, ids!(length_slider)).slided(actions) {
+            self.push_current_state();
             length = v;
             self.ui
                 .label(cx, ids!(length_value))
@@ -1397,6 +1480,7 @@ impl MatchEvent for App {
             needs_viewport_update = true;
         }
         if let Some(v) = self.ui.slider(cx, ids!(top_slider)).slided(actions) {
+            self.push_current_state();
             top = v;
             self.ui
                 .label(cx, ids!(top_value))
@@ -1404,6 +1488,7 @@ impl MatchEvent for App {
             needs_viewport_update = true;
         }
         if let Some(v) = self.ui.slider(cx, ids!(bell_slider)).slided(actions) {
+            self.push_current_state();
             bell = v;
             self.ui
                 .label(cx, ids!(bell_value))
@@ -1411,6 +1496,7 @@ impl MatchEvent for App {
             needs_viewport_update = true;
         }
         if let Some(v) = self.ui.slider(cx, ids!(segments_slider)).slided(actions) {
+            self.push_current_state();
             segments = v as usize;
             self.ui
                 .label(cx, ids!(segments_value))
@@ -1418,6 +1504,7 @@ impl MatchEvent for App {
             needs_viewport_update = true;
         }
         if let Some(v) = self.ui.slider(cx, ids!(bore_curve_slider)).slided(actions) {
+            self.push_current_state();
             bore_curve = v as f32;
             self.ui
                 .label(cx, ids!(bore_curve_value))
@@ -1429,6 +1516,7 @@ impl MatchEvent for App {
             .drop_down(cx, ids!(bore_style_dropdown))
             .selected(actions)
         {
+            self.push_current_state();
             style = v as u32;
             needs_viewport_update = true;
         }
@@ -1443,6 +1531,7 @@ impl MatchEvent for App {
             .set_text(cx, &format!("Profile: {}", profile_name));
 
         if self.ui.button(cx, ids!(bubble_add_button)).clicked(actions) {
+            self.push_current_state();
             let pos_str = self.ui.text_input(cx, ids!(bubble_pos_input)).text();
             let width_str = self.ui.text_input(cx, ids!(bubble_width_input)).text();
             let height_str = self.ui.text_input(cx, ids!(bubble_height_input)).text();
@@ -1461,11 +1550,13 @@ impl MatchEvent for App {
             .button(cx, ids!(bubble_remove_button))
             .clicked(actions)
         {
+            self.push_current_state();
             self.bubbles.pop();
             self.bubble_count = self.bubbles.len();
             needs_viewport_update = true;
         }
         if self.ui.button(cx, ids!(seg_move_button)).clicked(actions) {
+            self.push_current_state();
             if let Some(ref mut geo) = self.current_geo {
                 let start_str = self.ui.text_input(cx, ids!(seg_start_input)).text();
                 let end_str = self.ui.text_input(cx, ids!(seg_end_input)).text();
@@ -1481,6 +1572,7 @@ impl MatchEvent for App {
             }
         }
         if self.ui.button(cx, ids!(seg_sort_button)).clicked(actions) {
+            self.push_current_state();
             if let Some(ref mut geo) = self.current_geo {
                 geo.sort_segments();
                 needs_viewport_update = true;
@@ -1491,6 +1583,7 @@ impl MatchEvent for App {
             .button(cx, ids!(segment_editor_toggle))
             .clicked(actions)
         {
+            self.push_current_state();
             self.show_segment_editor = !self.show_segment_editor;
             let btn = self.ui.button(cx, ids!(segment_editor_toggle));
             btn.set_text(
@@ -1505,6 +1598,7 @@ impl MatchEvent for App {
 
         // Handle mouthpiece controls
         if self.ui.button(cx, ids!(mp_toggle)).clicked(actions) {
+            self.push_current_state();
             self.enable_mouthpiece = !self.enable_mouthpiece;
             let btn = self.ui.button(cx, ids!(mp_toggle));
             btn.set_text(
@@ -1523,6 +1617,7 @@ impl MatchEvent for App {
                 .drop_down(cx, ids!(mp_type_dropdown))
                 .selected(actions)
             {
+                self.push_current_state();
                 let types = ["None", "Reed", "Embouchure", "Fipple", "Cup"];
                 self.mouthpiece_type = types[v].to_string();
                 needs_viewport_update = true;
@@ -1545,6 +1640,7 @@ impl MatchEvent for App {
 
         // Handle hole controls
         if self.ui.button(cx, ids!(holes_toggle)).clicked(actions) {
+            self.push_current_state();
             self.enable_holes = !self.enable_holes;
             let btn = self.ui.button(cx, ids!(holes_toggle));
             btn.set_text(
@@ -1558,8 +1654,9 @@ impl MatchEvent for App {
             needs_viewport_update = true;
         }
         if self.enable_holes {
-            if let Some(v) = self.ui.slider(cx, ids!(holes_count_slider)).slided(actions) {
-                self.hole_count = v as usize;
+if let Some(v) = self.ui.slider(cx, ids!(holes_count_slider)).slided(actions) {
+            self.push_current_state();
+            self.hole_count = v as usize;
                 self.ui
                     .label(cx, ids!(holes_count_label))
                     .set_text(cx, &format!("Hole count: {}", v));
@@ -2044,22 +2141,175 @@ impl MatchEvent for App {
 
         // Handle menu bar DropDown selections
         if let Some(idx) = self.ui.drop_down(cx, ids!(file_menu)).selected(actions) {
-            if idx == 5 { cx.quit(); }
+            match idx {
+                0 => {
+                    // New Project — reset to default geometry
+                    self.current_geo = None;
+                    self.bubbles = vec![];
+                    self.bubble_count = 0;
+                    self.show_segment_editor = false;
+                    if let Some(mut vp) = self.ui.widget(cx, ids!(viewport)).borrow_mut::<BoreViewport>() {
+                        vp.update_bore_geo(cx, &Geo::make_cone(950.0, 35.0, 85.0, 50));
+                    }
+                    self.geo_length = 950.0;
+                    self.geo_bell = 85.0;
+                    self.top_diameter = 35.0;
+                    self.bore_style_name = "Cone".to_string();
+                    self.geo_segments = 50.0;
+                    self.geo_taper = 1.0;
+                    let d1 = 35.0f64;
+                    let d2 = 85.0f64;
+                    let h = 950.0f64;
+                    self.geo_volume = (std::f64::consts::PI * (d1 * d1 + d1 * d2 + d2 * d2) * h / 12.0) as f32;
+                    self.geo_max_d = 85.0f32;
+                    self.geo_segments = 50.0;
+                    self.ui.label(cx, ids!(length_value)).set_text(cx, "950");
+                    self.ui.label(cx, ids!(top_value)).set_text(cx, "35.0");
+                    self.ui.label(cx, ids!(bell_value)).set_text(cx, "85.0");
+                    self.ui.label(cx, ids!(geo_profile)).set_text(cx, "Profile: Cone");
+                    self.ui.label(cx, ids!(segments_value)).set_text(cx, "50");
+                }
+                1 => {
+                    // Open Project — use file dialog
+                    if let Some(path) = rfd::FileDialog::new()
+                        .set_file_name("cadsd-project.json")
+                        .add_filter("JSON", &["json"])
+                        .pick_file()
+                    {
+                        ::log::info!("Opening project: {}", path.display());
+                        // TODO: load project JSON
+                    }
+                }
+                2 => {
+                    // Save Project — use file dialog
+                    if let Some(path) = rfd::FileDialog::new()
+                        .set_file_name("cadsd-project.json")
+                        .add_filter("JSON", &["json"])
+                        .save_file()
+                    {
+                        ::log::info!("Saving project");
+                        // TODO: save project JSON
+                    }
+                }
+                3 => {
+                    // Save As... — save current project as JSON
+                    if let Some(path) = rfd::FileDialog::new()
+                        .set_file_name("cadsd-project.json")
+                        .add_filter("JSON", &["json"])
+                        .save_file()
+                    {
+                        ::log::info!("Saving project as: {}", path.display());
+                        // TODO: save project JSON
+                    }
+                }
+                4 => {
+                    // Export — export current geometry and impedance data
+                    if let Some(path) = rfd::FileDialog::new()
+                        .set_file_name("export.csv")
+                        .add_filter("CSV", &["csv"])
+                        .save_file()
+                    {
+                        self.export_impedance_csv();
+                    }
+                    if let Some(path) = rfd::FileDialog::new()
+                        .set_file_name("geometry.json")
+                        .add_filter("JSON", &["json"])
+                        .save_file()
+                    {
+                        self.export_geometry_json();
+                    }
+                }
+                5 => {
+                    // Quit
+                    cx.quit();
+                }
+                _ => {}
+            }
         }
 
         if let Some(idx) = self.ui.drop_down(cx, ids!(view_menu)).selected(actions) {
-            if idx == 0 { self.show_sidebar = !self.show_sidebar; self.ui.widget(cx, ids!(sidebar)).set_visible(cx, self.show_sidebar); }
-            if idx == 1 { self.show_wireframe = !self.show_wireframe; }
-            if idx == 2 {
-                self.show_cross_section = !self.show_cross_section;
-                self.ui.widget(cx, ids!(cross_section)).set_visible(cx, self.show_cross_section);
+            match idx {
+                0 => {
+                    // Toggle Sidebar
+                    self.show_sidebar = !self.show_sidebar;
+                    self.ui.widget(cx, ids!(sidebar)).set_visible(cx, self.show_sidebar);
+                }
+                1 => {
+                    // Toggle Wireframe
+                    self.show_wireframe = !self.show_wireframe;
+                    if let Some(mut vp) = self.ui.widget(cx, ids!(viewport)).borrow_mut::<BoreViewport>() {
+                        vp.draw_mesh.wireframe = if self.show_wireframe { 1.0 } else { 0.0 };
+                    }
+                }
+                2 => {
+                    // Toggle Cross-Section
+                    self.show_cross_section = !self.show_cross_section;
+                    self.ui.widget(cx, ids!(cross_section)).set_visible(cx, self.show_cross_section);
+                }
+                3 => {
+                    // Zoom Extents — reset camera to default orbit for current geometry
+                    if let Some(mut vp) = self.ui.widget(cx, ids!(viewport)).borrow_mut::<BoreViewport>() {
+                        vp.camera.orbit_yaw = 0.72;
+                        vp.camera.orbit_pitch = -0.34;
+                        vp.camera.distance = 70.0;
+                    }
+                }
+                4 => {
+                    // Full Screen — toggle window fullscreen
+                    // Makepad window fullscreen toggle via remote
+                    let _ = cx;
+                }
+                _ => {}
+            }
+        }
+
+        // Handle Edit menu
+        if let Some(idx) = self.ui.drop_down(cx, ids!(edit_menu)).selected(actions) {
+            match idx {
+                0 => {
+                    // Undo
+                    if self.history_index > 0 {
+                        self.history_index -= 1;
+                        self.restore_from_history(cx);
+                    }
+                }
+                1 => {
+                    // Redo
+                    if self.history_index + 1 < self.history.len() {
+                        self.history_index += 1;
+                        self.restore_from_history(cx);
+                    }
+                }
+                2 => {
+                    // Preferences — log for now; could open a modal later
+                    ::log::info!("Preferences requested");
+                }
+                _ => {}
             }
         }
 
         if let Some(idx) = self.ui.drop_down(cx, ids!(theme_menu)).selected(actions) {
-            if idx == 0 { self.theme_mode = "dark".to_string(); }
-            if idx == 1 { self.theme_mode = "light".to_string(); }
-            if idx == 2 { self.theme_mode = "auto".to_string(); }
+            match idx {
+                0 => { self.theme_mode = "dark".to_string(); }
+                1 => { self.theme_mode = "light".to_string(); }
+                2 => { self.theme_mode = "auto".to_string(); }
+                _ => {}
+            }
+        }
+
+        if let Some(idx) = self.ui.drop_down(cx, ids!(help_menu)).selected(actions) {
+            match idx {
+                0 => {
+                    // Documentation — open in browser or show help text
+                    ::log::info!("Opening documentation...");
+                    // Could open URL, but for now just log
+                }
+                1 => {
+                    // About — show about dialog info
+                    ::log::info!("About CADSD — Didgeridoo Analyzer");
+                }
+                _ => {}
+            }
         }
 
         // Handle view selector dropdown
@@ -2179,6 +2429,157 @@ impl App {
                 }
             }
         }
+    }
+
+    fn push_current_state(&mut self) {
+        let geo = self.current_geo.clone().unwrap_or_else(|| create_base_geo(950.0, 35.0, 85.0, 0, 0.0, 50));
+        let state = ProjectState {
+            geo: geo.copy(),
+            bubbles: self.bubbles.clone(),
+            length: self.geo_length,
+            top: self.top_diameter,
+            bell: self.geo_bell,
+            style: match self.bore_style_name.as_str() {
+                "Kigali" => 1,
+                "Mbeya" => 2,
+                _ => 0,
+            },
+            bore_curve: 1.0,
+            segments: self.geo_segments as usize,
+        };
+        if self.history.len() > self.history_index {
+            self.history.truncate(self.history_index);
+        }
+        self.history.push(state);
+        self.history_index = self.history.len();
+    }
+
+    fn restore_from_history(&mut self, cx: &mut Cx) {
+        if self.history_index >= self.history.len() {
+            return;
+        }
+        let state = &self.history[self.history_index];
+        self.current_geo = Some(state.geo.copy());
+        self.bubbles = state.bubbles.clone();
+        self.geo_length = state.length;
+        self.top_diameter = state.top;
+        self.geo_bell = state.bell;
+        self.geo_segments = state.segments as f32;
+        self.bubble_count = self.bubbles.len();
+        self.bore_style_name = match state.style {
+            1 => "Kigali".to_string(),
+            2 => "Mbeya".to_string(),
+            _ => "Cone".to_string(),
+        };
+        if let Some(mut vp) = self.ui.widget(cx, ids!(viewport)).borrow_mut::<BoreViewport>() {
+            vp.update_bore_geo(cx, self.current_geo.as_ref().unwrap());
+        }
+        self.ui.label(cx, ids!(length_value)).set_text(cx, &format!("{:.0}", self.geo_length));
+        self.ui.label(cx, ids!(top_value)).set_text(cx, &format!("{:.1}", self.top_diameter));
+        self.ui.label(cx, ids!(bell_value)).set_text(cx, &format!("{:.1}", self.geo_bell));
+        self.ui.label(cx, ids!(segments_value)).set_text(cx, &format!("{}", self.geo_segments));
+        self.ui.label(cx, ids!(geo_profile)).set_text(cx, &format!("Profile: {}", self.bore_style_name));
+    }
+
+    fn create_generational_loss_chart(&self, cx: &mut Cx) -> View {
+        let mut series: Vec<makepad_widgets::chart::DataPoint> = Vec::new();
+
+        if let Some(ref opt_rx) = self.opt_rx {
+            if let Ok(progress) = opt_rx.try_recv() {
+                if let Some(ref history) = self.optimization_best_history {
+                    let mut total_loss = 0.0;
+                    let mut fund_loss = 0.0;
+                    let mut harm_loss = 0.0;
+                    let mut peak_loss = 0.0;
+                    
+                    for i in 0..progress.generations.min(50) {
+                        if i < history.len() {
+                            let h = &history[i];
+                            total_loss = h.total_loss;
+                            fund_loss = h.fundamental_loss;
+                            harm_loss = h.harmonic_loss;
+                            peak_loss = h.peak_loss;
+                        }
+                        series.push(makepad_widgets::chart::DataPoint::new(i as f64, total_loss));
+                    }
+                }
+            }
+        }
+
+        View::new(cx)
+            .width(Fill)
+            .height(300.0)
+            .flow(Down)
+            .spacing(10.0)
+            .padding(10.0)
+            .draw_bg(cx, |_| { cx.draw_rect(2.0, 4.0, Color { r: 0.1, g: 0.1, b: 0.15, a: 1.0 }) })
+            .add(View::new(cx)
+                .width(Fill)
+                .height(Fit)
+                .flow(Right)
+                .align(Align { x: 0.0, y: 0.5 })
+                .add(Label::new(cx)
+                    .text("Generational Loss (Total)")
+                    .draw_text(cx, &mut |d| d.color = Color { r: 0.8, g: 0.8, b: 0.9, a: 1.0 })
+                )
+            )
+            .add(Chart::new(cx)
+                .width(Fill)
+                .height(250.0)
+                .data(series)
+                .draw_bg(cx, &mut |d| d.color = Color { r: 0.05, g: 0.05, b: 0.1, a: 1.0 })
+                .grid(cx)
+                .title("Loss Over Generations")
+            )
+            .add(View::new(cx)
+                .width(Fill)
+                .height(Fit)
+                .flow(Right)
+                .spacing(20.0)
+                .align(Align { x: 0.0, y: 0.5 })
+                .add(View::new(cx)
+                    .width(Fit)
+                    .height(Fit)
+                    .flow(Down)
+                    .spacing(2.0)
+                    .add(Label::new(cx)
+                        .text("Fundamental Loss")
+                        .draw_text(cx, &mut |d| d.color = Color { r: 0.9, g: 0.3, b: 0.3, a: 1.0 })
+                    )
+                    .add(Label::new(cx)
+                        .text("0.0")
+                        .draw_text(cx, &mut |d| d.color = Color { r: 0.6, g: 0.6, b: 0.6, a: 1.0 })
+                    )
+                )
+                .add(View::new(cx)
+                    .width(Fit)
+                    .height(Fit)
+                    .flow(Down)
+                    .spacing(2.0)
+                    .add(Label::new(cx)
+                        .text("Harmonic Loss")
+                        .draw_text(cx, &mut |d| d.color = Color { r: 0.3, g: 0.9, b: 0.3, a: 1.0 })
+                    )
+                    .add(Label::new(cx)
+                        .text("0.0")
+                        .draw_text(cx, &mut |d| d.color = Color { r: 0.6, g: 0.6, b: 0.6, a: 1.0 })
+                    )
+                )
+                .add(View::new(cx)
+                    .width(Fit)
+                    .height(Fit)
+                    .flow(Down)
+                    .spacing(2.0)
+                    .add(Label::new(cx)
+                        .text("Peak Loss")
+                        .draw_text(cx, &mut |d| d.color = Color { r: 0.3, g: 0.3, b: 0.9, a: 1.0 })
+                    )
+                    .add(Label::new(cx)
+                        .text("0.0")
+                        .draw_text(cx, &mut |d| d.color = Color { r: 0.6, g: 0.6, b: 0.6, a: 1.0 })
+                    )
+                )
+            )
     }
 
     fn update_loss_values(&mut self) {

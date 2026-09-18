@@ -142,6 +142,8 @@ For ANY Makepad question, first load `makepad-2.0-design-judgment`, then the tas
 
 ## TROUBLESHOOTING DIAGNOSTIC TREE
 
+8. **Never restore git changes without express user approval** — all work in progress must be preserved. Use `git stash` or `git save` before any session break. Restoring without approval destroys agent-authored work and violates task continuity.
+
 ```
 UI invisible/blank → height: Fit on containers? width: Fill on root? Root/Window in script output?
 Text invisible → new_batch on parent with show_bg? Text color contrast? White on light bg?

@@ -19,6 +19,7 @@ This document defines the full UI requirements for the CADSD Makepad-based GUI, 
 - Resonance analysis with note names
 - Geometry summary with volume, taper, max diameter
 - Loss breakdown BarChart with 4 components
+- Generational loss LineChart with per-generation total_loss
 - Export CSV/JSON geometry functions
 - Bore curve slider for Kigali/Mbeya profiles
 - Profile selection in simulation thread
@@ -57,9 +58,10 @@ This document defines the full UI requirements for the CADSD Makepad-based GUI, 
 | 2. Resonance Analysis | ✅ Working (note names) |
 | 3. Geometry Summary | ✅ Working (all metrics) |
 | 4. Loss Breakdown | ✅ Working (BarChart, 4 components) |
-| 5. Mouthpiece/Hole Editor | ❌ Backend incomplete (no simulation resolution) |
-| 6. Cross-Section View | ✅ Working (backend available) |
-| 7. View Selector (Tab Navigation) | ✅ Working |
+| 5. Generational Loss | ✅ Working (LineChart, total_loss per generation) |
+| 6. Mouthpiece/Hole Editor | ❌ Backend incomplete (no simulation resolution) |
+| 7. Cross-Section View | ✅ Working (backend available) |
+| 8. View Selector (Tab Navigation) | ✅ Working |
 
 ### 1. Impedance Spectrum Preview ✅
 

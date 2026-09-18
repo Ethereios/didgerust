@@ -796,6 +796,14 @@ loss_section := View{
                                                     text: "Stop"
                                                 }
                                             }
+
+                                            generational_loss_chart := LineChart{
+                                                width: Fill
+                                                height: 200
+                                                draw_bg +: {color: #x0d1116}
+                                                grid: true
+                                                title: "Loss Over Generations"
+                                            }
                                         }
 
                                        fundamental_label := Label{
@@ -1422,6 +1430,8 @@ pub struct App {
     #[rust]
     optimization_best_style: u32,
     #[rust]
+    optimization_best_history: Vec<GenerationLoss>,
+    #[rust]
     optimization_stop_flag: Option<Arc<AtomicBool>>,
     #[rust]
     opt_rx: Option<mpsc::Receiver<OptProgress>>,
@@ -1447,6 +1457,16 @@ struct OptProgress {
     best_top: f32,
     best_bell: f32,
     best_style: u32,
+    total_loss: f64,
+}
+
+#[derive(Clone)]
+struct GenerationLoss {
+    generation: usize,
+    total_loss: f64,
+    fundamental_loss: f64,
+    harmonic_loss: f64,
+    peak_loss: f64,
 }
 
 #[derive(Clone)]
@@ -1725,6 +1745,7 @@ if let Some(v) = self.ui.slider(cx, ids!(holes_count_slider)).slided(actions) {
             self.optimization_progress = 0.0;
             self.optimization_status_text = "Starting...".to_string();
             self.optimization_target_freq = self.target_freq;
+            self.optimization_best_history.clear();
             self.ui
                 .label(cx, ids!(opt_progress_label))
                 .set_text(cx, "Status: starting");
@@ -1779,7 +1800,7 @@ if let Some(v) = self.ui.slider(cx, ids!(holes_count_slider)).slided(actions) {
                 let result = evolver.evolve(
                     population,
                     &LossFunctionType::TairuaLoss(loss_fn),
-                    Some(&|gen: usize, best_fitness: f64| {
+Some(&|gen: usize, best_fitness: f64| {
                         if stop.load(Ordering::Relaxed) {
                             return;
                         }
@@ -1789,6 +1810,7 @@ if let Some(v) = self.ui.slider(cx, ids!(holes_count_slider)).slided(actions) {
                             best_top: 0.0,
                             best_bell: 0.0,
                             best_style: 0,
+                            total_loss: best_fitness,
                         });
                     }),
                 );
@@ -1806,6 +1828,7 @@ if let Some(v) = self.ui.slider(cx, ids!(holes_count_slider)).slided(actions) {
                                 best_top,
                                 best_bell,
                                 best_style: 0,
+                                total_loss: best_fitness,
                             });
                         }
                     }
@@ -1816,6 +1839,7 @@ if let Some(v) = self.ui.slider(cx, ids!(holes_count_slider)).slided(actions) {
                             best_top: 0.0,
                             best_bell: 0.0,
                             best_style: 0,
+                            total_loss: f64::INFINITY,
                         });
                     }
                 }
@@ -1841,6 +1865,14 @@ if let Some(v) = self.ui.slider(cx, ids!(holes_count_slider)).slided(actions) {
                 self.optimization_best_top = progress.best_top;
                 self.optimization_best_bell = progress.best_bell;
                 self.optimization_best_style = progress.best_style;
+                // Accumulate generational loss history
+                self.optimization_best_history.push(GenerationLoss {
+                    generation: self.optimization_best_history.len(),
+                    total_loss: progress.total_loss,
+                    fundamental_loss: 0.0,
+                    harmonic_loss: 0.0,
+                    peak_loss: 0.0,
+                });
             }
             if self.optimization_progress >= 1.0 || !self.optimization_running && self.optimization_progress > 0.0 {
                 self.opt_rx = None;
@@ -1861,6 +1893,24 @@ if let Some(v) = self.ui.slider(cx, ids!(holes_count_slider)).slided(actions) {
                 self.optimization_progress * 100.0
             ),
         );
+
+        // Update generational loss chart data
+        if let Some(mut chart) = self
+            .ui
+            .widget(cx, ids!(generational_loss_chart))
+            .borrow_mut::<LineChart>()
+        {
+            let data_points: Vec<makepad_widgets::chart::DataPoint> = self
+                .optimization_best_history
+                .iter()
+                .enumerate()
+                .map(|(i, gl)| makepad_widgets::chart::DataPoint {
+                    x: i as f64,
+                    y: gl.total_loss,
+                })
+                .collect();
+            chart.set_data(data_points);
+        }
 
         // Update segments list and label from current_geo
         if let Some(ref geo) = self.current_geo {
@@ -2481,106 +2531,7 @@ impl App {
         self.ui.label(cx, ids!(geo_profile)).set_text(cx, &format!("Profile: {}", self.bore_style_name));
     }
 
-    fn create_generational_loss_chart(&self, cx: &mut Cx) -> View {
-        let mut series: Vec<makepad_widgets::chart::DataPoint> = Vec::new();
-
-        if let Some(ref opt_rx) = self.opt_rx {
-            if let Ok(progress) = opt_rx.try_recv() {
-                if let Some(ref history) = self.optimization_best_history {
-                    let mut total_loss = 0.0;
-                    let mut fund_loss = 0.0;
-                    let mut harm_loss = 0.0;
-                    let mut peak_loss = 0.0;
-                    
-                    for i in 0..progress.generations.min(50) {
-                        if i < history.len() {
-                            let h = &history[i];
-                            total_loss = h.total_loss;
-                            fund_loss = h.fundamental_loss;
-                            harm_loss = h.harmonic_loss;
-                            peak_loss = h.peak_loss;
-                        }
-                        series.push(makepad_widgets::chart::DataPoint::new(i as f64, total_loss));
-                    }
-                }
-            }
-        }
-
-        View::new(cx)
-            .width(Fill)
-            .height(300.0)
-            .flow(Down)
-            .spacing(10.0)
-            .padding(10.0)
-            .draw_bg(cx, |_| { cx.draw_rect(2.0, 4.0, Color { r: 0.1, g: 0.1, b: 0.15, a: 1.0 }) })
-            .add(View::new(cx)
-                .width(Fill)
-                .height(Fit)
-                .flow(Right)
-                .align(Align { x: 0.0, y: 0.5 })
-                .add(Label::new(cx)
-                    .text("Generational Loss (Total)")
-                    .draw_text(cx, &mut |d| d.color = Color { r: 0.8, g: 0.8, b: 0.9, a: 1.0 })
-                )
-            )
-            .add(Chart::new(cx)
-                .width(Fill)
-                .height(250.0)
-                .data(series)
-                .draw_bg(cx, &mut |d| d.color = Color { r: 0.05, g: 0.05, b: 0.1, a: 1.0 })
-                .grid(cx)
-                .title("Loss Over Generations")
-            )
-            .add(View::new(cx)
-                .width(Fill)
-                .height(Fit)
-                .flow(Right)
-                .spacing(20.0)
-                .align(Align { x: 0.0, y: 0.5 })
-                .add(View::new(cx)
-                    .width(Fit)
-                    .height(Fit)
-                    .flow(Down)
-                    .spacing(2.0)
-                    .add(Label::new(cx)
-                        .text("Fundamental Loss")
-                        .draw_text(cx, &mut |d| d.color = Color { r: 0.9, g: 0.3, b: 0.3, a: 1.0 })
-                    )
-                    .add(Label::new(cx)
-                        .text("0.0")
-                        .draw_text(cx, &mut |d| d.color = Color { r: 0.6, g: 0.6, b: 0.6, a: 1.0 })
-                    )
-                )
-                .add(View::new(cx)
-                    .width(Fit)
-                    .height(Fit)
-                    .flow(Down)
-                    .spacing(2.0)
-                    .add(Label::new(cx)
-                        .text("Harmonic Loss")
-                        .draw_text(cx, &mut |d| d.color = Color { r: 0.3, g: 0.9, b: 0.3, a: 1.0 })
-                    )
-                    .add(Label::new(cx)
-                        .text("0.0")
-                        .draw_text(cx, &mut |d| d.color = Color { r: 0.6, g: 0.6, b: 0.6, a: 1.0 })
-                    )
-                )
-                .add(View::new(cx)
-                    .width(Fit)
-                    .height(Fit)
-                    .flow(Down)
-                    .spacing(2.0)
-                    .add(Label::new(cx)
-                        .text("Peak Loss")
-                        .draw_text(cx, &mut |d| d.color = Color { r: 0.3, g: 0.3, b: 0.9, a: 1.0 })
-                    )
-                    .add(Label::new(cx)
-                        .text("0.0")
-                        .draw_text(cx, &mut |d| d.color = Color { r: 0.6, g: 0.6, b: 0.6, a: 1.0 })
-                    )
-                )
-            )
-    }
+    
 
     fn update_loss_values(&mut self) {
         if let Some(ref geo) = self.current_geo {

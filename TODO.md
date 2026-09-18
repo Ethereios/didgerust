@@ -23,6 +23,7 @@ Status levels: ✅ working, 🔄 partial, ⚠️ needs improvement, ❌ missing,
 - **3-D bore preview** — ⚠️ Wireframe exists in `src/app.rs::draw_bore_gizmos`. Add camera controls, zoom, rotation.
 - **Optimizer loop** — ✅ Wired: cancellable background thread with Nuevolution, progress callbacks, Start/Stop buttons and status labels
 - **Loss breakdown preview** — ✅ Implemented: TairuaLoss weights (fundamental, harmonics, peaks) exposed via sliders, BarChart showing 4 components, target freq input
+- **Generational loss chart** — ✅ Implemented: LineChart showing total_loss per generation in optimization panel, `GenerationLoss` struct tracks best fitness history, chart updates live during optimization
 - **Cross-section view** — ✅ LineChart rendering diameter vs position from current Geo segments
 - **Export functions** — ✅ CSV and JSON export working via rfd file dialog
 - **Menu bar** — ✅ Complete: File/Edit/View/Theme/Help with full functionality

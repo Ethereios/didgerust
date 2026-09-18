@@ -32,6 +32,7 @@ This layout ensures every container has `height: Fit` (the #1 bug preventer) and
 - **Visualization options**: `show_3d`, `show_wireframe`, `show_cross_section`, `mesh_rotation_enabled`, `mesh_rotation_speed`, `color_scheme`, `active_tab` - all present in `App` struct (`src/bin/gui.rs`)
 - **Optimization controls**: `enable_optimization`, `opt_population_size`, `opt_generations`, `opt_bore_shape`, `opt_toots_input` - present in `App` struct (`src/bin/gui.rs`)
 - **Loss breakdown controls**: weight sliders for fundamental, harmonics, peaks
+- **Generational loss chart**: LineChart showing optimization loss progression per generation
 - **Export functions**: CSV and JSON export buttons present in UI
 
 ### GUI Controls Already Working ✅
@@ -43,6 +44,7 @@ This layout ensures every container has `height: Fit` (the #1 bug preventer) and
 - Impedance spectrum chart
 - Geometry summary preview
 - Loss breakdown BarChart
+- Generational loss LineChart (per-generation total_loss during optimization)
 - Export CSV/JSON buttons
 - Bore curve slider for Kigali/Mbeya profiles
 - View selector dropdown (Setup, Segments, Bubbles, Optimization, Export)

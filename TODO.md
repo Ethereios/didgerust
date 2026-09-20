@@ -22,12 +22,14 @@ Status levels: ✅ working, 🔄 partial, ⚠️ needs improvement, ❌ missing,
 - **GUI tonehole editor** — ⚠️ Sliders work; no drag-and-drop on bore preview.
 - **3-D bore preview** — ⚠️ Wireframe exists in `src/app.rs::draw_bore_gizmos`. Add camera controls, zoom, rotation.
 - **Optimizer loop** — ✅ Wired: cancellable background thread with Nuevolution, progress callbacks, Start/Stop buttons and status labels
-- **Evolution settings modal** — ✅ Implemented: Population size, mutation rate, crossover rate, convergence patience sliders, selection strategy dropdown, Clone from Previous button, Apply/Cancel. Defaults: pop_size=100, mutation=0.1, crossover=0.8, patience=20. Settings saved to App struct and wired into Nuevolution backend.
+- **Evolution settings modal** — ✅ Implemented: Population size, mutation rate, crossover rate, convergence patience sliders, selection strategy dropdown, Clone from Previous button, Apply/Cancel. Defaults: pop_size=100, mutation=0.1, crossover=0.8, patience=20. Settings saved to App struct and wired into Nuevolution backend. Apply keeps current values, Cancel restores originals, Clone toggles state. Safe defaults via `#[rust(...)]` prevent invalid values.
 - **Loss breakdown preview** — ✅ Implemented: TairuaLoss weights (fundamental, harmonics, peaks) exposed via sliders, BarChart showing 4 components, target freq input
 - **Generational loss chart** — ✅ Implemented: LineChart showing total_loss per generation in optimization panel, `GenerationLoss` struct tracks best fitness history, chart updates live during optimization
 - **Cross-section view** — ✅ LineChart rendering diameter vs position from current Geo segments
 - **Export functions** — ✅ CSV and JSON export working via rfd file dialog
-- **Menu bar** — ✅ Full implementation: New Project, Open/Save Project (file dialogs), Quit, Undo/Redo, Toggle Sidebar/Wireframe/Cross-Section, Zoom Extents, Full Screen (toggle), Preferences (modal), Documentation (modal), About (modal); Theme dropdown (dark/light/auto) applies colors live
+- **Menu bar** — ✅ Partially implemented: File/Edit/View/Theme/Help dropdowns in header. Working: New Project, Export, Quit, Undo/Redo, Toggle Sidebar/Wireframe/Cross-Section, Zoom Extents, Full Screen, Theme (dark/light/auto), About. Stubs (UI present, no action): Open Project (file dialog only, TODO load JSON), Save Project (file dialog only, TODO save JSON), Save As (file dialog only, TODO save JSON), Preferences ("Preferences coming soon" modal), Documentation ("Documentation coming soon" modal).
+- **Top menu glitch** — ⚠️ When pressing Save/Save As from the File dropdown, the file dialog takes focus but the dropdown retains state causing the menu to glitch and the pressed item to become the first button. Fix: close dropdown before showing file dialogs, or reset dropdown state after dialog interaction.
+- **Documentation modal** — ⚠️ Currently shows "Documentation coming soon". Needs to open relevant docs (TODO.md, UI_REQUIREMENTS.md, GUI_ROADMAP.md, RESEARCH.md, ARCHITECTURE.md, losses.md) in Notepad or display content within a Makepad ScrollYView.
 - **History/Undo system** — ✅ Full undo/redo with state persistence
 - **View selector** — ✅ Working: Setup, Segments, Bubbles, Optimization, Export dropdown
 

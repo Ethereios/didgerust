@@ -255,8 +255,24 @@ This document defines the full UI requirements for the CADSD Makepad-based GUI, 
 - Crossover Rate slider (0.1-1.0, step 0.05, default 0.8)
 - Convergence Patience slider (5-100, step 5, default 20)
 - Selection Strategy dropdown: Tournament, Roulette, Rank (default Tournament)
-- Clone from Previous button (UI only, not yet wired to backend)
-- Apply/Cancel buttons
+- Clone from Previous button (toggles state, updates button text)
+- Apply/Cancel buttons (Apply keeps values, Cancel restores originals)
+- Safe defaults via `#[rust(...)]` prevent invalid values
+- Labels show current values when modal opens and when sliders change
+- Original values saved on modal open for Cancel functionality
+
+### Menu Bar Status
+- File menu: New Project (✅), Open Project (⚠️ file dialog only, TODO load JSON), Save Project (⚠️ file dialog only, TODO save JSON), Save As (⚠️ file dialog only, TODO save JSON), Export (✅), Quit (✅)
+- Edit menu: Undo (✅), Redo (✅), Preferences (⚠️ "Preferences coming soon" modal stub)
+- View menu: Toggle Sidebar (✅), Toggle Wireframe (✅), Toggle Cross-Section (✅), Zoom Extents (✅), Full Screen (✅)
+- Theme menu: Dark Mode (✅), Light Mode (✅), Auto (✅)
+- Help menu: Documentation (⚠️ "Documentation coming soon" modal stub), About (✅)
+- **Top menu glitch**: When pressing Save/Save As from the File dropdown, the file dialog takes focus but the dropdown retains state causing the menu to glitch and the pressed item to become the first button. Fix: close dropdown before showing file dialogs, or reset dropdown state after dialog interaction.
+
+### Documentation Modal (Future)
+- Should open relevant docs (TODO.md, UI_REQUIREMENTS.md, GUI_ROADMAP.md, RESEARCH.md, ARCHITECTURE.md, losses.md)
+- Can use Notepad or display content within a Makepad ScrollYView
+- Currently shows "Documentation coming soon" placeholder
 
 ### Future Enhancements (Not Yet Implemented)
 - Real async execution with progress callbacks

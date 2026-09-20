@@ -22,6 +22,7 @@ Status levels: ✅ working, 🔄 partial, ⚠️ needs improvement, ❌ missing,
 - **GUI tonehole editor** — ⚠️ Sliders work; no drag-and-drop on bore preview.
 - **3-D bore preview** — ⚠️ Wireframe exists in `src/app.rs::draw_bore_gizmos`. Add camera controls, zoom, rotation.
 - **Optimizer loop** — ✅ Wired: cancellable background thread with Nuevolution, progress callbacks, Start/Stop buttons and status labels
+- **Evolution settings modal** — ✅ Implemented: Population size, mutation rate, crossover rate, convergence patience sliders, selection strategy dropdown, Clone from Previous button, Apply/Cancel. Defaults: pop_size=100, mutation=0.1, crossover=0.8, patience=20. Settings saved to App struct and wired into Nuevolution backend.
 - **Loss breakdown preview** — ✅ Implemented: TairuaLoss weights (fundamental, harmonics, peaks) exposed via sliders, BarChart showing 4 components, target freq input
 - **Generational loss chart** — ✅ Implemented: LineChart showing total_loss per generation in optimization panel, `GenerationLoss` struct tracks best fitness history, chart updates live during optimization
 - **Cross-section view** — ✅ LineChart rendering diameter vs position from current Geo segments

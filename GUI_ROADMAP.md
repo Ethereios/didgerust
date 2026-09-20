@@ -344,6 +344,7 @@ The current Makepad GUI is the active UI. It already contains:
 - Finger hole controls (experimental — backend acoustic simulation not implemented).
 - Mouthpiece controls for length and diameter.
 - Optimization controls (evolutionary optimizer with Nuevolution).
+- Evolution settings modal with population size, mutation rate, crossover rate, convergence patience sliders, selection strategy dropdown, Clone from Previous button, Apply/Cancel (defaults: pop=100, mut=0.1, cross=0.8, patience=20).
 
 ### What is missing but must be planned for now ⚠️
 

@@ -248,11 +248,22 @@ This document defines the full UI requirements for the CADSD Makepad-based GUI, 
 - Crossover operators: `Uniform`, `SinglePoint`, `TwoPoint`
 - Bore shape preference: `Any`, `Cylindrical`, `Conical`, `Flared`
 
+### Evolution Settings Modal ✅
+- Evolution Settings modal accessible from Optimization panel
+- Population Size slider (10-500, step 10, default 100)
+- Mutation Rate slider (0.01-1.0, step 0.01, default 0.1)
+- Crossover Rate slider (0.1-1.0, step 0.05, default 0.8)
+- Convergence Patience slider (5-100, step 5, default 20)
+- Selection Strategy dropdown: Tournament, Roulette, Rank (default Tournament)
+- Clone from Previous button (UI only, not yet wired to backend)
+- Apply/Cancel buttons
+
 ### Future Enhancements (Not Yet Implemented)
 - Real async execution with progress callbacks
 - Best genome display and convergence indicators
 - Evolutionary optimizer integration with geometry
 - UI controls for all evolution parameters
+- Clone from Previous wiring to reuse prior optimization results
 
 ---
 

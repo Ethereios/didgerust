@@ -796,6 +796,12 @@ loss_section := View{
                                                     height: 24
                                                     text: "Stop"
                                                 }
+
+                                                opt_settings_button := Button{
+                                                    width: Fill
+                                                    height: 24
+                                                    text: "Evolution Settings"
+                                                }
                                             }
 
                                             generational_loss_chart := LineChart{
@@ -969,10 +975,11 @@ impedance_preview := View{
                                         height: Fit
                                         text: ""
                                         draw_text +: {font_size: 11, color: #xb0b0b0}
-                                    }
-                                }
-                            }
-                        }
+}
+            }
+        }
+    }
+}
                     }
                 }
             preferences_modal := Modal{
@@ -1049,6 +1056,132 @@ impedance_preview := View{
                     }
                 }
             }
+
+            evolution_modal := Modal{
+                can_dismiss: true
+                bg_view := View{
+                    width: Fill
+                    height: Fill
+                    show_bg: true
+                    draw_bg +: {color: #000000B3}
+                }
+                content := View{
+                    width: Fit
+                    height: Fit
+                    flow: Down
+                    padding: Inset{left: 20 right: 20 top: 20 bottom: 20}
+                    draw_bg +: {color: #x171d24}
+
+                    title := Label{
+                        text: "Evolution Settings"
+                        draw_text +: {color: #dfe7ee, font_size: 18}
+                    }
+
+                    pop_label := Label{
+                        width: Fill
+                        height: 18
+                        text: "Population Size"
+                        draw_text +: {color: #xa0a0a0}
+                    }
+
+                    pop_slider := Slider{
+                        width: Fill
+                        height: 40
+                        min: 10.0
+                        max: 500.0
+                        step: 10.0
+                        default: 100.0
+                    }
+
+                    mut_label := Label{
+                        width: Fill
+                        height: 18
+                        text: "Mutation Rate"
+                        draw_text +: {color: #xa0a0a0}
+                    }
+
+                    mut_slider := Slider{
+                        width: Fill
+                        height: 40
+                        min: 0.01
+                        max: 1.0
+                        step: 0.01
+                        default: 0.1
+                    }
+
+                    cross_label := Label{
+                        width: Fill
+                        height: 18
+                        text: "Crossover Rate"
+                        draw_text +: {color: #xa0a0a0}
+                    }
+
+                    cross_slider := Slider{
+                        width: Fill
+                        height: 40
+                        min: 0.1
+                        max: 1.0
+                        step: 0.05
+                        default: 0.8
+                    }
+
+                    conv_label := Label{
+                        width: Fill
+                        height: 18
+                        text: "Convergence Patience"
+                        draw_text +: {color: #xa0a0a0}
+                    }
+
+                    conv_slider := Slider{
+                        width: Fill
+                        height: 40
+                        min: 5.0
+                        max: 100.0
+                        step: 5.0
+                        default: 20.0
+                    }
+
+                    strat_label := Label{
+                        width: Fill
+                        height: 18
+                        text: "Selection Strategy"
+                        draw_text +: {color: #xa0a0a0}
+                    }
+
+                    strat_dropdown := DropDown{
+                        width: Fill
+                        height: 28
+                        labels: ["Tournament", "Roulette", "Rank"]
+                        selected_item: 0
+                    }
+
+                    clone_btn := Button{
+                        width: Fill
+                        height: 24
+                        text: "Clone from Previous"
+                    }
+
+                    button_row := View{
+                        width: Fill
+                        height: Fit
+                        flow: Right
+                        spacing: 8
+                        margin: Inset{top: 16}
+
+                        cancel_btn := Button{
+                            width: Fill
+                            height: 24
+                            text: "Cancel"
+                        }
+
+                        apply_btn := Button{
+                            width: Fill
+                            height: 24
+                            text: "Apply"
+                            color: #x2ecc71
+                        }
+                    }
+                }
             }
         }
     }
@@ -1516,6 +1649,18 @@ pub struct App {
     history: Vec<ProjectState>,
     #[rust]
     history_index: usize,
+    #[rust(100)]
+    evo_population_size: usize,
+    #[rust(0.1)]
+    evo_mutation_rate: f64,
+    #[rust(0.8)]
+    evo_crossover_rate: f64,
+    #[rust(20)]
+    evo_convergence_patience: usize,
+    #[rust(0)]
+    evo_selection_strategy: usize,
+    #[rust(false)]
+    evo_clone_from_previous: bool,
 }
 
 #[allow(dead_code)]
@@ -1835,23 +1980,27 @@ if let Some(v) = self.ui.slider(cx, ids!(holes_count_slider)).slided(actions) {
             let stop_flag = Arc::new(AtomicBool::new(false));
             self.optimization_stop_flag = Some(stop_flag.clone());
 
-            let opt_geo = if let Some(ref geo) = self.current_geo {
-                geo.copy()
-            } else {
-                create_base_geo(950.0, 35.0, 85.0, 0, 0.0, 50)
-            };
-            let target_freq = self.optimization_target_freq;
-            let weight_fundamental = self.weight_fundamental;
-            let weight_harmonics = self.weight_harmonics;
-            let weight_peaks = self.weight_peaks;
+let opt_geo = if let Some(ref geo) = self.current_geo {
+    geo.copy()
+} else {
+    create_base_geo(950.0, 35.0, 85.0, 0, 0.0, 50)
+};
+let target_freq = self.optimization_target_freq;
+let weight_fundamental = self.weight_fundamental;
+let weight_harmonics = self.weight_harmonics;
+let weight_peaks = self.weight_peaks;
+let evo_population_size = self.evo_population_size;
+let evo_mutation_rate = self.evo_mutation_rate;
+let evo_crossover_rate = self.evo_crossover_rate;
 
             std::thread::spawn(move || {
                 let loss_fn = TairuaLoss::new()
                     .with_target_frequency(target_freq)
                     .with_weights(weight_fundamental, weight_harmonics, weight_peaks);
 
-                let pop_size = 12usize;
-                let generations = 30usize;
+                let pop_size = evo_population_size;
+                let mutation_rate = evo_mutation_rate;
+                let generations = 30usize; // TODO: make configurable
 
                 let mut population = Vec::new();
                 for _ in 0..pop_size {
@@ -1866,8 +2015,8 @@ if let Some(v) = self.ui.slider(cx, ids!(holes_count_slider)).slided(actions) {
                 }
 
                 let evolver = Nuevolution::new(pop_size, generations)
-                    .set_mutation_rate(0.15)
-                    .set_crossover_rate(0.8)
+                    .set_mutation_rate(mutation_rate)
+                    .set_crossover_rate(evo_crossover_rate)
                     .set_elite_size(2)
                     .set_verbose(false);
 
@@ -1932,6 +2081,35 @@ Some(&|gen: usize, best_fitness: f64| {
             self.ui
                 .label(cx, ids!(opt_progress_label))
                 .set_text(cx, "Status: stopped");
+        }
+
+        if self.ui.button(cx, ids!(opt_settings_button)).clicked(actions) {
+            self.ui.modal(cx, ids!(evolution_modal)).open(cx);
+        }
+
+        // Evolution modal slider handlers
+        if let Some(pop) = self.ui.slider(cx, ids!(pop_slider)).slided(actions) {
+            self.evo_population_size = pop as usize;
+        }
+        if let Some(mutation_rate) = self.ui.slider(cx, ids!(mut_slider)).slided(actions) {
+            self.evo_mutation_rate = mutation_rate;
+        }
+        if let Some(cross) = self.ui.slider(cx, ids!(cross_slider)).slided(actions) {
+            self.evo_crossover_rate = cross;
+        }
+        if let Some(conv) = self.ui.slider(cx, ids!(conv_slider)).slided(actions) {
+            self.evo_convergence_patience = conv as usize;
+        }
+        if let Some(strat) = self.ui.drop_down(cx, ids!(strat_dropdown)).selected(actions) {
+            self.evo_selection_strategy = strat;
+        }
+
+        if self.ui.button(cx, ids!(apply_btn)).clicked(actions) {
+            self.ui.modal(cx, ids!(evolution_modal)).close(cx);
+        }
+
+        if self.ui.button(cx, ids!(cancel_btn)).clicked(actions) {
+            self.ui.modal(cx, ids!(evolution_modal)).close(cx);
         }
 
         // Drain optimization progress channel
@@ -2452,6 +2630,9 @@ Some(&|gen: usize, best_fitness: f64| {
         }
         if self.ui.modal(cx, ids!(documentation_modal)).dismissed(actions) {
             self.ui.modal(cx, ids!(documentation_modal)).close(cx);
+        }
+        if self.ui.modal(cx, ids!(evolution_modal)).dismissed(actions) {
+            self.ui.modal(cx, ids!(evolution_modal)).close(cx);
         }
 
         // Handle view selector dropdown

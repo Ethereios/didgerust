@@ -2970,10 +2970,31 @@ Some(&|gen: usize, best_fitness: f64| {
                         self.restore_from_history(cx);
                     }
                 }
-                2 => {
-                    // Preferences — open preferences modal
-                    self.ui.modal(cx, ids!(preferences_modal)).open(cx);
-                }
+2 => {
+                     // Preferences — open preferences modal and sync controls
+                     self.ui.modal(cx, ids!(preferences_modal)).open(cx);
+                     // Sync controls with current state
+                     let theme_idx = match self.theme_mode.as_str() {
+                         "light" => 1,
+                         "auto" => 2,
+                         _ => 0,
+                     };
+self.ui.drop_down(cx, ids!(theme_dropdown)).set_selected_item(cx, theme_idx);
+                      let backend_idx = match self.pref_simulation_backend.as_str() {
+                          "waveguide" => 1,
+                          "complex_impedance" => 2,
+                          _ => 0,
+                      };
+                      self.ui.drop_down(cx, ids!(backend_dropdown)).set_selected_item(cx, backend_idx);
+                      if let Some(mut check) = self.ui.widget(cx, ids!(wireframe_check)).borrow_mut::<CheckBox>() {
+                          check.set_active(cx, self.show_wireframe, Animate::No);
+                      }
+                      if let Some(mut check) = self.ui.widget(cx, ids!(cross_section_check)).borrow_mut::<CheckBox>() {
+                          check.set_active(cx, self.show_cross_section, Animate::No);
+                      }
+                      self.ui.slider(cx, ids!(volume_slider)).set_value(cx, self.pref_volume as f64);
+                      self.ui.label(cx, ids!(volume_value)).set_text(cx, &format!("{:.0}%", self.pref_volume * 100.0));
+                  }
                 _ => {}
             }
         }
@@ -2998,6 +3019,39 @@ Some(&|gen: usize, best_fitness: f64| {
                     // About — open about modal
                     self.ui.modal(cx, ids!(about_modal)).open(cx);
                 }
+                _ => {}
+            }
+        }
+
+        // Preferences modal real-time control handlers
+        if let Some(idx) = self.ui.drop_down(cx, ids!(theme_dropdown)).selected(actions) {
+            match idx {
+                0 => { self.theme_mode = "dark".to_string(); }
+                1 => { self.theme_mode = "light".to_string(); }
+                2 => { self.theme_mode = "auto".to_string(); }
+                _ => {}
+            }
+            self.apply_theme(cx);
+        }
+        if let Some(v) = self.ui.slider(cx, ids!(volume_slider)).slided(actions) {
+            self.pref_volume = v as f32;
+            self.ui.label(cx, ids!(volume_value)).set_text(cx, &format!("{:.0}%", v * 100.0));
+        }
+        if let Some(checked) = self.ui.widget(cx, ids!(wireframe_check)).borrow::<CheckBox>().and_then(|c| c.changed(actions)) {
+            self.show_wireframe = checked;
+            if let Some(mut vp) = self.ui.widget(cx, ids!(viewport)).borrow_mut::<BoreViewport>() {
+                vp.draw_mesh.wireframe = if checked { 1.0 } else { 0.0 };
+            }
+        }
+        if let Some(checked) = self.ui.widget(cx, ids!(cross_section_check)).borrow::<CheckBox>().and_then(|c| c.changed(actions)) {
+            self.show_cross_section = checked;
+            self.ui.widget(cx, ids!(cross_section)).set_visible(cx, checked);
+        }
+        if let Some(idx) = self.ui.drop_down(cx, ids!(backend_dropdown)).selected(actions) {
+            match idx {
+                0 => { self.pref_simulation_backend = "tlm_python".to_string(); }
+                1 => { self.pref_simulation_backend = "waveguide".to_string(); }
+                2 => { self.pref_simulation_backend = "complex_impedance".to_string(); }
                 _ => {}
             }
         }

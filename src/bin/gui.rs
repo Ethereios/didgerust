@@ -494,9 +494,10 @@ segment_ops_section := View{
                                                     width: 60
                                                     height: 24
                                                     text: "Sort"
-                                                }
-                                            }
-                                        }
+        }
+    }
+
+}
 
                                         // Segment Editor toggle and list
                                         segment_editor_toggle := Button{
@@ -974,6 +975,80 @@ impedance_preview := View{
                         }
                     }
                 }
+            preferences_modal := Modal{
+                can_dismiss: true
+                bg_view := View{
+                    width: Fill
+                    height: Fill
+                    show_bg: true
+                    draw_bg +: {color: #000000B3}
+                }
+                content := View{
+                    width: Fit
+                    height: Fit
+                    flow: Down
+                    padding: Inset{left: 20 right: 20 top: 20 bottom: 20}
+                    draw_bg +: {color: #x171d24}
+                    title := Label{
+                        text: "Preferences"
+                        draw_text +: {color: #dfe7ee, font_size: 18}
+                    }
+                    note := Label{
+                        text: "Preferences coming soon"
+                        draw_text +: {color: #x8391a0}
+                    }
+                }
+            }
+
+            about_modal := Modal{
+                can_dismiss: true
+                bg_view := View{
+                    width: Fill
+                    height: Fill
+                    show_bg: true
+                    draw_bg +: {color: #000000B3}
+                }
+                content := View{
+                    width: Fit
+                    height: Fit
+                    flow: Down
+                    padding: Inset{left: 20 right: 20 top: 20 bottom: 20}
+                    draw_bg +: {color: #x171d24}
+                    title := Label{
+                        text: "About CADSD"
+                        draw_text +: {color: #dfe7ee, font_size: 18}
+                    }
+                    version := Label{
+                        text: "Didgeridoo Analyzer v0.1"
+                        draw_text +: {color: #x8391a0}
+                    }
+                }
+            }
+
+            documentation_modal := Modal{
+                can_dismiss: true
+                bg_view := View{
+                    width: Fill
+                    height: Fill
+                    show_bg: true
+                    draw_bg +: {color: #000000B3}
+                }
+                content := View{
+                    width: Fit
+                    height: Fit
+                    flow: Down
+                    padding: Inset{left: 20 right: 20 top: 20 bottom: 20}
+                    draw_bg +: {color: #x171d24}
+                    title := Label{
+                        text: "Documentation"
+                        draw_text +: {color: #dfe7ee, font_size: 18}
+                    }
+                    note := Label{
+                        text: "Documentation coming soon"
+                        draw_text +: {color: #x8391a0}
+                    }
+                }
+            }
             }
         }
     }
@@ -1361,6 +1436,8 @@ pub struct App {
     show_cross_section: bool,
     #[rust]
     show_sidebar: bool,
+    #[rust]
+    is_fullscreen: bool,
     #[rust]
     theme_mode: String,
     #[rust]
@@ -2304,10 +2381,14 @@ Some(&|gen: usize, best_fitness: f64| {
                         vp.camera.distance = 70.0;
                     }
                 }
-                4 => {
+                 4 => {
                     // Full Screen — toggle window fullscreen
-                    // Makepad window fullscreen toggle via remote
-                    let _ = cx;
+                    let window = self.ui.window(cx, ids!(main_window));
+                    if window.is_fullscreen(cx) {
+                        window.disable_fullscreen(cx);
+                    } else {
+                        window.fullscreen(cx);
+                    }
                 }
                 _ => {}
             }
@@ -2331,8 +2412,8 @@ Some(&|gen: usize, best_fitness: f64| {
                     }
                 }
                 2 => {
-                    // Preferences — log for now; could open a modal later
-                    ::log::info!("Preferences requested");
+                    // Preferences — open preferences modal
+                    self.ui.modal(cx, ids!(preferences_modal)).open(cx);
                 }
                 _ => {}
             }
@@ -2345,21 +2426,32 @@ Some(&|gen: usize, best_fitness: f64| {
                 2 => { self.theme_mode = "auto".to_string(); }
                 _ => {}
             }
+            self.apply_theme(cx);
         }
 
         if let Some(idx) = self.ui.drop_down(cx, ids!(help_menu)).selected(actions) {
             match idx {
                 0 => {
-                    // Documentation — open in browser or show help text
-                    ::log::info!("Opening documentation...");
-                    // Could open URL, but for now just log
+                    // Documentation — open documentation modal
+                    self.ui.modal(cx, ids!(documentation_modal)).open(cx);
                 }
                 1 => {
-                    // About — show about dialog info
-                    ::log::info!("About CADSD — Didgeridoo Analyzer");
+                    // About — open about modal
+                    self.ui.modal(cx, ids!(about_modal)).open(cx);
                 }
                 _ => {}
             }
+        }
+
+        // Handle modal dismissal
+        if self.ui.modal(cx, ids!(preferences_modal)).dismissed(actions) {
+            self.ui.modal(cx, ids!(preferences_modal)).close(cx);
+        }
+        if self.ui.modal(cx, ids!(about_modal)).dismissed(actions) {
+            self.ui.modal(cx, ids!(about_modal)).close(cx);
+        }
+        if self.ui.modal(cx, ids!(documentation_modal)).dismissed(actions) {
+            self.ui.modal(cx, ids!(documentation_modal)).close(cx);
         }
 
         // Handle view selector dropdown
@@ -2413,6 +2505,29 @@ Some(&|gen: usize, best_fitness: f64| {
 }
 
 impl App {
+    fn apply_theme(&mut self, cx: &mut Cx) {
+        let (text, muted) = match self.theme_mode.as_str() {
+            "light" => (
+                Vec4f { x: 0.102, y: 0.141, z: 0.188, w: 1.0 },
+                Vec4f { x: 0.353, y: 0.420, z: 0.486, w: 1.0 },
+            ),
+            _ => (
+                Vec4f { x: 0.871, y: 0.906, z: 0.933, w: 1.0 },
+                Vec4f { x: 0.514, y: 0.569, z: 0.627, w: 1.0 },
+            ),
+        };
+
+        if let Some(mut title) = self.ui.widget(cx, ids!(title)).borrow_mut::<Label>() {
+            title.set_text_color(cx, text);
+        }
+        if let Some(mut hint) = self.ui.widget(cx, ids!(hint)).borrow_mut::<Label>() {
+            hint.set_text_color(cx, muted);
+        }
+        if let Some(mut running_label) = self.ui.widget(cx, ids!(running_label)).borrow_mut::<Label>() {
+            running_label.set_text_color(cx, muted);
+        }
+    }
+
     fn export_impedance_csv(&mut self) {
         if self.impedance_data.is_empty() {
             return;

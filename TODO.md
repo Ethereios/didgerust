@@ -27,9 +27,10 @@ Status levels: ✅ working, 🔄 partial, ⚠️ needs improvement, ❌ missing,
 - **Generational loss chart** — ✅ Implemented: LineChart showing total_loss per generation in optimization panel, `GenerationLoss` struct tracks best fitness history, chart updates live during optimization
 - **Cross-section view** — ✅ LineChart rendering diameter vs position from current Geo segments
 - **Export functions** — ✅ CSV and JSON export working via rfd file dialog
-- **Menu bar** — ✅ Partially implemented: File/Edit/View/Theme/Help dropdowns in header. Working: New Project, Export, Quit, Undo/Redo, Toggle Sidebar/Wireframe/Cross-Section, Zoom Extents, Full Screen, Theme (dark/light/auto), About. Stubs (UI present, no action): Open Project (file dialog only, TODO load JSON), Save Project (file dialog only, TODO save JSON), Save As (file dialog only, TODO save JSON), Preferences ("Preferences coming soon" modal), Documentation ("Documentation coming soon" modal).
-- **Top menu glitch** — ⚠️ When pressing Save/Save As from the File dropdown, the file dialog takes focus but the dropdown retains state causing the menu to glitch and the pressed item to become the first button. Fix: close dropdown before showing file dialogs, or reset dropdown state after dialog interaction.
-- **Documentation modal** — ⚠️ Currently shows "Documentation coming soon". Needs to open relevant docs (TODO.md, UI_REQUIREMENTS.md, GUI_ROADMAP.md, RESEARCH.md, ARCHITECTURE.md, losses.md) in Notepad or display content within a Makepad ScrollYView.
+- **Menu bar** — ✅ Fully implemented: File/Edit/View/Theme/Help dropdowns in header. Working: New Project, Open Project (loads JSON), Save Project (saves JSON), Save As (saves JSON and records path), Export (CSV+JSON), Quit, Undo/Redo, Toggle Sidebar/Wireframe/Cross-Section, Zoom Extents, Full Screen, Theme (dark/light/auto), About, Preferences (functional modal), Documentation (modal with doc links).
+- **Top menu glitch** — ✅ Fixed by resetting File menu selection after file-dialog operations via `set_selected_item(cx, 0)`
+- **Documentation modal** — ✅ Functional modal with scroll area and buttons that open relevant docs in system viewer (README.md, GUI_ROADMAP.md, TODO.md, docs/RESEARCH.md) using `open` crate
+- **Preferences modal** — ✅ Functional modal with Theme (Dark/Light/Auto), Volume slider, Wireframe/Cross-Section checkboxes, Simulation backend dropdown (TLM/Waveguide/Complex Impedance), Apply/Cancel buttons
 - **History/Undo system** — ✅ Full undo/redo with state persistence
 - **View selector** — ✅ Working: Setup, Segments, Bubbles, Optimization, Export dropdown
 

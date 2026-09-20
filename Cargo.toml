@@ -32,6 +32,8 @@ dfdx = { version = "0.13", optional = true }
 # SuperInstance-derived math/signal crates (optional)
 conservation-law = { git = "https://github.com/SuperInstance/conservation-law-rs", optional = true }
 lau-signal-processing = { git = "https://github.com/SuperInstance/lau-signal-processing", optional = true }
+# File opening
+open = "4.0"
 
 [dev-dependencies]
 approx = "0.5"

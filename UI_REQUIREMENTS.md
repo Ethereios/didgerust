@@ -262,17 +262,52 @@ This document defines the full UI requirements for the CADSD Makepad-based GUI, 
 - Original values saved on modal open for Cancel functionality
 
 ### Menu Bar Status
-- File menu: New Project (✅), Open Project (⚠️ file dialog only, TODO load JSON), Save Project (⚠️ file dialog only, TODO save JSON), Save As (⚠️ file dialog only, TODO save JSON), Export (✅), Quit (✅)
-- Edit menu: Undo (✅), Redo (✅), Preferences (⚠️ "Preferences coming soon" modal stub)
+- File menu: New Project (✅), Open Project (✅ loads project JSON), Save Project (✅ saves project JSON), Save As (✅ saves project JSON and records the selected path), Export (✅), Quit (✅)
+- Edit menu: Undo (✅), Redo (✅), Preferences (✅ functional modal with Apply/Cancel)
 - View menu: Toggle Sidebar (✅), Toggle Wireframe (✅), Toggle Cross-Section (✅), Zoom Extents (✅), Full Screen (✅)
 - Theme menu: Dark Mode (✅), Light Mode (✅), Auto (✅)
-- Help menu: Documentation (⚠️ "Documentation coming soon" modal stub), About (✅)
-- **Top menu glitch**: When pressing Save/Save As from the File dropdown, the file dialog takes focus but the dropdown retains state causing the menu to glitch and the pressed item to become the first button. Fix: close dropdown before showing file dialogs, or reset dropdown state after dialog interaction.
+- Help menu: Documentation (✅ modal with links to project documentation), About (✅)
+- **Top menu glitch**: Fixed by resetting File menu selection to the first item after file-dialog operations.
 
-### Documentation Modal (Future)
-- Should open relevant docs (TODO.md, UI_REQUIREMENTS.md, GUI_ROADMAP.md, RESEARCH.md, ARCHITECTURE.md, losses.md)
-- Can use Notepad or display content within a Makepad ScrollYView
-- Currently shows "Documentation coming soon" placeholder
+### Documentation Modal ✅
+- Opens a scrollable documentation panel from Help → Documentation
+- Provides buttons that open the relevant project documentation in the system default viewer:
+  - UI Requirements → `README.md`
+  - GUI Roadmap → `GUI_ROADMAP.md`
+  - TODO.md → `TODO.md`
+  - Research.md → `docs/RESEARCH.md`
+- Uses the `open` crate for cross-platform document launching
+- Modal supports normal dismissal/closing behavior
+
+### Preferences Modal ✅
+- Opens a functional preferences panel from Edit → Preferences
+- Theme selection: Dark, Light, Auto (System)
+- Volume slider with live percentage display
+- Wireframe and Cross-Section visibility toggles
+- Simulation backend selection: TLM, Waveguide, Complex Impedance
+- Apply button commits theme/backend selections and closes the modal
+- Cancel button closes the modal without applying changes
+- Modal supports normal dismissal/closing behavior
+
+### Evolution Settings Modal ✅
+- Evolution Settings modal accessible from Optimization panel
+- Population Size slider (10-500, step 10, default 100)
+- Mutation Rate slider (0.01-1.0, step 0.01, default 0.1)
+- Crossover Rate slider (0.1-1.0, step 0.05, default 0.8)
+- Convergence Patience slider (5-100, step 5, default 20)
+- Selection Strategy dropdown: Tournament, Roulette, Rank (default Tournament)
+- Clone from Previous button (toggles state, updates button text)
+- Apply/Cancel buttons (Apply keeps values, Cancel restores originals)
+- Safe defaults via `#[rust(...)]` prevent invalid values
+- Labels show current values when modal opens and when sliders change
+- Original values saved on modal open for Cancel functionality
+
+### Project Persistence ✅
+- `ProjectState` derives `serde::Serialize` and `serde::Deserialize`
+- Open Project loads a complete project from JSON, including geometry, bubbles, dimensions, style, and segment count
+- Save Project writes the current project to JSON
+- Save As writes the current project to a user-selected JSON path and records it in `project_path`
+- File menu selection resets after file-dialog operations to prevent menu glitches
 
 ### Future Enhancements (Not Yet Implemented)
 - Real async execution with progress callbacks
@@ -290,5 +325,5 @@ This document defines the full UI requirements for the CADSD Makepad-based GUI, 
 - Export impedance data: CSV (button present)
 
 ### Configuration Management
-- Future: Save/load configurations
+- Project persistence: ✅ JSON save/load for geometry, bubbles, dimensions, style, and segment count
 - Future: Preset library

@@ -8,6 +8,8 @@ use cadsd_accurate::geo::Geo;
 use cadsd_accurate::loss::TairuaLoss;
 use cadsd_accurate::sim::{acoustical_simulation, get_log_simulation_frequencies};
 use makepad_render::scene::set_pass_camera;
+use open;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::Arc;
@@ -1000,9 +1002,88 @@ impedance_preview := View{
                         text: "Preferences"
                         draw_text +: {color: #dfe7ee, font_size: 18}
                     }
-                    note := Label{
-                        text: "Preferences coming soon"
-                        draw_text +: {color: #x8391a0}
+                    
+                    // Theme preference
+                    theme_label := Label{
+                        width: Fill
+                        height: 18
+                        text: "Theme"
+                        draw_text +: {color: #xa0a0a0}
+                    }
+                    theme_dropdown := DropDown{
+                        width: Fill
+                        height: 34
+                        items: ["Dark", "Light", "Auto (System)"]
+                    }
+                    
+                    // Volume preference
+                    volume_label := Label{
+                        width: Fill
+                        height: 18
+                        text: "Volume"
+                        draw_text +: {color: #xa0a0a0}
+                    }
+                    volume_slider := Slider{
+                        width: Fill
+                        height: 40
+                        min: 0.0
+                        max: 1.0
+                        step: 0.05
+                        default: 1.0
+                    }
+                    volume_value := Label{
+                        width: Fill
+                        height: 18
+                        text: "100%"
+                        draw_text +: {color: #x8391a0, font_size: 11}
+                    }
+                    
+                    // Wireframe toggle
+                    wireframe_check := CheckBox{
+                        width: Fit
+                        height: 24
+                        text: "Show Wireframe"
+                    }
+                    
+                    // Cross-section toggle
+                    cross_section_check := CheckBox{
+                        width: Fit
+                        height: 24
+                        text: "Show Cross-Section"
+                    }
+                    
+                    // Simulation backend preference
+                    backend_label := Label{
+                        width: Fill
+                        height: 18
+                        text: "Simulation Backend"
+                        draw_text +: {color: #xa0a0a0}
+                    }
+                    backend_dropdown := DropDown{
+                        width: Fill
+                        height: 34
+                        items: ["TLM (Transmission Line Model)", "Waveguide", "Complex Impedance"]
+                    }
+                    
+                    // Buttons
+                    buttons := View{
+                        width: Fill
+                        height: Fit
+                        flow: Right
+                        spacing: 10
+                        align: Align{x: 1.0 y: 0.5}
+                        apply_btn := Button{
+                            width: 80
+                            height: 34
+                            text: "Apply"
+                            draw_text +: {font_size: 13}
+                        }
+                        cancel_btn := Button{
+                            width: 80
+                            height: 34
+                            text: "Cancel"
+                            draw_text +: {font_size: 13}
+                        }
                     }
                 }
             }
@@ -1050,9 +1131,75 @@ impedance_preview := View{
                         text: "Documentation"
                         draw_text +: {color: #dfe7ee, font_size: 18}
                     }
-                    note := Label{
-                        text: "Documentation coming soon"
-                        draw_text +: {color: #x8391a0}
+                    
+                    // Documentation content scroll area
+                    doc_scroll := ScrollYView{
+                        width: Fill
+                        height: Fit
+                        max_height: 500
+                        flow: Down
+                        padding: 10
+                        
+                        // Documentation title
+                        doc_title := Label{
+                            width: Fill
+                            height: Fit
+                            text: "CADSD GUI - Complete Feature Requirements"
+                            draw_text +: {color: #dfe7ee, font_size: 16, font_weight: FontWeight::Bold}
+                        }
+                        
+                        // Documentation content (simplified preview)
+                        doc_content := Label{
+                            width: Fill
+                            height: Fit
+                            text: "UI Requirements, GUI Roadmap, Research Documentation, and Implementation Status\n\n\nClick to open full documentation in external viewer or access detailed sections."
+                            draw_text +: {color: #xb0b0b0, font_size: 13}
+                        }
+                        
+                        // Documentation buttons
+                        doc_buttons := View{
+                            width: Fill
+                            height: Fit
+                            flow: Right
+                            spacing: 10
+                            padding: 10
+                            
+                            ui_requirements_btn := Button{
+                                width: 120
+                                height: 34
+                                text: "UI Requirements"
+                                draw_text +: {font_size: 13}
+                            }
+                            
+                            gui_roadmap_btn := Button{
+                                width: 120
+                                height: 34
+                                text: "GUI Roadmap"
+                                draw_text +: {font_size: 13}
+                            }
+                            
+                            todo_btn := Button{
+                                width: 120
+                                height: 34
+                                text: "TODO.md"
+                                draw_text +: {font_size: 13}
+                            }
+                            
+                            research_btn := Button{
+                                width: 120
+                                height: 34
+                                text: "Research.md"
+                                draw_text +: {font_size: 13}
+                            }
+                        }
+                        
+                        // Documentation status indicator
+                        status := Label{
+                            width: Fill
+                            height: Fit
+                            text: "✅ Documentation available - Select a section above to view details"
+                            draw_text +: {color: #x2ecc71, font_size: 11}
+                        }
                     }
                 }
             }
@@ -1661,6 +1808,36 @@ pub struct App {
     evo_selection_strategy: usize,
     #[rust(false)]
     evo_clone_from_previous: bool,
+    #[rust(100)]
+    evo_population_size_original: usize,
+    #[rust(0.1)]
+    evo_mutation_rate_original: f64,
+    #[rust(0.8)]
+    evo_crossover_rate_original: f64,
+    #[rust(20)]
+    evo_convergence_patience_original: usize,
+    #[rust(0)]
+    evo_selection_strategy_original: usize,
+    #[rust(false)]
+    evo_clone_from_previous_original: bool,
+    #[rust(false)]
+    show_preferences: bool,
+    #[rust(false)]
+    show_documentation: bool,
+    #[rust("dark".to_string())]
+    pref_theme_mode: String,
+    #[rust(100.0f32)]
+    pref_volume: f32,
+    #[rust(true)]
+    pref_show_wireframe: bool,
+    #[rust(true)]
+    pref_show_cross_section: bool,
+    #[rust("Tlm".to_string())]
+    pref_simulation_backend: String,
+    #[rust("".to_string())]
+    documentation_text: String,
+    #[rust(None)]
+    project_path: Option<PathBuf>,
 }
 
 #[allow(dead_code)]
@@ -1691,7 +1868,7 @@ struct GenerationLoss {
     peak_loss: f64,
 }
 
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct ProjectState {
     geo: Geo,
     bubbles: Vec<(f32, f32, f32)>,
@@ -2084,31 +2261,145 @@ Some(&|gen: usize, best_fitness: f64| {
         }
 
         if self.ui.button(cx, ids!(opt_settings_button)).clicked(actions) {
+            // Save original values for Cancel functionality
+            self.evo_population_size_original = self.evo_population_size;
+            self.evo_mutation_rate_original = self.evo_mutation_rate;
+            self.evo_crossover_rate_original = self.evo_crossover_rate;
+            self.evo_convergence_patience_original = self.evo_convergence_patience;
+            self.evo_selection_strategy_original = self.evo_selection_strategy;
+            self.evo_clone_from_previous_original = self.evo_clone_from_previous;
+
+            // Show current values when the modal opens
+            self.ui
+                .label(cx, ids!(pop_label))
+                .set_text(cx, &format!("Population Size: {}", self.evo_population_size));
+            self.ui
+                .label(cx, ids!(mut_label))
+                .set_text(cx, &format!("Mutation Rate: {:.2}", self.evo_mutation_rate));
+            self.ui
+                .label(cx, ids!(cross_label))
+                .set_text(cx, &format!("Crossover Rate: {:.2}", self.evo_crossover_rate));
+            self.ui
+                .label(cx, ids!(conv_label))
+                .set_text(cx, &format!("Convergence Patience: {}", self.evo_convergence_patience));
+            let strategy_names = ["Tournament", "Roulette", "Rank"];
+            self.ui
+                .label(cx, ids!(strat_label))
+                .set_text(
+                    cx,
+                    &format!(
+                        "Selection Strategy: {}",
+                        strategy_names[self.evo_selection_strategy]
+                    ),
+                );
+            let clone_label = if self.evo_clone_from_previous {
+                "Clone from Previous (On)"
+            } else {
+                "Clone from Previous"
+            };
+            self.ui.button(cx, ids!(clone_btn)).set_text(cx, clone_label);
             self.ui.modal(cx, ids!(evolution_modal)).open(cx);
         }
 
         // Evolution modal slider handlers
         if let Some(pop) = self.ui.slider(cx, ids!(pop_slider)).slided(actions) {
             self.evo_population_size = pop as usize;
+            self.ui
+                .label(cx, ids!(pop_label))
+                .set_text(cx, &format!("Population Size: {}", self.evo_population_size));
         }
         if let Some(mutation_rate) = self.ui.slider(cx, ids!(mut_slider)).slided(actions) {
             self.evo_mutation_rate = mutation_rate;
+            self.ui
+                .label(cx, ids!(mut_label))
+                .set_text(cx, &format!("Mutation Rate: {:.2}", self.evo_mutation_rate));
         }
         if let Some(cross) = self.ui.slider(cx, ids!(cross_slider)).slided(actions) {
             self.evo_crossover_rate = cross;
+            self.ui
+                .label(cx, ids!(cross_label))
+                .set_text(cx, &format!("Crossover Rate: {:.2}", self.evo_crossover_rate));
         }
         if let Some(conv) = self.ui.slider(cx, ids!(conv_slider)).slided(actions) {
             self.evo_convergence_patience = conv as usize;
+            self.ui
+                .label(cx, ids!(conv_label))
+                .set_text(cx, &format!("Convergence Patience: {}", self.evo_convergence_patience));
         }
         if let Some(strat) = self.ui.drop_down(cx, ids!(strat_dropdown)).selected(actions) {
             self.evo_selection_strategy = strat;
+            let strategy_names = ["Tournament", "Roulette", "Rank"];
+            self.ui
+                .label(cx, ids!(strat_label))
+                .set_text(
+                    cx,
+                    &format!(
+                        "Selection Strategy: {}",
+                        strategy_names[self.evo_selection_strategy]
+                    ),
+                );
+        }
+
+        // Clone button handler
+        if self.ui.button(cx, ids!(clone_btn)).clicked(actions) {
+            self.evo_clone_from_previous = !self.evo_clone_from_previous;
+            let clone_label = if self.evo_clone_from_previous {
+                "Clone from Previous (On)"
+            } else {
+                "Clone from Previous"
+            };
+            self.ui.button(cx, ids!(clone_btn)).set_text(cx, clone_label);
         }
 
         if self.ui.button(cx, ids!(apply_btn)).clicked(actions) {
+            // Apply: keep current slider/dropdown values (already applied via handlers)
+            let clone_label = if self.evo_clone_from_previous {
+                "Clone from Previous (On)"
+            } else {
+                "Clone from Previous"
+            };
+            self.ui.button(cx, ids!(clone_btn)).set_text(cx, clone_label);
             self.ui.modal(cx, ids!(evolution_modal)).close(cx);
         }
 
         if self.ui.button(cx, ids!(cancel_btn)).clicked(actions) {
+            // Cancel: restore original values
+            self.evo_population_size = self.evo_population_size_original;
+            self.evo_mutation_rate = self.evo_mutation_rate_original;
+            self.evo_crossover_rate = self.evo_crossover_rate_original;
+            self.evo_convergence_patience = self.evo_convergence_patience_original;
+            self.evo_selection_strategy = self.evo_selection_strategy_original;
+            self.evo_clone_from_previous = self.evo_clone_from_previous_original;
+
+            // Restore labels to original values
+            self.ui
+                .label(cx, ids!(pop_label))
+                .set_text(cx, &format!("Population Size: {}", self.evo_population_size));
+            self.ui
+                .label(cx, ids!(mut_label))
+                .set_text(cx, &format!("Mutation Rate: {:.2}", self.evo_mutation_rate));
+            self.ui
+                .label(cx, ids!(cross_label))
+                .set_text(cx, &format!("Crossover Rate: {:.2}", self.evo_crossover_rate));
+            self.ui
+                .label(cx, ids!(conv_label))
+                .set_text(cx, &format!("Convergence Patience: {}", self.evo_convergence_patience));
+            let strategy_names = ["Tournament", "Roulette", "Rank"];
+            self.ui
+                .label(cx, ids!(strat_label))
+                .set_text(
+                    cx,
+                    &format!(
+                        "Selection Strategy: {}",
+                        strategy_names[self.evo_selection_strategy]
+                    ),
+                );
+            let clone_label = if self.evo_clone_from_previous {
+                "Clone from Previous (On)"
+            } else {
+                "Clone from Previous"
+            };
+            self.ui.button(cx, ids!(clone_btn)).set_text(cx, clone_label);
             self.ui.modal(cx, ids!(evolution_modal)).close(cx);
         }
 
@@ -2474,56 +2765,146 @@ Some(&|gen: usize, best_fitness: f64| {
                     self.ui.label(cx, ids!(geo_profile)).set_text(cx, "Profile: Cone");
                     self.ui.label(cx, ids!(segments_value)).set_text(cx, "50");
                 }
-                1 => {
-                    // Open Project — use file dialog
-                    if let Some(path) = rfd::FileDialog::new()
-                        .set_file_name("cadsd-project.json")
-                        .add_filter("JSON", &["json"])
-                        .pick_file()
-                    {
-                        ::log::info!("Opening project: {}", path.display());
-                        // TODO: load project JSON
-                    }
-                }
-                2 => {
-                    // Save Project — use file dialog
-                    if let Some(path) = rfd::FileDialog::new()
-                        .set_file_name("cadsd-project.json")
-                        .add_filter("JSON", &["json"])
-                        .save_file()
-                    {
-                        ::log::info!("Saving project");
-                        // TODO: save project JSON
-                    }
-                }
-                3 => {
-                    // Save As... — save current project as JSON
-                    if let Some(path) = rfd::FileDialog::new()
-                        .set_file_name("cadsd-project.json")
-                        .add_filter("JSON", &["json"])
-                        .save_file()
-                    {
-                        ::log::info!("Saving project as: {}", path.display());
-                        // TODO: save project JSON
-                    }
-                }
-                4 => {
-                    // Export — export current geometry and impedance data
-                    if let Some(path) = rfd::FileDialog::new()
-                        .set_file_name("export.csv")
-                        .add_filter("CSV", &["csv"])
-                        .save_file()
-                    {
-                        self.export_impedance_csv();
-                    }
-                    if let Some(path) = rfd::FileDialog::new()
-                        .set_file_name("geometry.json")
-                        .add_filter("JSON", &["json"])
-                        .save_file()
-                    {
-                        self.export_geometry_json();
-                    }
-                }
+1 => {
+                     // Open Project — use file dialog
+                     if let Some(path) = rfd::FileDialog::new()
+                         .set_file_name("cadsd-project.json")
+                         .add_filter("JSON", &["json"])
+                         .pick_file()
+                     {
+                         if let Ok(json) = std::fs::read_to_string(&path) {
+                             if let Ok(project) = serde_json::from_str::<ProjectState>(&json) {
+                                 self.current_geo = Some(project.geo);
+                                 self.bubbles = project.bubbles;
+                                 self.geo_length = project.length;
+                                 self.top_diameter = project.top;
+                                 self.geo_bell = project.bell;
+                                 self.bore_style_name = match project.style {
+                                     1 => "Kigali".to_string(),
+                                     2 => "Mbeya".to_string(),
+                                     _ => "Cone".to_string(),
+                                 };
+                                 self.geo_segments = project.segments as f32;
+                                 self.bubble_count = self.bubbles.len();
+                                 self.push_current_state();
+                                 self.ui.label(cx, ids!(length_value)).set_text(cx, &format!("{:.0}", self.geo_length));
+                                 self.ui.label(cx, ids!(top_value)).set_text(cx, &format!("{:.1}", self.top_diameter));
+                                 self.ui.label(cx, ids!(bell_value)).set_text(cx, &format!("{:.1}", self.geo_bell));
+                                 self.ui.label(cx, ids!(geo_profile)).set_text(cx, &format!("Profile: {}", self.bore_style_name));
+                                 self.ui.label(cx, ids!(segments_value)).set_text(cx, &format!("{}", self.geo_segments as usize));
+                                 ::log::info!("Loaded project: {}", path.display());
+                             } else {
+                                 ::log::error!("Failed to parse project JSON: {}", path.display());
+                             }
+                         } else {
+                             ::log::error!("Failed to read project file: {}", path.display());
+                         }
+                     }
+                     // Reset dropdown selection to prevent menu glitch
+                     self.ui.drop_down(cx, ids!(file_menu)).set_selected_item(cx, 0);
+                 }
+2 => {
+                     // Save Project — use file dialog
+                     if let Some(path) = rfd::FileDialog::new()
+                         .set_file_name("cadsd-project.json")
+                         .add_filter("JSON", &["json"])
+                         .save_file()
+                     {
+                         use serde::Serialize;
+                         #[derive(Serialize)]
+                         struct ProjectSave {
+                             geo: serde_json::Value,
+                             bubbles: Vec<(f64, f64, f64)>,
+                             length: f32,
+                             top: f32,
+                             bell: f32,
+                             style: u32,
+                             bore_curve: f32,
+                             segments: usize,
+                         }
+                         if let Some(geo) = &self.current_geo {
+                             let save = ProjectSave {
+                                 geo: serde_json::json!(geo.geo),
+                                 bubbles: self.bubbles.iter().map(|b| (b.0 as f64, b.1 as f64, b.2 as f64)).collect(),
+                                 length: self.geo_length,
+                                 top: self.top_diameter,
+                                 bell: self.geo_bell,
+                                 style: match self.bore_style_name.as_str() {
+                                     "Kigali" => 1,
+                                     "Mbeya" => 2,
+                                     _ => 0,
+                                 },
+                                 bore_curve: self.geo_taper,
+                                 segments: self.geo_segments as usize,
+                             };
+                             if let Ok(json) = serde_json::to_string_pretty(&save) {
+                                 if let Err(e) = std::fs::write(&path, json) {
+                                     ::log::error!("Failed to save project: {}", e);
+                                 } else {
+                                     ::log::info!("Saved project to: {}", path.display());
+                                 }
+                             }
+                         }
+                        
+                        
+                     }
+                     // Reset dropdown selection to prevent menu glitch
+                     self.ui.drop_down(cx, ids!(file_menu)).set_selected_item(cx, 0);
+                 }
+3 => {
+                      // Save As... — save current project as JSON
+                      if let Some(path) = rfd::FileDialog::new()
+                          .set_file_name("cadsd-project.json")
+                          .add_filter("JSON", &["json"])
+                          .save_file()
+                      {
+                          use serde::Serialize;
+                          #[derive(Serialize)]
+                          struct ProjectSave {
+                              geo: serde_json::Value,
+                              bubbles: Vec<(f64, f64, f64)>,
+                              length: f32,
+                              top: f32,
+                              bell: f32,
+                              style: u32,
+                              bore_curve: f32,
+                              segments: usize,
+                          }
+                          if let Some(geo) = &self.current_geo {
+                              let save = ProjectSave {
+                                  geo: serde_json::json!(geo.geo),
+                                  bubbles: self.bubbles.iter().map(|b| (b.0 as f64, b.1 as f64, b.2 as f64)).collect(),
+                                  length: self.geo_length,
+                                  top: self.top_diameter,
+                                  bell: self.geo_bell,
+                                  style: match self.bore_style_name.as_str() {
+                                      "Kigali" => 1,
+                                      "Mbeya" => 2,
+                                      _ => 0,
+                                  },
+                                  bore_curve: self.geo_taper,
+                                  segments: self.geo_segments as usize,
+                              };
+                              if let Ok(json) = serde_json::to_string_pretty(&save) {
+                                  if let Err(e) = std::fs::write(&path, json) {
+                                      ::log::error!("Failed to save project as: {}", e);
+                                  } else {
+                                      ::log::info!("Saved project as: {}", path.display());
+                                  }
+                              }
+                          }
+                          self.project_path = Some(path);
+                      }
+                      // Reset dropdown selection to prevent menu glitch
+                      self.ui.drop_down(cx, ids!(file_menu)).set_selected_item(cx, 0);
+                  }
+4 => {
+                     // Export — export current geometry and impedance data
+                     self.export_impedance_csv();
+                     self.export_geometry_json();
+                     // Reset dropdown selection to prevent menu glitch
+                     self.ui.drop_down(cx, ids!(file_menu)).set_selected_item(cx, 0);
+                 }
                 5 => {
                     // Quit
                     cx.quit();
@@ -2619,6 +3000,45 @@ Some(&|gen: usize, best_fitness: f64| {
                 }
                 _ => {}
             }
+        }
+
+        // Handle Preferences modal Apply button
+        if self.ui.button(cx, ids!(apply_btn)).clicked(actions) {
+            let idx = self.ui.drop_down(cx, ids!(theme_dropdown)).selected_item();
+            match idx {
+                0 => { self.theme_mode = "dark".to_string(); }
+                1 => { self.theme_mode = "light".to_string(); }
+                2 => { self.theme_mode = "auto".to_string(); }
+                _ => {}
+            }
+            let idx = self.ui.drop_down(cx, ids!(backend_dropdown)).selected_item();
+            match idx {
+                0 => { self.pref_simulation_backend = "tlm_python".to_string(); }
+                1 => { self.pref_simulation_backend = "waveguide".to_string(); }
+                2 => { self.pref_simulation_backend = "complex_impedance".to_string(); }
+                _ => {}
+            }
+            self.apply_theme(cx);
+            self.ui.modal(cx, ids!(preferences_modal)).close(cx);
+        }
+
+        // Handle Preferences modal Cancel button
+        if self.ui.button(cx, ids!(cancel_btn)).clicked(actions) {
+            self.ui.modal(cx, ids!(preferences_modal)).close(cx);
+        }
+
+        // Handle Documentation modal buttons
+        if self.ui.button(cx, ids!(ui_requirements_btn)).clicked(actions) {
+            let _ = open::that("README.md");
+        }
+        if self.ui.button(cx, ids!(gui_roadmap_btn)).clicked(actions) {
+            let _ = open::that("GUI_ROADMAP.md");
+        }
+        if self.ui.button(cx, ids!(todo_btn)).clicked(actions) {
+            let _ = open::that("TODO.md");
+        }
+        if self.ui.button(cx, ids!(research_btn)).clicked(actions) {
+            let _ = open::that("docs/RESEARCH.md");
         }
 
         // Handle modal dismissal

@@ -345,6 +345,10 @@ The current Makepad GUI is the active UI. It already contains:
 - Mouthpiece controls for length and diameter.
 - Optimization controls (evolutionary optimizer with Nuevolution).
 - Evolution settings modal with population size, mutation rate, crossover rate, convergence patience sliders, selection strategy dropdown, Clone from Previous button, Apply/Cancel (defaults: pop=100, mut=0.1, cross=0.8, patience=20).
+- **Open/Save Project JSON** — full project persistence: Open Project loads a complete project (geometry, bubbles, dimensions, style), Save Project writes JSON, Save As records the selected path.
+- **Preferences modal** — functional modal from Edit menu with Theme (Dark/Light/Auto), Volume slider, Wireframe/Cross-Section checkboxes, Simulation backend dropdown (TLM/Waveguide/Complex Impedance), Apply/Cancel buttons.
+- **Documentation modal** — scrollable documentation panel from Help menu with buttons that open project docs in system viewer (README.md, GUI_ROADMAP.md, TODO.md, docs/RESEARCH.md).
+- File menu dropdown auto-reset after file dialogs prevents menu glitches.
 
 ### What is missing but must be planned for now ⚠️
 

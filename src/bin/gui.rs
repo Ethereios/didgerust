@@ -255,11 +255,11 @@ scroller := ScrollYView{
                                       }
 
 bore_style_dropdown := DropDown{
-                                            width: Fill
-                                            height: 28
-                                            labels: ["Cone", "Kigali", "Mbeya"]
-                                            selected_item: 0
-                                        }
+                                             width: Fill
+                                             height: 28
+                                             labels: ["Cone", "Cylinder", "Exponential", "Kigali", "Mbeya"]
+                                             selected_item: 0
+                                         }
 
                                       length_label := Label{
                                           width: Fill
@@ -628,13 +628,45 @@ holes_title := Label{
                                                 default: 0.0
                                             }
 
-                                            holes_list := Label{
-                                                width: Fill
-                                                height: Fit
-                                                text: "Holes: none"
-                                                draw_text +: {color: #xb0b0b0, font_size: 11}
-                                            }
-                                        }
+holes_list := Label{
+                                                 width: Fill
+                                                 height: Fit
+                                                 text: "Holes: none"
+                                                 draw_text +: {color: #xb0b0b0, font_size: 11}
+                                             }
+
+                                             hole_positions_label := Label{
+                                                 width: Fill
+                                                 height: 18
+                                                 text: "Hole positions: 0.00 0.00 0.00"
+                                                 draw_text +: {color: #xdfe7ee}
+                                             }
+
+                                             hole_positions_slider := Slider{
+                                                 width: Fill
+                                                 height: 30
+                                                 min: 0.0
+                                                 max: 1000.0
+                                                 step: 1.0
+                                                 default: 0.0
+                                             }
+
+                                             hole_diameters_label := Label{
+                                                 width: Fill
+                                                 height: 18
+                                                 text: "Hole diameters: 5.0 5.0 5.0"
+                                                 draw_text +: {color: #xdfe7ee}
+                                             }
+
+                                             hole_diameters_slider := Slider{
+                                                 width: Fill
+                                                 height: 30
+                                                 min: 1.0
+                                                 max: 40.0
+                                                 step: 0.5
+                                                 default: 5.0
+                                             }
+                                         }
 
 loss_section := View{
                                              width: Fill
@@ -1129,8 +1161,10 @@ fn geo_hash(geo: &Geo) -> u64 {
 fn create_base_geo(length: f32, top: f32, bell: f32, style: u32, bore_curve: f32, n: usize) -> Geo {
     match style {
         0 => Geo::make_cone(length as f64, top as f64, bell as f64, n),
-        1 => Geo::make_kigali(length as f64, top as f64, bell as f64, bore_curve as f64, n),
-        2 => Geo::make_mbeya(length as f64, top as f64, bell as f64, bore_curve as f64, n),
+        1 => Geo::make_cylinder(length as f64, top as f64, n),
+        2 => Geo::make_exponential(length as f64, top as f64, bell as f64, n),
+        3 => Geo::make_kigali(length as f64, top as f64, bell as f64, bore_curve as f64, n),
+        4 => Geo::make_mbeya(length as f64, top as f64, bell as f64, bore_curve as f64, n),
         _ => Geo::make_cone(length as f64, top as f64, bell as f64, n),
     }
 }
@@ -1459,6 +1493,8 @@ struct ProjectState {
     style: u32,
     bore_curve: f32,
     segments: usize,
+    holes: Vec<(f32, f32)>, // hole_positions and hole_diameters
+    enable_holes: bool,
 }
 
 impl MatchEvent for App {
@@ -1522,8 +1558,10 @@ impl MatchEvent for App {
         }
         let profile_name = match style {
             0 => "Cone",
-            1 => "Kigali",
-            2 => "Mbeya",
+            1 => "Cylinder",
+            2 => "Exponential",
+            3 => "Kigali",
+            4 => "Mbeya",
             _ => "Cone",
         };
         self.ui
@@ -1653,14 +1691,44 @@ impl MatchEvent for App {
             );
             needs_viewport_update = true;
         }
-        if self.enable_holes {
-if let Some(v) = self.ui.slider(cx, ids!(holes_count_slider)).slided(actions) {
-            self.push_current_state();
-            self.hole_count = v as usize;
+if self.enable_holes {
+            if let Some(v) = self.ui.slider(cx, ids!(holes_count_slider)).slided(actions) {
+                self.push_current_state();
+                self.hole_count = v as usize;
                 self.ui
                     .label(cx, ids!(holes_count_label))
                     .set_text(cx, &format!("Hole count: {}", v));
                 needs_viewport_update = true;
+            }
+            // Handle per-hole position slider (sets the last hole's position)
+            if let Some(v) = self.ui.slider(cx, ids!(hole_positions_slider)).slided(actions) {
+                self.push_current_state();
+                if !self.hole_positions.is_empty() {
+                    let idx = self.hole_positions.len() - 1;
+                    self.hole_positions[idx] = v as f32;
+                    let pos_text: String = self.hole_positions
+                        .iter()
+                        .map(|p| format!("{:.0}", p))
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    self.ui.label(cx, ids!(hole_positions_label)).set_text(cx, &format!("Hole positions: {}", pos_text));
+                    needs_viewport_update = true;
+                }
+            }
+            // Handle per-hole diameter slider (sets the last hole's diameter)
+            if let Some(v) = self.ui.slider(cx, ids!(hole_diameters_slider)).slided(actions) {
+                self.push_current_state();
+                if !self.hole_diameters.is_empty() {
+                    let idx = self.hole_diameters.len() - 1;
+                    self.hole_diameters[idx] = v as f32;
+                    let diam_text: String = self.hole_diameters
+                        .iter()
+                        .map(|d| format!("{:.1}", d))
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    self.ui.label(cx, ids!(hole_diameters_label)).set_text(cx, &format!("Hole diameters: {}", diam_text));
+                    needs_viewport_update = true;
+                }
             }
         }
         // Update holes list display
@@ -1903,6 +1971,14 @@ if let Some(v) = self.ui.slider(cx, ids!(holes_count_slider)).slided(actions) {
                 for &(pos, width, height) in &self.bubbles {
                     geo.make_bubble(pos as f64, width as f64, height as f64);
                 }
+                // Apply finger holes if enabled
+                if self.enable_holes {
+                    for i in 0..self.hole_positions.len() {
+                        let pos = self.hole_positions[i] as f64;
+                        let diam = self.hole_diameters[i] as f64;
+                        geo.make_hole(pos, diam);
+                    }
+                }
                 self.current_geo = Some(geo.copy());
                 vp.update_bore_geo(cx, self.current_geo.as_ref().unwrap());
             }
@@ -1911,8 +1987,10 @@ if let Some(v) = self.ui.slider(cx, ids!(holes_count_slider)).slided(actions) {
             self.top_diameter = top as f32;
             self.bore_style_name = match style {
                 0 => "Cone".to_string(),
-                1 => "Kigali".to_string(),
-                2 => "Mbeya".to_string(),
+                1 => "Cylinder".to_string(),
+                2 => "Exponential".to_string(),
+                3 => "Kigali".to_string(),
+                4 => "Mbeya".to_string(),
                 _ => "Cone".to_string(),
             };
             let max_d = bell.max(top);
@@ -2431,8 +2509,13 @@ impl App {
         }
     }
 
-    fn push_current_state(&mut self) {
+fn push_current_state(&mut self) {
         let geo = self.current_geo.clone().unwrap_or_else(|| create_base_geo(950.0, 35.0, 85.0, 0, 0.0, 50));
+        let hole_pairs: Vec<(f32, f32)> = self.hole_positions
+            .iter()
+            .zip(self.hole_diameters.iter())
+            .map(|(&pos, &diam)| (pos, diam))
+            .collect();
         let state = ProjectState {
             geo: geo.copy(),
             bubbles: self.bubbles.clone(),
@@ -2440,12 +2523,16 @@ impl App {
             top: self.top_diameter,
             bell: self.geo_bell,
             style: match self.bore_style_name.as_str() {
-                "Kigali" => 1,
-                "Mbeya" => 2,
+                "Cylinder" => 1,
+                "Exponential" => 2,
+                "Kigali" => 3,
+                "Mbeya" => 4,
                 _ => 0,
             },
             bore_curve: 1.0,
             segments: self.geo_segments as usize,
+            holes: hole_pairs,
+            enable_holes: self.enable_holes,
         };
         if self.history.len() > self.history_index {
             self.history.truncate(self.history_index);
@@ -2453,7 +2540,7 @@ impl App {
         self.history.push(state);
         self.history_index = self.history.len();
     }
-
+    
     fn restore_from_history(&mut self, cx: &mut Cx) {
         if self.history_index >= self.history.len() {
             return;
@@ -2467,10 +2554,15 @@ impl App {
         self.geo_segments = state.segments as f32;
         self.bubble_count = self.bubbles.len();
         self.bore_style_name = match state.style {
-            1 => "Kigali".to_string(),
-            2 => "Mbeya".to_string(),
+            1 => "Cylinder".to_string(),
+            2 => "Exponential".to_string(),
+            3 => "Kigali".to_string(),
+            4 => "Mbeya".to_string(),
             _ => "Cone".to_string(),
         };
+        self.enable_holes = state.enable_holes;
+        self.hole_positions = state.holes.iter().map(|p| p.0).collect();
+        self.hole_diameters = state.holes.iter().map(|p| p.1).collect();
         if let Some(mut vp) = self.ui.widget(cx, ids!(viewport)).borrow_mut::<BoreViewport>() {
             vp.update_bore_geo(cx, self.current_geo.as_ref().unwrap());
         }
@@ -2479,6 +2571,15 @@ impl App {
         self.ui.label(cx, ids!(bell_value)).set_text(cx, &format!("{:.1}", self.geo_bell));
         self.ui.label(cx, ids!(segments_value)).set_text(cx, &format!("{}", self.geo_segments));
         self.ui.label(cx, ids!(geo_profile)).set_text(cx, &format!("Profile: {}", self.bore_style_name));
+        let btn = self.ui.button(cx, ids!(holes_toggle));
+        btn.set_text(
+            cx,
+            if self.enable_holes {
+                "Disable Holes"
+            } else {
+                "Enable Holes"
+            },
+        );
     }
 
     fn update_loss_values(&mut self) {

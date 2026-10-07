@@ -128,6 +128,30 @@ impl Geo {
         self.geo = new_geo;
     }
     
+    /// Add a side hole (tonehole) at position pos with given diameter.
+    /// The hole is represented as a local diameter constriction at that position
+    /// (the bore wall is effectively reduced by the hole opening).
+    /// For visual purposes only — the TLM simulation does not yet model toneholes.
+    pub fn make_hole(&mut self, pos: f64, diameter: f64) {
+        if diameter <= 0.0 {
+            return;
+        }
+        let base_diam = self.diameter_at_x(pos);
+        // Reduce the bore diameter at the hole location by the hole diameter
+        let new_diam = (base_diam - diameter).max(0.5);
+        // Insert a small constriction segment at the hole position
+        let mut new_geo = Vec::new();
+        for &pt in &self.geo {
+            if (pt[0] - pos).abs() < 1.0 {
+                // Snap to hole position with reduced diameter
+                new_geo.push([pt[0], new_diam]);
+            } else {
+                new_geo.push(pt);
+            }
+        }
+        self.geo = new_geo;
+    }
+    
     /// Shift x-coordinates of segments [start..end] by offset (same as Python)
     pub fn move_segments_x(&mut self, start: usize, end: usize, offset: f64) {
         for i in start..=end.min(self.geo.len() - 1) {
@@ -302,6 +326,33 @@ impl Geo {
             shape.push([length, bottom_diameter]);
         }
         
+        Self::new(shape)
+    }
+    
+    /// Create a cylindrical bore: constant diameter from mouth to bell
+    pub fn make_cylinder(length: f64, diameter: f64, n_segments: usize) -> Self {
+        let mut shape = vec![[0.0, diameter]];
+        for i in 1..n_segments {
+            let x = length * (i as f64) / (n_segments as f64);
+            shape.push([x, diameter]);
+        }
+        shape.push([length, diameter]);
+        Self::new(shape)
+    }
+    
+    /// Create an exponential bore: diameter grows exponentially from d1 to d2
+    pub fn make_exponential(length: f64, d1: f64, d2: f64, n_segments: usize) -> Self {
+        let mut shape = vec![[0.0, d1]];
+        if d1 <= 0.0 || d2 <= 0.0 {
+            return Self::new(shape);
+        }
+        let k = (d2 / d1).ln() / length;
+        for i in 1..n_segments {
+            let x = length * (i as f64) / (n_segments as f64);
+            let y = d1 * (k * x).exp();
+            shape.push([x, y]);
+        }
+        shape.push([length, d2]);
         Self::new(shape)
     }
 }
